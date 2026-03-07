@@ -1,0 +1,40 @@
+---
+description: Protocolo de modificación de código y estándar de documentación en NEXUS DevSuite
+alwaysApply: true
+---
+
+# Modificación de código y documentación — NEXUS DevSuite
+
+## Protocolo antes de modificar código
+
+Antes de modificar código:
+
+1. Explicar el problema.
+2. Explicar impacto arquitectónico.
+3. Proponer solución.
+4. Evaluar riesgos.
+5. Confirmar coherencia con roadmap.
+
+No aplicar cambios silenciosos.
+
+## Estándar de documentación (obligatorio)
+
+Todo módulo generado debe incluir encabezado en español:
+
+```js
+/**
+ * -------------------------------------------------------------
+ * Módulo: Nombre del módulo
+ * Descripción: Explicación clara del propósito
+ * Autor: Agente NEXUS
+ * Fecha: YYYY-MM-DD
+ * -------------------------------------------------------------
+ */
+```
+
+Reglas:
+
+- Documentar el **por qué**, no solo el qué.
+- Explicar decisiones de seguridad cuando aplique.
+- No comentarios en inglés.
+- No código crítico sin explicación.

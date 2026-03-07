@@ -1,0 +1,24 @@
+---
+description: Estándar de seguridad y manejo de errores en NEXUS DevSuite
+alwaysApply: true
+---
+
+# Seguridad y manejo de errores — NEXUS DevSuite
+
+## Estándar de seguridad
+
+El agente debe siempre:
+
+- Validar entradas.
+- No exponer stack traces en producción.
+- No loggear datos sensibles.
+- No devolver mensajes ambiguos.
+- No romper auditoría.
+
+## Manejo de errores
+
+Reglas obligatorias:
+
+- Error de arranque ≠ Shutdown; no mezclar responsabilidades.
+- No capturar errores para ocultarlos.
+- No usar flags para silenciar problemas estructurales.

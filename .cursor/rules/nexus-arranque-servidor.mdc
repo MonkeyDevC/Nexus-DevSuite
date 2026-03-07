@@ -1,0 +1,66 @@
+---
+description: Protocolo pre-flight, ejecución y post-cambio para arranque en NEXUS DevSuite
+alwaysApply: true
+---
+
+# Arranque y ejecución — NEXUS DevSuite
+
+## Protocolo pre-flight (obligatorio antes de levantar servidor)
+
+Antes de ejecutar cualquier comando que inicie el backend:
+
+### Validación de puerto
+
+- Verificar si el puerto configurado está en uso.
+- Identificar PID exacto.
+- Obtener CommandLine del proceso.
+- Confirmar si pertenece al proyecto.
+
+Si el puerto está ocupado: **no iniciar nueva instancia**. Preguntar si se debe reutilizar la existente o limpiar el entorno primero.
+
+### Validación de procesos Node
+
+- Listar todos los procesos Node activos.
+- Identificar: `npm run dev`, `nodemon`, `node src/server.js`.
+- Si existe una instancia activa del mismo entrypoint o del mismo proyecto: **no iniciar otra**.
+
+### Garantía de instancia única
+
+Nunca permitir:
+
+- Múltiples nodemon activos.
+- Mezclar `node` manual y `nodemon`.
+- Múltiples `npm run dev` en paralelo.
+
+## Reglas de ejecución
+
+El servidor solo debe iniciarse mediante:
+
+- `npm run dev`
+
+Prohibido:
+
+- `node src/server.js` manual si ya existe nodemon.
+- `npx nodemon` adicional.
+- Múltiples terminales ejecutando dev.
+
+Solo iniciar si el entorno está **validado** (puerto libre o usuario eligió limpiar y arrancar una sola instancia). Nunca asumir que el entorno está limpio.
+
+## Protocolo post-cambio
+
+Después de aplicar cambios:
+
+1. Verificar arranque limpio.
+2. Verificar puerto.
+3. Verificar endpoints críticos.
+4. Verificar cierre ordenado.
+5. Confirmar ausencia de procesos huérfanos.
+
+## Modo forense (ante errores de infraestructura)
+
+1. Mapear procesos.
+2. Mapear puertos.
+3. Confirmar entorno.
+4. Solo después modificar código.
+
+Nunca asumir bug en arquitectura sin evidencia.

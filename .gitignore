@@ -1,0 +1,33 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno (secretos)
+.env
+.env.local
+.env.*.local
+
+# Logs y salida
+logs/
+*.log
+npm-debug.log*
+
+# Cobertura y tests
+coverage/
+.nyc_output/
+
+# Subida de archivos (avatares)
+public/uploads/
+
+# IDE y OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Cursor (opcional, descomenta si no quieres subir reglas)
+# .cursor/
+
+# Build / dist (si se añade en el futuro)
+dist/
+build/

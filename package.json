@@ -1,0 +1,61 @@
+{
+  "name": "nexus-devsuite",
+  "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MonkeyDevC/Nexus-DevSuite.git"
+  },
+  "description": "Base operativa de Nexus DevSuite para gestion empresarial certificable.",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "powershell -ExecutionPolicy Bypass -File dev-clean.ps1",
+    "test": "jest --runInBand",
+    "test:watch": "jest --watch",
+    "qa:dia2": "node scripts/qa-dia2.js",
+    "db:migrate": "sequelize-cli db:migrate",
+    "db:migrate:undo": "sequelize-cli db:migrate:undo:all",
+    "db:seed": "sequelize-cli db:seed:all",
+    "db:seed:undo": "sequelize-cli db:seed:undo:all",
+    "create-master-user": "node scripts/create-master-user.js"
+  },
+  "keywords": [
+    "nexus",
+    "devsuite",
+    "express",
+    "sequelize",
+    "iso9001"
+  ],
+  "author": "Nexus DevSuite Team",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.11.4",
+    "pino": "^9.5.0",
+    "pino-http": "^10.3.0",
+    "sequelize": "^6.37.5",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "eslint": "^10.0.2",
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.7",
+    "sequelize-cli": "^6.6.2",
+    "supertest": "^7.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/src/tests"
+    ]
+  }
+}

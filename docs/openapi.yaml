@@ -1,0 +1,839 @@
+openapi: 3.0.3
+info:
+  title: NEXUS DevSuite API
+  version: 1.0.0
+  description: API enterprise NEXUS DevSuite. Response Layer v1.
+
+x-response-layer-version: 1
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Entorno local
+
+tags:
+  - name: health
+    description: Salud del servicio
+  - name: auth
+    description: Autenticación y sesión
+  - name: backlog
+    description: Proyectos, features y user stories (ETAPA 1)
+  - name: system
+    description: Sistema y métricas (MASTER)
+  - name: change-requests
+    description: Change Control ISO (ETAPA 3)
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Servicio operativo
+          headers:
+            X-Response-Version:
+              schema: { type: string, example: "1" }
+            x-request-id:
+              schema: { type: string, format: uuid }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  timestamp_utc: { type: string, format: date-time }
+                  request_id: { type: string }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: Login correcto
+          headers:
+            X-Response-Version: { schema: { type: string, example: "1" } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  refresh_token: { type: string }
+                  user: { $ref: "#/components/schemas/User" }
+        "401":
+          description: Credenciales inválidas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+          headers:
+            X-Response-Version: { schema: { type: string, example: "1" } }
+        "429":
+          description: Rate limit excedido
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "500":
+          description: Error interno
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Refrescar access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        "200":
+          description: Tokens renovados
+          headers:
+            X-Response-Version: { schema: { type: string, example: "1" } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  refresh_token: { type: string }
+                  user: { $ref: "#/components/schemas/User" }
+        "401":
+          description: Refresh token inválido, expirado o revocado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429":
+          description: Rate limit excedido
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Cerrar sesión
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        "204":
+          description: Sesión cerrada
+          headers:
+            X-Response-Version: { schema: { type: string, example: "1" } }
+        "401":
+          description: Token inválido o sesión no encontrada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Usuario autenticado
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Usuario actual
+          headers:
+            X-Response-Version: { schema: { type: string, example: "1" } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+                  email: { type: string }
+                  role: { type: string }
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /auth/admin/test:
+    get:
+      tags: [auth]
+      summary: Ruta solo MASTER
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Acceso MASTER concedido
+          headers:
+            X-Response-Version: { schema: { type: string, example: "1" } }
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Sin permisos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /projects:
+    post:
+      tags: [backlog]
+      summary: Crear proyecto (MASTER)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, description]
+              properties:
+                name: { type: string }
+                description: { type: string }
+      responses:
+        "201":
+          description: Proyecto creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+        "409":
+          description: Nombre duplicado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                success: false
+                error:
+                  code: PROJECT_ALREADY_EXISTS
+                  message: Ya existe un proyecto con ese nombre
+    get:
+      tags: [backlog]
+      summary: Listar proyectos (MASTER, EMPLOYEE)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Lista de proyectos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+  /projects/{id}:
+    get:
+      tags: [backlog]
+      summary: Obtener proyecto por ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Proyecto
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+        "404":
+          description: No encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: PROJECT_NOT_FOUND }
+  /projects/{id}/archive:
+    patch:
+      tags: [backlog]
+      summary: Archivar proyecto (MASTER)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Proyecto archivado
+        "404":
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /projects/{projectId}/features:
+    post:
+      tags: [backlog]
+      summary: Crear feature en proyecto
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, description]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                priority: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+      responses:
+        "201":
+          description: Feature creada
+        "400":
+          description: Proyecto archivado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: PROJECT_ARCHIVED }
+        "404":
+          description: Proyecto no encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /features/{id}:
+    get:
+      tags: [backlog]
+      summary: Obtener feature por ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Feature
+        "404":
+          description: Feature no encontrada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: FEATURE_NOT_FOUND }
+  /features/{id}/status:
+    patch:
+      tags: [backlog]
+      summary: Cambiar estado de feature (workflow)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [DRAFT, APPROVED, IN_PROGRESS, DONE, ARCHIVED] }
+      responses:
+        "200":
+          description: Estado actualizado
+        "400":
+          description: Transición no permitida
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: FEATURE_INVALID_TRANSITION }
+  /features/{featureId}/stories:
+    post:
+      tags: [backlog]
+      summary: Crear story en feature
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: featureId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, description]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                acceptance_criteria: { type: object }
+                priority: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+      responses:
+        "201":
+          description: Story creada
+        "400":
+          description: Feature archivada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: FEATURE_ARCHIVED }
+  /stories/{id}:
+    get:
+      tags: [backlog]
+      summary: Obtener story por ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Story
+        "404":
+          description: Story no encontrada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: STORY_NOT_FOUND }
+  /stories/{id}/status:
+    patch:
+      tags: [backlog]
+      summary: Cambiar estado de story (workflow)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [DRAFT, READY, IN_PROGRESS, BLOCKED, IN_REVIEW, DONE, ARCHIVED] }
+      responses:
+        "200":
+          description: Estado actualizado
+        "400":
+          description: Transición no permitida
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: STORY_INVALID_TRANSITION }
+  /stories/{id}/assign:
+    patch:
+      tags: [backlog]
+      summary: Asignar story a usuario
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assigned_to: { type: string, format: uuid, nullable: true }
+      responses:
+        "200":
+          description: Asignación actualizada
+        "400":
+          description: Usuario inexistente o inactivo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: INVALID_ASSIGNMENT }
+
+  /releases:
+    post:
+      tags: [releases]
+      summary: Crear release (MASTER)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: string, example: "1.0.0" }
+                description: { type: string }
+      responses:
+        "201": { description: Release creada }
+        "400":
+          description: Versión inválida o anti-downgrade
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: RELEASE_INVALID_VERSION }
+        "409":
+          description: Versión duplicada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: RELEASE_ALREADY_EXISTS }
+    get:
+      tags: [releases]
+      summary: Listar releases (MASTER)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Listado paginado }
+  /releases/{id}:
+    get:
+      tags: [releases]
+      summary: Obtener release por ID (MASTER)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: Release }
+        "404":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: RELEASE_NOT_FOUND }
+    patch:
+      tags: [releases]
+      summary: Editar description (MASTER). No permite modificar version.
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description: { type: string }
+      responses:
+        "200": { description: OK }
+        "400":
+          description: Release archivada o body con version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: RELEASE_ARCHIVED }
+  /releases/{id}/status:
+    patch:
+      tags: [releases]
+      summary: Cambiar estado de release (MASTER)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [PLANNED, IN_PROGRESS, QA, RELEASED, ROLLED_BACK, ARCHIVED] }
+      responses:
+        "200": { description: OK }
+        "400":
+          description: Transición inválida, release vacía o archivada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: RELEASE_INVALID_TRANSITION }
+  /releases/{id}/features/{featureId}:
+    post:
+      tags: [releases]
+      summary: Asignar feature a release (MASTER)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: featureId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: OK }
+        "400":
+          description: Release archivada o feature ya en otra release
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: RELEASE_ARCHIVED }
+
+  /releases/{id}/hotfix:
+    post:
+      tags: [releases]
+      summary: Crear hotfix desde release RELEASED (MASTER)
+      description: Crea nueva release con versión PATCH+1 (ej. 1.2.3 → 1.2.4), estado IN_PROGRESS, sin copiar features.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "201": { description: Release hotfix creada }
+        "400":
+          description: Release no RELEASED o archivada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: RELEASE_HOTFIX_NOT_ALLOWED }
+        "404":
+          description: Release no encontrada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: RELEASE_NOT_FOUND }
+
+  /change-requests:
+    post:
+      tags: [change-requests]
+      summary: Crear ChangeRequest (DRAFT)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entity_type, entity_id]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                type: { type: string, enum: [FEATURE, BUGFIX, HOTFIX, IMPROVEMENT, STRUCTURAL] }
+                impact_level: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+                entity_type: { type: string, enum: [FEATURE, RELEASE] }
+                entity_id: { type: string, format: uuid }
+      responses:
+        "201":
+          description: CR creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+        "400":
+          description: Validación fallida
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /change-requests/{id}/submit:
+    patch:
+      tags: [change-requests]
+      summary: Enviar CR (DRAFT → SUBMITTED)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200":
+          description: CR enviado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+        "400":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: CHANGE_REQUEST_INVALID_TRANSITION }
+  /change-requests/{id}/approve:
+    patch:
+      tags: [change-requests]
+      summary: Aprobar CR (solo MASTER)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200":
+          description: CR aprobado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+        "403":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /change-requests/{id}/reject:
+    patch:
+      tags: [change-requests]
+      summary: Rechazar CR (solo MASTER)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200":
+          description: CR rechazado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /change-requests/{id}/implement:
+    patch:
+      tags: [change-requests]
+      summary: Marcar CR como IMPLEMENTED (solo MASTER)
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200":
+          description: CR marcado implementado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+        "400":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: { code: CHANGE_REQUEST_ALREADY_IMPLEMENTED }
+
+  /system/metrics:
+    get:
+      tags: [system]
+      summary: Métricas (solo MASTER)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Contadores en memoria
+          headers:
+            X-Response-Version: { schema: { type: string, example: "1" } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_requests: { type: integer }
+                  total_errors: { type: integer }
+                  auth_failures: { type: integer }
+                  refresh_failures: { type: integer }
+                  scope: { type: string, example: instance }
+        "401":
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Sin rol MASTER
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        role: { type: string, nullable: true }
+
+    SuccessResponse:
+      type: object
+      required: [success, meta]
+      properties:
+        success: { type: boolean, example: true }
+        data: { type: object }
+        meta:
+          type: object
+          required: [request_id, timestamp]
+          properties:
+            request_id: { type: string }
+            timestamp: { type: string, format: date-time }
+
+    ErrorResponse:
+      type: object
+      required: [success, error, meta]
+      properties:
+        success: { type: boolean, example: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - AUTH_INVALID_CREDENTIALS
+                - AUTH_TOKEN_EXPIRED
+                - AUTH_REFRESH_REPLAY
+                - AUTH_RATE_LIMIT_EXCEEDED
+                - AUTH_UNAUTHORIZED
+                - AUTH_FORBIDDEN
+                - INTERNAL_SERVER_ERROR
+                - NOT_FOUND
+                - VALIDATION_ERROR
+                - PROJECT_ALREADY_EXISTS
+                - PROJECT_NOT_FOUND
+                - FEATURE_NOT_FOUND
+                - STORY_NOT_FOUND
+                - FEATURE_INVALID_TRANSITION
+                - STORY_INVALID_TRANSITION
+                - PROJECT_ARCHIVED
+                - FEATURE_ARCHIVED
+                - INVALID_ASSIGNMENT
+                - RELEASE_INVALID_VERSION
+                - RELEASE_ALREADY_EXISTS
+                - RELEASE_NOT_FOUND
+                - RELEASE_INVALID_TRANSITION
+                - RELEASE_EMPTY
+                - RELEASE_ARCHIVED
+                - RELEASE_VERSION_IMMUTABLE
+                - RELEASE_VERSION_NOT_ALLOWED
+                - FEATURE_ALREADY_IN_RELEASE
+                - RELEASE_HOTFIX_NOT_ALLOWED
+                - CHANGE_REQUEST_REQUIRED
+                - CHANGE_REQUEST_NOT_FOUND
+                - CHANGE_REQUEST_INVALID
+                - CHANGE_REQUEST_INVALID_TRANSITION
+                - CHANGE_REQUEST_NOT_APPROVED
+                - CHANGE_REQUEST_ALREADY_IMPLEMENTED
+                - SPRINT_NOT_FOUND
+                - SPRINT_INVALID_TRANSITION
+                - SPRINT_CLOSED
+                - SPRINT_STORY_PROJECT_MISMATCH
+                - SPRINT_CLOSE_MASTER_ONLY
+                - INCIDENT_NOT_FOUND
+                - INCIDENT_INVALID_TRANSITION
+                - INCIDENT_CLOSED
+                - INCIDENT_CLOSE_MASTER_ONLY
+                - INCIDENT_ROOT_CAUSE_REQUIRED
+                - IMPROVEMENT_NOT_FOUND
+                - IMPROVEMENT_INVALID_TRANSITION
+                - IMPROVEMENT_APPROVE_MASTER_ONLY
+                - IMPROVEMENT_CLOSED
+                - DOCUMENT_NOT_FOUND
+                - DOCUMENT_CODE_ALREADY_EXISTS
+                - DOCUMENT_VERSION_NOT_FOUND
+                - DOCUMENT_VERSION_INVALID_TRANSITION
+                - DOCUMENT_VERSION_IMMUTABLE
+                - DOCUMENT_APPROVE_MASTER_ONLY
+                - DOCUMENT_CHANGE_REASON_REQUIRED
+            message: { type: string }
+            details: { type: object, nullable: true }
+        meta:
+          type: object
+          required: [request_id, timestamp]
+          properties:
+            request_id: { type: string }
+            timestamp: { type: string, format: date-time }

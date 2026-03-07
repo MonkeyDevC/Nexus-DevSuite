@@ -1,0 +1,38 @@
+const express = require("express");
+const { healthController } = require("../modules/health/health.controller");
+const { tenantResolutionMiddleware } = require("../middlewares/tenantResolution.middleware");
+const authRoutes = require("../modules/auth/auth.routes");
+const usersRoutes = require("../modules/users/users.routes");
+const metricsRoutes = require("../system/metrics/metrics.routes");
+const projectsRoutes = require("../modules/backlog/projects.routes");
+const featureRoutes = require("../modules/backlog/feature.routes");
+const storiesRoutes = require("../modules/backlog/stories.routes");
+const releaseRoutes = require("../modules/releases/release.routes");
+const changeRequestRoutes = require("../modules/changeRequests/changeRequest.routes");
+const sprintRoutes = require("../modules/sprints/sprint.routes");
+const incidentRoutes = require("../modules/incidents/incident.routes");
+const improvementRoutes = require("../modules/improvements/improvement.routes");
+const documentRoutes = require("../modules/documents/document.routes");
+const reportRoutes = require("../modules/reports/report.routes");
+const organizationRoutes = require("../modules/organizations/organization.routes");
+
+const router = express.Router();
+
+router.get("/health", healthController);
+router.use(tenantResolutionMiddleware);
+router.use("/auth", authRoutes);
+router.use("/organizations", organizationRoutes);
+router.use("/users", usersRoutes);
+router.use("/system", metricsRoutes);
+router.use("/projects", projectsRoutes);
+router.use("/features", featureRoutes);
+router.use("/stories", storiesRoutes);
+router.use("/releases", releaseRoutes);
+router.use("/change-requests", changeRequestRoutes);
+router.use("/sprints", sprintRoutes);
+router.use("/incidents", incidentRoutes);
+router.use("/improvements", improvementRoutes);
+router.use("/documents", documentRoutes);
+router.use("/reports", reportRoutes);
+
+module.exports = router;

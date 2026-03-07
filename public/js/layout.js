@@ -1,0 +1,124 @@
+/**
+ * Layout común — ETAPA 13: barra superior + sidebar; mostrar/ocultar según login y rol
+ */
+(function () {
+  window.showNav = async function () {
+    document.body.classList.remove("layout-login");
+    const user = await window.getMe();
+    const displayName = user ? ((user.name || "").trim() || (user.email || "").trim() || "Usuario") : "Usuario";
+    const initial = (displayName.charAt(0) || "U").toUpperCase();
+    const elUser = document.getElementById("nav-user");
+    if (elUser) elUser.textContent = displayName;
+    const elDisplay = document.getElementById("nav-user-display");
+    if (elDisplay) elDisplay.textContent = displayName;
+    const elAvatarWrap = document.getElementById("nav-user-avatar");
+    if (elAvatarWrap) {
+      if (user && user.profile_photo_url) {
+        var img = elAvatarWrap.querySelector("img.nexus-topbar-avatar-img");
+        var spanFallback = elAvatarWrap.querySelector("#nav-user-initial");
+        if (!img) {
+          elAvatarWrap.innerHTML = "";
+          img = document.createElement("img");
+          img.className = "nexus-topbar-avatar-img";
+          img.alt = "";
+          img.setAttribute("aria-hidden", "true");
+          elAvatarWrap.appendChild(img);
+          spanFallback = document.createElement("span");
+          spanFallback.id = "nav-user-initial";
+          spanFallback.style.display = "none";
+          elAvatarWrap.appendChild(spanFallback);
+        }
+        spanFallback.textContent = initial;
+        img.src = user.profile_photo_url;
+        img.style.display = "";
+        spanFallback.style.display = "none";
+        img.onerror = function () { img.style.display = "none"; spanFallback.style.display = ""; };
+      } else {
+        var spanInitial = document.getElementById("nav-user-initial");
+        if (!spanInitial) {
+          spanInitial = document.createElement("span");
+          spanInitial.id = "nav-user-initial";
+          elAvatarWrap.innerHTML = "";
+          elAvatarWrap.appendChild(spanInitial);
+        } else {
+          elAvatarWrap.querySelectorAll("img.nexus-topbar-avatar-img").forEach(function (i) { i.remove(); });
+          spanInitial.style.display = "";
+        }
+        spanInitial.textContent = initial;
+      }
+    }
+    const navReports = document.getElementById("nav-reports");
+    if (navReports) navReports.style.display = user && user.role === "MASTER" ? "" : "none";
+    const isMaster = user && user.role === "MASTER";
+    ["nav-apps-users", "nav-apps-audit", "nav-apps-metrics"].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = isMaster ? "" : "none";
+    });
+    const btnLogout = document.getElementById("btn-logout");
+    if (btnLogout && !btnLogout.onclick) btnLogout.onclick = function () { window.logout(); };
+    const btnEditUser = document.getElementById("btn-edit-current-user");
+    if (btnEditUser && !btnEditUser._bound) {
+      btnEditUser._bound = true;
+      btnEditUser.addEventListener("click", function () {
+        window.getMe().then(function (u) {
+          if (u && u.id && typeof window.openManageUserModal === "function") {
+            window.openManageUserModal(u.id, function () {
+              window.clearUser();
+              window.showNav();
+            });
+          }
+        });
+      });
+    }
+    const btnNewProject = document.getElementById("btn-new-project");
+    if (btnNewProject && !btnNewProject._navBound) {
+      btnNewProject._navBound = true;
+      btnNewProject.addEventListener("click", function () { window.location.hash = "#/projects"; });
+    }
+    var name = window.getViewName && window.getViewName();
+    if (name) {
+      document.querySelectorAll(".nexus-sidebar-link").forEach(function (a) {
+        var view = a.getAttribute("data-view");
+        a.classList.toggle("nexus-nav-item-active", view === name);
+      });
+    }
+  };
+
+  window.hideNav = function () {
+    document.body.classList.add("layout-login");
+  };
+
+  (function initSidebarToggle() {
+    function toggleSidebar(open) {
+      var layout = document.getElementById("app-layout");
+      var sidebar = document.getElementById("app-sidebar");
+      var btn = document.getElementById("sidebar-toggle");
+      if (!sidebar || !layout) return;
+      if (open == null) open = !sidebar.classList.contains("nexus-sidebar-open");
+      sidebar.classList.toggle("nexus-sidebar-open", open);
+      layout.classList.toggle("nexus-sidebar-open", open);
+      if (btn) { btn.setAttribute("aria-expanded", open ? "true" : "false"); btn.setAttribute("aria-label", open ? "Cerrar menú" : "Abrir menú"); }
+    }
+    function bind() {
+      var btn = document.getElementById("sidebar-toggle");
+      var overlay = document.getElementById("sidebar-overlay");
+      if (btn && !btn._bound) { btn._bound = true; btn.addEventListener("click", function () { toggleSidebar(); }); }
+      if (overlay && !overlay._bound) { overlay._bound = true; overlay.addEventListener("click", function () { toggleSidebar(false); }); }
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
+    else bind();
+  })();
+
+  window.setContent = function (html) {
+    const el = document.getElementById("content");
+    if (el) el.innerHTML = html;
+  };
+
+  window.showError = function (msg) {
+    return '<div class="alert alert-danger">' + (msg || "Error.") + "</div>";
+  };
+
+  window.showLoading = function () {
+    return '<div class="text-center py-5"><div class="spinner-border"></div><p class="mt-2">Cargando...</p></div>';
+  };
+})();
