@@ -80,6 +80,7 @@ const env = {
   DB_USER: process.env.DB_USER || "root",
   DB_PASSWORD: process.env.DB_PASSWORD || "",
   DB_LOGGING: process.env.DB_LOGGING === "true",
+  DB_SKIP_AUTH_ON_STARTUP: asBoolean(process.env.DB_SKIP_AUTH_ON_STARTUP, false),
   JWT_ACCESS_SECRET: getCriticalSecret("JWT_ACCESS_SECRET", "dev_access_secret_change_me"),
   JWT_REFRESH_SECRET: getCriticalSecret("JWT_REFRESH_SECRET", "dev_refresh_secret_change_me"),
   JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || "15m",

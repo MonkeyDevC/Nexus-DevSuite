@@ -29,3 +29,23 @@ Descripción breve de lo que fue modificado.
 ---
 
 *(Las entradas se agregan debajo de esta línea)*
+
+---
+
+## Registro de Cambio
+
+**Fecha:** 2026-03-08  
+**Hora:** 20:00  
+**Autor:** Equipo NEXUS (MASTER DEVELOPER agente)  
+**Rama:** (rama actual)  
+**Archivo modificado:** docs/CHECKLIST_ETAPAS_PROYECTO.md
+
+**Tipo de cambio:**
+- [ ] Nueva tarea agregada
+- [x] Tarea modificada
+- [ ] Tarea completada
+- [ ] Checklist reorganizado
+- [x] Actualización de documentación
+
+**Resumen del cambio:**  
+Añadida iniciativa "Mejoras incorporación nuevos miembros (onboarding)" al resumen de estado y nueva sección con resumen del día: arranque sin BD, documentación de conexión a BD, scripts PowerShell y npm.bat, documento NPM_NO_RECONOCIDO. Entrega lista para push según SISTEMA_TRAZABILIDAD_LOGS.

@@ -1,7 +1,13 @@
-Write-Host "Verificando puerto 3000..."
-
 $projectPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $projectPath
+
+# Asegurar que Node.js/npx esten en PATH (reciente instalacion)
+$nodePath = "C:\Program Files\nodejs"
+if (Test-Path $nodePath) {
+    $env:PATH = "$nodePath;$env:PATH"
+}
+
+Write-Host "Verificando puerto 3000..."
 
 $port = 3000
 $connections = netstat -ano | findstr ":$port"

@@ -31,6 +31,30 @@
 | **ETAPA 15 (Panel administrativo UI)** | ✅ Completada | — |
 | **ETAPA 16 (Reportes y analítica visual)** | ✅ Completada | — |
 | **ETAPA 17 (Hardening UX y responsive)** | ✅ Completada | — |
+| **Mejoras incorporación nuevos miembros (onboarding)** | ✅ Entregado | — |
+
+---
+
+## Mejoras incorporación nuevos miembros (onboarding) ✅ ENTREGADO
+
+**Fecha de entrega:** 2026-03-08.
+
+| Criterio | Estado |
+|----------|--------|
+| Arranque sin BD (DB_SKIP_AUTH_ON_STARTUP) | ✅ |
+| Documentación conexión BD (CONEXION_BASE_DATOS.md) | ✅ |
+| Scripts BD sin npm en PATH (run-db-setup, run-db-migrate, run-db-seed) | ✅ |
+| Script run-dev.ps1 y npm.bat (Execution Policy / PATH) | ✅ |
+| Documento NPM_NO_RECONOCIDO.md | ✅ |
+| Reporte diario y log de trazabilidad | ✅ |
+
+**Resumen:** Facilitar onboarding: proyecto arranca sin conexión a BD; guía y scripts para conectar MySQL; scripts PowerShell y npm.bat para cuando npm no está en PATH o la ejecución de scripts está deshabilitada. Credenciales usuario MASTER documentadas (create-master-user).
+
+**Archivos creados:** scripts/setup-database.js, scripts/run-db-setup.ps1, scripts/run-db-migrate.ps1, scripts/run-db-seed.ps1, scripts/run-dev.ps1, docs/CONEXION_BASE_DATOS.md, docs/NPM_NO_RECONOCIDO.md, npm.bat.
+
+**Archivos modificados:** src/config/env.js, dev-clean.ps1, package.json (db:setup), docs/CONEXION_BASE_DATOS.md (actualizaciones).
+
+**Documentos trazabilidad:** docs/project-logs/daily-dev-report-2026-03-08.md, docs/project-logs/checklist-change-log.md.
 
 ---
 

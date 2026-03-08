@@ -13,6 +13,14 @@ const sequelize = new Sequelize(env.DB_NAME, env.DB_USER, env.DB_PASSWORD, {
 });
 
 async function connectDatabase() {
+  if (env.DB_SKIP_AUTH_ON_STARTUP) {
+    logger.warn(
+      { event: "db_skip_auth_startup", host: env.DB_HOST, port: env.DB_PORT },
+      "Saltando autenticacion inicial de MySQL por configuracion"
+    );
+    return;
+  }
+
   await sequelize.authenticate();
   logger.info("Conexion a MySQL establecida");
 }

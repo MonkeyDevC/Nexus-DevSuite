@@ -14,6 +14,7 @@
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
     "qa:dia2": "node scripts/qa-dia2.js",
+    "db:setup": "node scripts/setup-database.js",
     "db:migrate": "sequelize-cli db:migrate",
     "db:migrate:undo": "sequelize-cli db:migrate:undo:all",
     "db:seed": "sequelize-cli db:seed:all",
