@@ -1,0 +1,99 @@
+---
+description: PO MASTER — Preparación del Autonomous Development Loop para ejecución automática de las ETAPAS UX/UI 14–17. Solo gobernanza y documentación; dos acciones controladas (crear NEXUS_AUTONOMOUS_DEVELOPMENT_LOOP.md y ajustar el plan etapas 14–17). Sin implementación de código ni modificación de backend, API, Response Layer v1, RBAC ni multi-tenant.
+alwaysApply: false
+---
+
+# Autonomous Development Loop — Preparación Etapas 14–17 (PO MASTER)
+
+Actúa como **PO MASTER de Nexus DevSuite** responsable de la gobernanza del proyecto.
+
+Tu tarea es **preparar el sistema para permitir la ejecución automática de las ETAPAS UX/UI 14–17** mediante el sistema de agentes del proyecto.
+
+Este trabajo es **únicamente de gobernanza y documentación**.
+
+**Prohibido:**
+
+- NO implementar código.
+- NO modificar backend.
+- NO modificar endpoints.
+- NO modificar Response Layer v1.
+- NO modificar RBAC.
+- NO modificar el sistema multi-tenant.
+- NO crear otros documentos adicionales distintos de los indicados abajo.
+
+Solo debes realizar **dos acciones controladas**:
+
+1. Crear el documento: **docs/NEXUS_AUTONOMOUS_DEVELOPMENT_LOOP.md**
+2. Ajustar el plan existente: **Plan automático etapas 14–17**
+
+---
+
+## Reglas que debes respetar
+
+- .cursor/rules/nexus-po-master-gobernanza.mdc
+- .cursor/rules/nexus-engineering-execution.mdc
+- .cursor/rules/nexus-plan-maestro-etapas.mdc
+
+Compatibilidad con:
+
+- docs/CHECKLIST_ETAPAS_PROYECTO.md
+- docs/PROMPT_WIREFRAMES_PANTALLAS_PENDIENTES_DISENO.md
+
+---
+
+## Contexto
+
+Etapas pendientes:
+
+- **ETAPA 14** — Rediseño módulos operativos
+- **ETAPA 15** — Panel administrativo UI
+- **ETAPA 16** — Reportes y analítica visual
+- **ETAPA 17** — Hardening UX y responsive
+
+Estas etapas forman parte de la evolución UX/UI de la plataforma web y se ejecutan con el sistema de agentes: CEO, PO MASTER, SYSTEM ARCHITECT, MASTER DEVELOPER, QA ENGINEER.
+
+---
+
+## ACCIÓN 1 — Crear docs/NEXUS_AUTONOMOUS_DEVELOPMENT_LOOP.md
+
+Documento de **arquitectura de gobernanza** que define el sistema autónomo de ejecución de etapas.
+
+**Secciones obligatorias:**
+
+1. **Propósito del Autonomous Development Loop** — Cómo Nexus DevSuite utiliza agentes especializados para ejecutar el ciclo de desarrollo completo.
+2. **Arquitectura del sistema de agentes** — Rol de cada agente: CEO (trigger humano), PO MASTER (diseño y gobernanza), SYSTEM ARCHITECT (validación arquitectónica), MASTER DEVELOPER (implementación), QA ENGINEER (validación de calidad).
+3. **Pipeline oficial del ciclo de desarrollo** — Ciclo: CEO solicita ejecución → PO MASTER diseña etapa → SYSTEM ARCHITECT valida arquitectura → PO MASTER genera prompt → MASTER DEVELOPER implementa → MASTER DEVELOPER entrega evidencia → QA ENGINEER valida calidad → PO MASTER audita cierre.
+4. **Integración con el Plan Maestro** — Las etapas se definen en .cursor/rules/nexus-plan-maestro-etapas.mdc; el Loop ejecuta esas etapas de forma gobernada.
+5. **Integración con wireframes UX/UI** — Etapas UX/UI usan como referencia docs/PROMPT_WIREFRAMES_PANTALLAS_PENDIENTES_DISENO.md; los wireframes guían la implementación visual.
+6. **Restricciones técnicas de las etapas 14–17** — Solo pueden modificar HTML, CSS, Bootstrap, JavaScript en public/; no pueden modificar backend, API, Response Layer v1, RBAC ni multi-tenant.
+7. **Ejecución automática del pipeline** — Cuando el CEO solicita una etapa, el sistema ejecuta automáticamente el pipeline de agentes definido.
+8. **Manejo de fallos** — Qué ocurre si SYSTEM ARCHITECT rechaza la arquitectura o QA ENGINEER rechaza la validación; cómo el ciclo vuelve al PO MASTER.
+9. **Beneficios del Autonomous Development Loop** — Desarrollo gobernado, automatización del ciclo de vida, trazabilidad completa, calidad verificable, ejecución reproducible.
+
+---
+
+## ACCIÓN 2 — Ajustar el plan "Plan automático etapas 14–17"
+
+Actualizar el plan existente con estas **mejoras obligatorias**:
+
+1. **Integrar referencia** a docs/NEXUS_AUTONOMOUS_DEVELOPMENT_LOOP.md — Indicar que las etapas 14–17 se ejecutan mediante ese Loop.
+2. **Declarar el pipeline** — Cada etapa sigue: CEO → PO MASTER → SYSTEM ARCHITECT → PO MASTER → MASTER DEVELOPER → QA ENGINEER → PO MASTER.
+3. **Declarar alcance frontend** — Etapas 14–17 son exclusivamente frontend; solo pueden modificar HTML, CSS, Bootstrap, JavaScript en public/.
+4. **Declarar guía de wireframes** — La implementación visual se guía por docs/PROMPT_WIREFRAMES_PANTALLAS_PENDIENTES_DISENO.md.
+5. **No modificar el alcance funcional** del plan existente; solo mejorar gobernanza y automatización del pipeline.
+
+---
+
+## Criterio de finalización
+
+- Existe docs/NEXUS_AUTONOMOUS_DEVELOPMENT_LOOP.md.
+- El plan "Plan automático etapas 14–17" ha sido actualizado para integrar el Autonomous Development Loop.
+- El sistema queda listo para que el CEO ejecute las etapas 14–17 mediante el pipeline de agentes.
+
+---
+
+## Evidencia a entregar
+
+1. Confirmación de creación de NEXUS_AUTONOMOUS_DEVELOPMENT_LOOP.md.
+2. Resumen de los cambios aplicados al plan automático.
+3. Confirmación de que el sistema está preparado para ejecutar las etapas automáticamente mediante el Autonomous Development Loop.

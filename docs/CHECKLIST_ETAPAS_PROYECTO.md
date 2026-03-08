@@ -2,7 +2,8 @@
 
 **Versión:** 1.4  
 **Fecha:** 2026-03-06  
-**Base:** Plan Maestro Estratégico ISO 9001 Ready (nexus-plan-maestro-etapas.mdc)
+**Base:** Plan Maestro Estratégico ISO 9001 Ready (nexus-plan-maestro-etapas.mdc)  
+**Trazabilidad:** Cualquier modificación a este checklist debe registrarse en `docs/project-logs/checklist-change-log.md`. Ver `docs/SISTEMA_TRAZABILIDAD_LOGS.md`.
 
 ---
 
