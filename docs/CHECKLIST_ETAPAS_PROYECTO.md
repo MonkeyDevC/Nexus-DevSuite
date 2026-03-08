@@ -1,9 +1,10 @@
 # Checklist de etapas del proyecto — NEXUS DevSuite
 
-**Versión:** 1.4  
-**Fecha:** 2026-03-06  
+**Versión:** 1.5  
+**Fecha:** 2026-03-10  
 **Base:** Plan Maestro Estratégico ISO 9001 Ready (nexus-plan-maestro-etapas.mdc)  
-**Trazabilidad:** Cualquier modificación a este checklist debe registrarse en `docs/project-logs/checklist-change-log.md`. Ver `docs/SISTEMA_TRAZABILIDAD_LOGS.md`.
+**Trazabilidad:** Cualquier modificación a este checklist debe registrarse en `docs/project-logs/checklist-change-log.md`. Ver `docs/SISTEMA_TRAZABILIDAD_LOGS.md`.  
+**Contexto Semana 2:** La API expone ~80 endpoints (docs/ENDPOINTS_API_Y_USO_FRONTEND.md) pero el frontend utiliza menos de la mitad. **Objetivo de la semana:** tener **todos los endpoints conectados con el frontend**. Las Etapas 18–22 son de **validación operativa**: pruebas humanas, dashboard real, conexión de todos los endpoints sin UI, alineación frontend/backend y mejora de UX hasta lograr cobertura total API–front.
 
 ---
 
@@ -32,6 +33,11 @@
 | **ETAPA 16 (Reportes y analítica visual)** | ✅ Completada | — |
 | **ETAPA 17 (Hardening UX y responsive)** | ✅ Completada | — |
 | **Mejoras incorporación nuevos miembros (onboarding)** | ✅ Entregado | — |
+| **ETAPA 18 (Testing humano completo)** | 📋 Pendiente | Semana 2 — Día 1 |
+| **ETAPA 19 (Dashboard con datos reales)** | 📋 Pendiente | Semana 2 — Día 2 |
+| **ETAPA 20 (Todos los endpoints conectados al front)** | 📋 Pendiente | Semana 2 — Día 3 |
+| **ETAPA 21 (Alineación frontend/backend)** | 📋 Pendiente | Semana 2 — Día 4 |
+| **ETAPA 22 (Mejora UX y consistencia)** | 📋 Pendiente | Semana 2 — Día 5 |
 
 ---
 
@@ -524,6 +530,158 @@ El MASTER DEVELOPER implementa en orden 14 → 15 → 16 → 17 y entrega un ún
 **Objetivo:** Mejoras finales: responsive completo, accesibilidad, consistencia visual, microinteracciones, optimización de navegación.
 
 **Documentos:** docs/PLAN_ETAPAS_14_A_17_FASE_UX_UI_COMPLETA.md, docs/EVIDENCIA_ETAPAS_14_A_17_FASE_UX_UI_COMPLETA_2026-03-06.md, docs/QA_VALIDACION_ETAPAS_14_A_17_FASE_UX_UI_COMPLETA.md, nexus-plan-maestro-etapas.mdc (ETAPA 17)
+
+---
+
+## Semana 2 — Validación Operativa (Etapas 18–22)
+
+**Objetivo de la semana:** Tener **todos los endpoints de la API conectados con el frontend**. No es fase de features nuevas, sino de **validación real del sistema**: pruebas humanas completas, conexión real entre frontend y **todos** los endpoints (~80), eliminación de datos dummy en el dashboard, alineación frontend/backend y mejoras de usabilidad. Meta: cobertura total API–front al cierre de la semana.
+
+**Criterio de éxito de la semana:** Al finalizar la Semana 2, el 100% de los endpoints listados en docs/ENDPOINTS_API_Y_USO_FRONTEND.md deben tener uso en el frontend (pantalla o flujo que los invoque). Usar ese documento como checklist de cobertura.
+
+**Referencia:** docs/ENDPOINTS_API_Y_USO_FRONTEND.md (listado de endpoints y uso actual en frontend).
+
+**Planes detallados por día:** docs/plans/README_SEMANA_2_PLANES.md (índice) — PLAN_ETAPA_18_09-03-2026.md, PLAN_ETAPA_19_10-03-2026.md, PLAN_ETAPA_20_11-03-2026.md, PLAN_ETAPA_21_12-03-2026.md, PLAN_ETAPA_22_13-03-2026.md.
+
+**Distribución sugerida:**
+
+| Día | Fecha | Etapa | Foco |
+|-----|--------|--------|------|
+| Día 1 | 09-03-2026 | Etapa 18 | Testing humano completo del sistema |
+| Día 2 | 10-03-2026 | Etapa 19 | Dashboard con datos reales |
+| Día 3 | 11-03-2026 | Etapa 20 | Conectar todos los endpoints al frontend |
+| Día 4 | 12-03-2026 | Etapa 21 | Corrección inconsistencias frontend/backend |
+| Día 5 | 13-03-2026 | Etapa 22 | Mejora de UX y consistencia |
+
+---
+
+## ETAPA 18 — Testing humano completo del sistema 📋 PENDIENTE
+
+| Paso | Responsable | Estado |
+|------|-------------|--------|
+| 1. PO MASTER diseña plan de pruebas | PO MASTER | 📋 Pendiente |
+| 2. SYSTEM ARCHITECT valida cobertura | SYSTEM ARCHITECT | 📋 Pendiente |
+| 3. Equipo ejecuta pruebas humanas | TEAM | 📋 Pendiente |
+| 4. MASTER DEVELOPER corrige fallos | MASTER DEVELOPER | 📋 Pendiente |
+| 5. QA ENGINEER valida correcciones | QA ENGINEER | 📋 Pendiente |
+| 6. PO MASTER audita cierre | PO MASTER | 📋 Pendiente |
+
+| Criterio | Estado |
+|----------|--------|
+| Pruebas completas de autenticación | 📋 |
+| Pruebas completas de gestión de usuarios | 📋 |
+| Pruebas completas de proyectos | 📋 |
+| Pruebas completas de features | 📋 |
+| Pruebas completas de stories | 📋 |
+| Pruebas completas de sprints | 📋 |
+| Pruebas completas de releases | 📋 |
+| Pruebas completas de documentos | 📋 |
+| Pruebas completas de incidentes | 📋 |
+| Pruebas completas de reportes | 📋 |
+
+**Objetivo:** Probar todos los flujos reales de la plataforma con pruebas humanas; detectar y corregir fallos antes de conectar nuevos endpoints.
+
+**Documentos:** docs/ENDPOINTS_API_Y_USO_FRONTEND.md, docs/PLAN_PRUEBAS_PERSONALES_ETAPAS_13_A_17.md (referencia), docs/NEXUS_AUTONOMOUS_DEVELOPMENT_LOOP.md
+
+---
+
+## ETAPA 19 — Dashboard con datos reales 📋 PENDIENTE
+
+| Paso | Responsable | Estado |
+|------|-------------|--------|
+| 1. PO MASTER define métricas del dashboard | PO MASTER | 📋 Pendiente |
+| 2. SYSTEM ARCHITECT valida endpoints | SYSTEM ARCHITECT | 📋 Pendiente |
+| 3. MASTER DEVELOPER conecta API real | MASTER DEVELOPER | 📋 Pendiente |
+| 4. QA ENGINEER valida consistencia | QA ENGINEER | 📋 Pendiente |
+| 5. PO MASTER audita cierre | PO MASTER | 📋 Pendiente |
+
+| Criterio | Estado |
+|----------|--------|
+| Proyectos activos reales en dashboard | 📋 |
+| Sprints activos reales | 📋 |
+| Incidentes abiertos reales | 📋 |
+| Releases activas reales | 📋 |
+| Métricas reales de usuarios cuando aplique | 📋 |
+| Eliminación total de datos dummy en dashboard | 📋 |
+
+**Objetivo:** Sustituir datos dummy del dashboard por datos reales de la API; métricas y tarjetas alimentadas por endpoints existentes.
+
+**Documentos:** docs/ENDPOINTS_API_Y_USO_FRONTEND.md, docs/PLAN_ETAPA_13_REDISENO_DASHBOARD.md, public/js/views/dashboard.js
+
+---
+
+## ETAPA 20 — Conexión de todos los endpoints con el frontend 📋 PENDIENTE
+
+| Paso | Responsable | Estado |
+|------|-------------|--------|
+| 1. PO MASTER identifica endpoints sin UI (lista completa en ENDPOINTS_API_Y_USO_FRONTEND.md) | PO MASTER | 📋 Pendiente |
+| 2. SYSTEM ARCHITECT valida diseño de vistas y prioridad | SYSTEM ARCHITECT | 📋 Pendiente |
+| 3. MASTER DEVELOPER implementa pantallas/flujos hasta cubrir 100% de endpoints | MASTER DEVELOPER | 📋 Pendiente |
+| 4. QA ENGINEER valida funcionalidad y cobertura | QA ENGINEER | 📋 Pendiente |
+| 5. PO MASTER audita cierre (verificación: todos los endpoints con uso en front) | PO MASTER | 📋 Pendiente |
+
+| Criterio | Estado |
+|----------|--------|
+| **Todos los endpoints de la API (~80) con uso en frontend** (UI o flujo que los invoque) | 📋 |
+| UI para Change Requests (crear, submit, approve, reject, implement) | 📋 |
+| UI para Improvements (listar, crear, cambiar estado) | 📋 |
+| UI para Document Versions (crear versión, listar, aprobar/archivar) | 📋 |
+| UI para gestión avanzada de Releases (status, features, hotfix) | 📋 |
+| UI para gestión avanzada de Stories (status, assign) | 📋 |
+| UI para detalle y edición de Incidents (PATCH status, edición) | 📋 |
+| Sprints: asignar/quitar stories desde UI; cerrar/estado según API | 📋 |
+| Resto de endpoints (Organizations, Reports, System, Auth/roles, etc.) con UI o flujo según docs | 📋 |
+
+**Objetivo:** Conectar **todos** los endpoints de la API con el frontend esta semana. Cubrir los que aún no tienen interfaz y asegurar que el listado en docs/ENDPOINTS_API_Y_USO_FRONTEND.md quede con 100% de endpoints marcados como usados en frontend. Ningún endpoint debe quedar sin uso al cierre de la Semana 2.
+
+**Documentos:** docs/ENDPOINTS_API_Y_USO_FRONTEND.md (checklist de cobertura), nexus-plan-maestro-etapas.mdc (Change Control, Improvements, Documentos)
+
+---
+
+## ETAPA 21 — Alineación frontend / backend 📋 PENDIENTE
+
+| Paso | Responsable | Estado |
+|------|-------------|--------|
+| 1. PO MASTER documenta inconsistencias | PO MASTER | 📋 Pendiente |
+| 2. SYSTEM ARCHITECT define estándar | SYSTEM ARCHITECT | 📋 Pendiente |
+| 3. MASTER DEVELOPER corrige frontend | MASTER DEVELOPER | 📋 Pendiente |
+| 4. QA ENGINEER valida | QA ENGINEER | 📋 Pendiente |
+| 5. PO MASTER audita cierre | PO MASTER | 📋 Pendiente |
+
+| Criterio | Estado |
+|----------|--------|
+| Llamadas del frontend alineadas con rutas reales de la API (ej. PATCH /sprints/:id/status vs /close) | 📋 |
+| Errores HTTP manejados correctamente en UI (4xx, 5xx) | 📋 |
+| Mensajes de error consistentes con Response Layer v1 / códigos de error | 📋 |
+| Manejo uniforme de estados (workflows) entre frontend y backend | 📋 |
+
+**Objetivo:** Corregir inconsistencias entre lo que el frontend envía y lo que la API espera (rutas, métodos, cuerpos); manejo correcto de errores y estados.
+
+**Documentos:** docs/ENDPOINTS_API_Y_USO_FRONTEND.md, docs/CONTRATO_API.md, docs/openapi.yaml
+
+---
+
+## ETAPA 22 — Mejora de UX y consistencia 📋 PENDIENTE
+
+| Paso | Responsable | Estado |
+|------|-------------|--------|
+| 1. PO MASTER define mejoras | PO MASTER | 📋 Pendiente |
+| 2. SYSTEM ARCHITECT valida impacto | SYSTEM ARCHITECT | 📋 Pendiente |
+| 3. MASTER DEVELOPER implementa | MASTER DEVELOPER | 📋 Pendiente |
+| 4. QA ENGINEER valida | QA ENGINEER | 📋 Pendiente |
+| 5. PO MASTER audita cierre | PO MASTER | 📋 Pendiente |
+
+| Criterio | Estado |
+|----------|--------|
+| Formularios consistentes (validación, mensajes, estados) | 📋 |
+| Mensajes de error claros y accionables para el usuario | 📋 |
+| Navegación mejorada (breadcrumbs, enlaces, flujos) | 📋 |
+| Estados visuales coherentes (loading, éxito, error, empty) | 📋 |
+| Mejor feedback al usuario en acciones CRUD y transiciones | 📋 |
+
+**Objetivo:** Polish final de usabilidad y consistencia tras las etapas 18–21; formularios, mensajes, navegación y feedback unificados.
+
+**Documentos:** docs/PLAN_ETAPAS_14_A_17_FASE_UX_UI_COMPLETA.md (design system), public/css/design-system.css
 
 ---
 
