@@ -49,7 +49,7 @@
       var pid = selProject.value;
       selSprint.innerHTML = "<option value=\"\">Seleccionar sprint</option>";
       if (!pid) return;
-      window.fetchApi("/projects/" + pid + "/sprints?limit=100").then(function (body) {
+      window.fetchApi("/projects/" + pid + "/sprints?limit=50").then(function (body) {
         if (body && body.success && body.data && body.data.items) {
           body.data.items.forEach(function (s) {
             selSprint.innerHTML += "<option value=\"" + s.id + "\">" + (s.name || s.id) + "</option>";

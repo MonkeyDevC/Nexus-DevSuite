@@ -49,6 +49,37 @@ async function archiveProjectController(req, res, next) {
   }
 }
 
+async function updateProjectController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const data = await projectsService.updateProject(req.params.id, req.body, req.organizationId);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function deleteProjectController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const data = await projectsService.deleteProject(req.params.id, req.organizationId);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function deleteProjectsBulkController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const ids = req.body.ids || [];
+    const data = await projectsService.deleteProjectsBulk(ids, req.organizationId);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 async function listProjectsController(req, res, next) {
   try {
     assertRequestValid(req);
@@ -169,11 +200,37 @@ async function patchStoryAssignController(req, res, next) {
   }
 }
 
+async function patchStorySprintController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const sprintId = req.body.sprint_id !== undefined ? req.body.sprint_id : null;
+    const data = await userStoryService.updateStorySprint(req.params.id, sprintId, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function patchStoryController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await userStoryService.updateStory(req.params.id, req.body, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 module.exports = {
   createProjectController,
   getProjectController,
   listProjectsController,
   archiveProjectController,
+  updateProjectController,
+  deleteProjectController,
+  deleteProjectsBulkController,
   createFeatureController,
   getFeatureController,
   listFeaturesController,
@@ -182,5 +239,7 @@ module.exports = {
   getStoryController,
   listStoriesController,
   patchStoryStatusController,
-  patchStoryAssignController
+  patchStoryAssignController,
+  patchStorySprintController,
+  patchStoryController
 };

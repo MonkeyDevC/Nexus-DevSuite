@@ -7,12 +7,16 @@ const express = require("express");
 const {
   getStoryController,
   patchStoryStatusController,
-  patchStoryAssignController
+  patchStoryAssignController,
+  patchStorySprintController,
+  patchStoryController
 } = require("./backlog.controller");
 const {
   storyIdParamValidator,
   patchStoryStatusValidator,
-  patchStoryAssignValidator
+  patchStoryAssignValidator,
+  patchStorySprintValidator,
+  patchStoryValidator
 } = require("./backlog.validator");
 const { authenticateMiddleware } = require("../../middlewares/authenticate.middleware");
 const { authorizeMiddleware } = require("../../middlewares/authorize.middleware");
@@ -33,6 +37,20 @@ router.patch(
   authorizeMiddleware("MASTER", "EMPLOYEE"),
   patchStoryAssignValidator,
   patchStoryAssignController
+);
+router.patch(
+  "/:id/sprint",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  patchStorySprintValidator,
+  patchStorySprintController
+);
+router.patch(
+  "/:id",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  patchStoryValidator,
+  patchStoryController
 );
 
 module.exports = router;

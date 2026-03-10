@@ -5,6 +5,7 @@
 
 const featureRepository = require("./feature.repository");
 const projectsRepository = require("./projects.repository");
+const userStoryRepository = require("./userStory.repository");
 const changeRequestService = require("../changeRequests/changeRequest.service");
 const { validateTransition, ENTITY_TYPES } = require("./workflow.validator");
 const authRepository = require("../auth/auth.repository");
@@ -14,7 +15,7 @@ const { ERROR_CODES } = require("../../shared/errors/errorCodes");
 function toPlain(feature) {
   if (!feature) return null;
   const f = typeof feature.toJSON === "function" ? feature.toJSON() : feature;
-  return {
+  const out = {
     id: f.id,
     project_id: f.project_id,
     title: f.title,
@@ -28,6 +29,8 @@ function toPlain(feature) {
     created_at: f.created_at,
     updated_at: f.updated_at
   };
+  if (f.user_stories_count != null) out.user_stories_count = f.user_stories_count;
+  return out;
 }
 
 function ensureAuditContext(context) {
@@ -101,8 +104,15 @@ async function listFeaturesByProject(projectId, { page = 1, limit = 10, status }
   }
   ensureProjectInOrg(project, organizationId);
   const { items, total } = await featureRepository.listByProject(projectId, { page, limit, status });
+  const featureIds = items.map(function (f) { return f.id; });
+  const storyCounts = await userStoryRepository.getStoryCountsByFeatureIds(featureIds);
+  const data = items.map(function (f) {
+    const plain = f.toJSON ? f.toJSON() : f;
+    plain.user_stories_count = storyCounts[f.id] != null ? storyCounts[f.id] : 0;
+    return toPlain(plain);
+  });
   return {
-    data: items.map(toPlain),
+    data,
     meta: { total, page, limit, totalPages: total === 0 ? 0 : Math.ceil(total / limit) }
   };
 }

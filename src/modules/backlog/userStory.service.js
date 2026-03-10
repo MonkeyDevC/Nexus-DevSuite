@@ -8,6 +8,7 @@ const featureRepository = require("./feature.repository");
 const projectsRepository = require("./projects.repository");
 const featureService = require("./feature.service");
 const usersRepository = require("../users/users.repository");
+const sprintRepository = require("../sprints/sprint.repository");
 const { validateTransition, ENTITY_TYPES } = require("./workflow.validator");
 const authRepository = require("../auth/auth.repository");
 const { AppError } = require("../../shared/errors/AppError");
@@ -16,15 +17,21 @@ const { ERROR_CODES } = require("../../shared/errors/errorCodes");
 function toPlain(story) {
   if (!story) return null;
   const s = typeof story.toJSON === "function" ? story.toJSON() : story;
+  const assignee = s.assignee ? { id: s.assignee.id, email: s.assignee.email, name: s.assignee.name || null } : null;
+  const sprint = s.sprint ? { id: s.sprint.id, name: s.sprint.name || null } : null;
   return {
     id: s.id,
     feature_id: s.feature_id,
+    number: s.number,
     title: s.title,
     description: s.description,
     acceptance_criteria: s.acceptance_criteria,
     status: s.status,
     priority: s.priority,
     assigned_to: s.assigned_to,
+    assignee,
+    sprint_id: s.sprint_id || null,
+    sprint,
     created_by: s.created_by,
     approved_by: s.approved_by,
     closed_at: s.closed_at,
@@ -65,16 +72,18 @@ async function createStory(featureId, payload, context = {}) {
       code: ERROR_CODES.FEATURE_ARCHIVED
     });
   }
+  const nextNumber = (await userStoryRepository.getMaxStoryNumber(featureId)) + 1;
   const created = await userStoryRepository.create({
     ...payload,
     feature_id: featureId,
+    number: nextNumber,
     created_by: context.user?.id
   });
   return toPlain(created);
 }
 
 async function getStoryById(id, organizationId) {
-  const story = await userStoryRepository.findById(id);
+  const story = await userStoryRepository.findByIdWithAssignee(id);
   if (!story) {
     throw new AppError("Story no encontrada", {
       statusCode: 404,
@@ -176,10 +185,62 @@ async function assignStory(id, assignedToUserId, context) {
   return toPlain(updated);
 }
 
+async function updateStorySprint(id, sprintId, context) {
+  const story = await userStoryRepository.findById(id);
+  if (!story) {
+    throw new AppError("Story no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.STORY_NOT_FOUND
+    });
+  }
+  const feature = await featureRepository.findById(story.feature_id);
+  if (!feature) {
+    throw new AppError("Feature no encontrada", { statusCode: 404, code: ERROR_CODES.FEATURE_NOT_FOUND });
+  }
+  const project = await projectsRepository.findById(feature.project_id);
+  if (project) featureService.ensureProjectInOrg(project, context.organizationId);
+  if (sprintId != null) {
+    const sprint = await sprintRepository.findById(sprintId);
+    if (!sprint) {
+      throw new AppError("Sprint no encontrado", { statusCode: 404, code: ERROR_CODES.NOT_FOUND });
+    }
+    if (sprint.project_id !== feature.project_id) {
+      throw new AppError("El sprint no pertenece al proyecto de la story", {
+        statusCode: 400,
+        code: ERROR_CODES.INVALID_ASSIGNMENT
+      });
+    }
+  }
+  const updated = await userStoryRepository.update(id, { sprint_id: sprintId });
+  return toPlain(updated);
+}
+
+async function updateStory(id, payload, context) {
+  const story = await userStoryRepository.findById(id);
+  if (!story) {
+    throw new AppError("Story no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.STORY_NOT_FOUND
+    });
+  }
+  const feature = await featureRepository.findById(story.feature_id);
+  if (feature) {
+    const project = await projectsRepository.findById(feature.project_id);
+    if (project) featureService.ensureProjectInOrg(project, context.organizationId);
+  }
+  const updatePayload = {};
+  if (payload.acceptance_criteria !== undefined) updatePayload.acceptance_criteria = payload.acceptance_criteria;
+  if (Object.keys(updatePayload).length === 0) return toPlain(story);
+  const updated = await userStoryRepository.update(id, updatePayload);
+  return toPlain(updated);
+}
+
 module.exports = {
   createStory,
   getStoryById,
   listStoriesByFeature,
   updateStoryStatus,
-  assignStory
+  assignStory,
+  updateStorySprint,
+  updateStory
 };
