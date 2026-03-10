@@ -195,8 +195,9 @@
     var bodyHtml = opts.bodyHtml || "";
     var primaryId = opts.primaryButtonId || "nexus-form-card-submit";
     var primaryLabel = opts.primaryLabel || "Guardar";
+    var dialogClass = opts.modalDialogClass ? (" " + opts.modalDialogClass) : "";
     var html = '<div class="modal fade nexus-modal-manage-user" id="' + id + '" tabindex="-1" aria-labelledby="' + id + 'Label" aria-hidden="true">';
-    html += '<div class="modal-dialog modal-dialog-centered"><div class="nexus-manage-user-card modal-content">';
+    html += '<div class="modal-dialog modal-dialog-centered' + dialogClass + '"><div class="nexus-manage-user-card modal-content">';
     html += '<div class="modal-header border-0 pb-0"><h5 class="modal-title nexus-manage-user-title" id="' + id + 'Label">' + title + '</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>';
     html += '<div class="modal-body pt-2">' + bodyHtml + '</div>';
     html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-nexus-primary" id="' + primaryId + '">' + primaryLabel + '</button></div>';

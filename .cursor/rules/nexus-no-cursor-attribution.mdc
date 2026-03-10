@@ -1,0 +1,10 @@
+---
+description: No añadir atribución "Made with Cursor" ni similar en el código del proyecto
+alwaysApply: true
+---
+
+# Sin atribución a Cursor en el código
+
+- **Nunca** incluyas en el código del proyecto texto como "Made with Cursor", "Made-with: Cursor", "Built with Cursor" ni ninguna otra atribución o marca al editor/IDE.
+- No añadas comentarios, footers, headers, metadatos ni strings que mencionen Cursor como herramienta de desarrollo en archivos del repo (HTML, JS, CSS, configs, etc.).
+- Si generas plantillas o boilerplate, no incluyas ese tipo de atribución.

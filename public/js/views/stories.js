@@ -381,28 +381,52 @@
             var items = Array.isArray(s.acceptance_criteria) ? s.acceptance_criteria : (s.acceptance_criteria.items || Object.keys(s.acceptance_criteria).map(function (k) { return s.acceptance_criteria[k]; }));
             if (items && items.length) criteriaLines = items.map(function (c) { return typeof c === "string" ? c : (c && c.text) ? c.text : JSON.stringify(c); });
           }
-          var criteriaTextareaValue = esc(criteriaLines.join("\n"));
-          var sprintSelectHtml = '<span class="nexus-text-sm text-muted">Sprint</span><div class="d-flex align-items-center gap-2 mt-1"><select id="story-detail-sprint" class="form-select form-select-sm" style="max-width:220px"><option value="">Ninguno</option></select><span id="story-detail-sprint-msg" class="nexus-text-sm text-muted"></span></div>';
+          var sprintSelectHtml = '<span class="nexus-text-sm text-muted">Sprint</span><div class="d-flex align-items-center gap-2 mt-1"><select id="story-detail-sprint" class="form-select form-select-sm" style="max-width:100%"><option value="">Ninguno</option></select><span id="story-detail-sprint-msg" class="nexus-text-sm text-muted"></span></div>';
           var bodyHtml = '<div class="nexus-card p-4" style="max-width:100%">';
           bodyHtml += '<div class="row g-3">';
-          bodyHtml += '<div class="col-12"><span class="nexus-text-sm text-muted">ID</span><p class="nexus-font-semibold mb-0">' + esc(did) + '</p></div>';
-          bodyHtml += '<div class="col-12"><span class="nexus-text-sm text-muted">Título</span><p class="mb-0">' + esc(s.title || "—") + '</p></div>';
-          bodyHtml += '<div class="col-12"><span class="nexus-text-sm text-muted">Descripción</span><p class="mb-0" style="white-space:pre-wrap">' + esc(s.description || "—") + '</p></div>';
-          bodyHtml += '<div class="col-md-6"><span class="nexus-text-sm text-muted">Estado</span><p class="mb-0"><span class="' + window.nexusBadgeClass(s.status) + '">' + esc(s.status || "") + '</span></p></div>';
-          bodyHtml += '<div class="col-md-6"><span class="nexus-text-sm text-muted">Prioridad</span><p class="mb-0">' + esc(s.priority || "—") + '</p></div>';
-          bodyHtml += '<div class="col-md-6"><span class="nexus-text-sm text-muted">Asignado a</span><p class="mb-0">' + esc(assigneeText) + '</p></div>';
-          bodyHtml += '<div class="col-12">' + sprintSelectHtml + '</div>';
-          bodyHtml += '<div class="col-12"><span class="nexus-text-sm text-muted">Criterios de aceptación</span><div class="mt-1"><textarea id="story-detail-criteria" class="form-control nexus-input" rows="4" placeholder="Un criterio por línea" aria-label="Criterios de aceptación">' + criteriaTextareaValue + '</textarea><button type="button" id="story-detail-criteria-save" class="btn btn-nexus-primary btn-sm mt-2">Guardar criterios</button><span id="story-detail-criteria-msg" class="ms-2 nexus-text-sm text-muted"></span></div></div>';
-          bodyHtml += '<div class="col-md-6"><span class="nexus-text-sm text-muted">Creado</span><p class="mb-0 nexus-text-sm">' + (s.created_at ? esc(s.created_at) : "—") + '</p></div>';
-          bodyHtml += '<div class="col-md-6"><span class="nexus-text-sm text-muted">Actualizado</span><p class="mb-0 nexus-text-sm">' + (s.updated_at ? esc(s.updated_at) : "—") + '</p></div>';
+          bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">ID</span><p class="nexus-font-semibold mb-0">' + esc(did) + '</p></div>';
+          bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Estado</span><p class="mb-0"><span class="' + window.nexusBadgeClass(s.status) + '">' + esc(s.status || "") + '</span></p></div>';
+          bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Creado</span><p class="mb-0 nexus-text-sm">' + (s.created_at ? esc(s.created_at) : "—") + '</p></div>';
+          bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Título</span><p class="mb-0">' + esc(s.title || "—") + '</p></div>';
+          bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Prioridad</span><p class="mb-0">' + esc(s.priority || "—") + '</p></div>';
+          bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Actualizado</span><p class="mb-0 nexus-text-sm">' + (s.updated_at ? esc(s.updated_at) : "—") + '</p></div>';
+          bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Descripción</span><p class="mb-0" style="white-space:pre-wrap">' + esc(s.description || "—") + '</p></div>';
+          bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Asignado a</span><p class="mb-0">' + esc(assigneeText) + '</p></div>';
+          bodyHtml += '<div class="col-md-4">' + sprintSelectHtml + '</div>';
+          bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de aceptación</span>';
+          bodyHtml += '<div id="story-detail-criteria-list">';
+          var numCriteria = criteriaLines.length || 1;
+          for (var i = 0; i < numCriteria; i++) {
+            bodyHtml += '<div class="story-criterion-row d-flex gap-2 align-items-center mb-2"><input type="text" class="form-control form-control-sm story-detail-criteria-input" placeholder="Criterio ' + (i + 1) + '" value="' + esc(criteriaLines[i] || "") + '" aria-label="Criterio ' + (i + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm story-criterion-remove" aria-label="Quitar criterio">&times;</button></div>';
+          }
+          bodyHtml += '</div><div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button type="button" id="story-detail-criteria-add" class="btn btn-outline-secondary btn-sm">+ Añadir criterio</button><button type="button" id="story-detail-criteria-save" class="btn btn-nexus-primary btn-sm">Guardar criterios</button><span id="story-detail-criteria-msg" class="nexus-text-sm text-muted"></span></div></div>';
           bodyHtml += '</div></div>';
-          window.openNexusFormModal({ id: "storyDetailModal", title: "Detalle de la story", bodyHtml: bodyHtml, primaryButtonId: "story-detail-close", primaryLabel: "Cerrar" }, function (bsModal) { bsModal.hide(); });
+          window.openNexusFormModal({ id: "storyDetailModal", title: "Detalle de la story", bodyHtml: bodyHtml, primaryButtonId: "story-detail-close", primaryLabel: "Cerrar", modalDialogClass: "nexus-modal-story-detail" }, function (bsModal) { bsModal.hide(); });
+          var criteriaList = document.getElementById("story-detail-criteria-list");
+          var addCriteriaBtn = document.getElementById("story-detail-criteria-add");
+          if (addCriteriaBtn && criteriaList) {
+            addCriteriaBtn.onclick = function () {
+              var rows = criteriaList.querySelectorAll(".story-criterion-row");
+              var n = rows.length + 1;
+              var row = document.createElement("div");
+              row.className = "story-criterion-row d-flex gap-2 align-items-center mb-2";
+              row.innerHTML = '<input type="text" class="form-control form-control-sm story-detail-criteria-input" placeholder="Criterio ' + n + '" aria-label="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm story-criterion-remove" aria-label="Quitar criterio">&times;</button>';
+              criteriaList.appendChild(row);
+              row.querySelector(".story-criterion-remove").onclick = function () { if (criteriaList.querySelectorAll(".story-criterion-row").length > 1) row.remove(); };
+            };
+          }
+          document.querySelectorAll("#storyDetailModal .story-criterion-remove").forEach(function (btn) {
+            btn.onclick = function () {
+              var row = btn.closest(".story-criterion-row");
+              if (row && criteriaList && criteriaList.querySelectorAll(".story-criterion-row").length > 1) row.remove();
+            };
+          });
           var criteriaSaveBtn = document.getElementById("story-detail-criteria-save");
           if (criteriaSaveBtn) criteriaSaveBtn.onclick = function () {
-            var textarea = document.getElementById("story-detail-criteria");
+            var inputs = document.querySelectorAll("#storyDetailModal .story-detail-criteria-input");
             var msgEl = document.getElementById("story-detail-criteria-msg");
-            if (!textarea) return;
-            var lines = (textarea.value || "").split("\n").map(function (l) { return l.trim(); }).filter(Boolean);
+            var lines = [];
+            if (inputs && inputs.length) for (var i = 0; i < inputs.length; i++) { var v = (inputs[i].value || "").trim(); if (v) lines.push(v); }
             var payload = { acceptance_criteria: lines };
             if (msgEl) msgEl.textContent = "Guardando…";
             window.fetchApi("/stories/" + storyId, { method: "PATCH", body: JSON.stringify(payload) }).then(function (r) {

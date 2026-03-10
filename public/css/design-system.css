@@ -235,6 +235,85 @@ body { font-family: var(--nexus-font-sans); }
   background-color: rgba(248, 250, 252, 0.8);
 }
 
+/* Acciones de tabla: grupo de botones Ver (verde) | Editar (azul) | Eliminar (rojo) */
+.nexus-table-actions {
+  display: inline-flex;
+  border-radius: var(--nexus-radius-md);
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.nexus-table-actions .nexus-action-view,
+.nexus-table-actions .nexus-action-edit,
+.nexus-table-actions .nexus-action-delete,
+.nexus-table-actions .nexus-action-archive,
+.nexus-table-actions .nexus-action-other {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  font-size: var(--nexus-text-sm);
+  font-weight: var(--nexus-font-weight-medium);
+  text-decoration: none;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--nexus-text-inverse);
+  background-color: var(--nexus-success);
+  border-right: 1px solid rgba(255, 255, 255, 0.25);
+}
+.nexus-table-actions .nexus-action-view:last-child,
+.nexus-table-actions .nexus-action-edit:last-child,
+.nexus-table-actions .nexus-action-delete:last-child,
+.nexus-table-actions .nexus-action-archive:last-child,
+.nexus-table-actions .nexus-action-other:last-child {
+  border-right: none;
+}
+.nexus-table-actions .nexus-action-view:hover,
+.nexus-table-actions .nexus-action-view:focus {
+  background-color: #16a34a;
+  color: var(--nexus-text-inverse);
+}
+.nexus-table-actions .nexus-action-edit {
+  background-color: var(--nexus-info);
+}
+.nexus-table-actions .nexus-action-edit:hover,
+.nexus-table-actions .nexus-action-edit:focus {
+  background-color: #2563eb;
+  color: var(--nexus-text-inverse);
+}
+.nexus-table-actions .nexus-action-delete {
+  background-color: var(--nexus-danger);
+}
+.nexus-table-actions .nexus-action-delete:hover,
+.nexus-table-actions .nexus-action-delete:focus {
+  background-color: #dc2626;
+  color: var(--nexus-text-inverse);
+}
+.nexus-table-actions .nexus-action-archive {
+  background-color: var(--nexus-text-secondary);
+}
+.nexus-table-actions .nexus-action-archive:hover,
+.nexus-table-actions .nexus-action-archive:focus {
+  background-color: #475569;
+  color: var(--nexus-text-inverse);
+}
+.nexus-table-actions .nexus-action-other {
+  background-color: var(--nexus-text-muted);
+}
+.nexus-table-actions .nexus-action-other:hover,
+.nexus-table-actions .nexus-action-other:focus {
+  background-color: #64748b;
+  color: var(--nexus-text-inverse);
+}
+.nexus-table-actions > *:first-child {
+  border-radius: var(--nexus-radius-md) 0 0 var(--nexus-radius-md);
+}
+.nexus-table-actions > *:last-child {
+  border-radius: 0 var(--nexus-radius-md) var(--nexus-radius-md) 0;
+}
+.nexus-table-actions > *:only-child {
+  border-radius: var(--nexus-radius-md);
+}
+
 /* Empty state */
 .nexus-empty-state {
   text-align: center;
@@ -653,6 +732,60 @@ body.layout-login .nexus-main-content {
   z-index: 1029;
 }
 
+/* Dropdown búsqueda Título (Stories): flex solo cuando está abierto */
+.stories-titulo-dropdown-menu.show {
+  display: flex !important;
+  flex-direction: column;
+}
+
+/* Lista "Asignado a" en modal Nueva story: altura fija y barra de scroll visible */
+.story-form-assigned-list-scroll {
+  height: 200px !important;
+  overflow-y: scroll !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+}
+.story-form-assigned-list-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.story-form-assigned-list-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+.story-form-assigned-list-scroll::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+.story-form-assigned-list-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Celda desplegable Sprint en tabla Stories */
+.story-sprint-edit-cell {
+  padding: 0.35rem 0.5rem !important;
+  vertical-align: middle;
+}
+.story-sprint-edit-cell .story-sprint-select-wrap {
+  display: inline-block;
+  min-width: 180px;
+  max-width: 100%;
+}
+.story-sprint-edit-cell .story-sprint-select {
+  font-size: var(--nexus-text-sm);
+  padding: 0.35rem 2rem 0.35rem 0.5rem;
+  border-radius: var(--nexus-radius-md);
+  border: 1px solid var(--nexus-border-color, #dee2e6);
+  background-color: var(--nexus-bg-primary, #fff);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.story-sprint-edit-cell .story-sprint-select:hover,
+.story-sprint-edit-cell .story-sprint-select:focus {
+  border-color: var(--nexus-accent, #16a34a);
+  outline: 0;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.2);
+}
+
 /* Tablas: scroll horizontal en pantallas pequeñas */
 @media (max-width: 767px) {
   .nexus-table {
@@ -678,6 +811,11 @@ select:focus-visible,
 body.nexus-manage-user-modal-open .modal-backdrop {
   opacity: 0.75;
   background-color: #000;
+}
+/* Modal detalle story: 75% ancho centrado para aprovechar espacio */
+.nexus-modal-story-detail {
+  max-width: 75%;
+  width: 75%;
 }
 .nexus-modal-manage-user .nexus-manage-user-card {
   border-radius: 16px;
