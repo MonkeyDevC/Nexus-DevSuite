@@ -56,6 +56,17 @@ async function patchSprintStatusController(req, res, next) {
   }
 }
 
+async function patchSprintController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await sprintService.updateSprint(req.params.id, req.body, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId || "no-request-id" }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 async function assignStoryController(req, res, next) {
   try {
     assertRequestValid(req);
@@ -98,12 +109,25 @@ async function listSprintStoriesController(req, res, next) {
   }
 }
 
+async function deleteSprintController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await sprintService.deleteSprint(req.params.id, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId || "no-request-id" }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 module.exports = {
   createSprintController,
   listSprintsController,
   getSprintController,
   patchSprintStatusController,
+  patchSprintController,
   assignStoryController,
   unassignStoryController,
-  listSprintStoriesController
+  listSprintStoriesController,
+  deleteSprintController
 };

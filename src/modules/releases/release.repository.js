@@ -69,6 +69,12 @@ async function countFeaturesByReleaseId(releaseId) {
   return Feature.count({ where: { release_id: releaseId } });
 }
 
+async function deleteById(id) {
+  const Release = getReleaseModel();
+  const n = await Release.destroy({ where: { id } });
+  return n > 0;
+}
+
 module.exports = {
   create,
   findById,
@@ -76,5 +82,6 @@ module.exports = {
   list,
   findLatestReleased,
   update,
-  countFeaturesByReleaseId
+  countFeaturesByReleaseId,
+  deleteById
 };

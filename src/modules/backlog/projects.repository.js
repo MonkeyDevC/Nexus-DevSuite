@@ -12,9 +12,15 @@ function getProjectModel() {
   return Project;
 }
 
-async function create(payload) {
+async function getMaxProjectNumber(transaction) {
   const Project = getProjectModel();
-  return Project.create(payload);
+  const max = await Project.max("number", { transaction: transaction || undefined });
+  return max != null ? max : 0;
+}
+
+async function create(payload, options = {}) {
+  const Project = getProjectModel();
+  return Project.create(payload, options);
 }
 
 async function findById(id, options = {}) {
@@ -64,6 +70,7 @@ module.exports = {
   findById,
   findByNameAndOrganization,
   findIdsByOrganization,
+  getMaxProjectNumber,
   list,
   update
 };

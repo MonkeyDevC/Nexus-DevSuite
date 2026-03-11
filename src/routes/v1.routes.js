@@ -15,6 +15,7 @@ const improvementRoutes = require("../modules/improvements/improvement.routes");
 const documentRoutes = require("../modules/documents/document.routes");
 const reportRoutes = require("../modules/reports/report.routes");
 const organizationRoutes = require("../modules/organizations/organization.routes");
+const dashboardRoutes = require("../modules/dashboard/dashboard.routes");
 
 const router = express.Router();
 
@@ -34,5 +35,6 @@ router.use("/incidents", incidentRoutes);
 router.use("/improvements", improvementRoutes);
 router.use("/documents", documentRoutes);
 router.use("/reports", reportRoutes);
+router.use("/dashboard", dashboardRoutes);
 
 module.exports = router;

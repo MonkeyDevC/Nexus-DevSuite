@@ -10,7 +10,7 @@
     const segs = window.getHashSegments();
     const projectId = segs[1];
     const user = await window.getMe();
-    const isMaster = user && user.role === "MASTER";
+    const isMaster = typeof window.nexusCanAccessMasterActions === "function" ? window.nexusCanAccessMasterActions(user) : (user && user.role === "MASTER");
 
     var state = { page: 1, limit: 10, statusFilter: [], search: "", sort: "number", dir: "desc", selectionMode: false, selectedIds: [] };
     var currentMeta = null;
@@ -50,7 +50,7 @@
       if (!items || items.length === 0) {
         var msg = meta && state.search ? "No hay resultados para tu búsqueda o filtro." : "Aún no hay proyectos";
         html += '<div class="nexus-empty-state"><p class="nexus-empty-state-title">' + msg + "</p><p class=\"nexus-text-secondary\">Cree su primer proyecto para comenzar.</p>";
-        if (isMaster) html += '<a href="#" id="btn-create-project-2" class="btn btn-nexus-primary">Crear proyecto</a>';
+        if (isMaster) html += '<a href="#" id="btn-create-project-2" class="btn btn-nexus-primary mt-3" aria-label="Crear proyecto">Crear proyecto</a>';
         html += "</div>";
       } else {
         var allChecked = items.length > 0 && items.every(function (p) { return state.selectedIds.indexOf(p.id) !== -1; });
@@ -115,7 +115,7 @@
               "<span class=\"" + window.nexusBadgeClass(p.status) + "\">" + esc(p.status || "") + "</span>",
               esc(created),
               window.renderTableActions({
-                view: { href: "#/projects/" + p.id },
+                view: { href: "#/projects/" + p.id, ariaLabel: "Ver proyecto " + (p.name || p.id || "").slice(0, 40) },
                 edit: isMaster ? { id: p.id, className: "btn-edit-project" } : null,
                 archive: isMaster && p.status !== "ARCHIVED" ? { href: "#/projects/" + p.id } : null,
                 delete: isMaster ? { id: p.id, className: "btn-delete-project" } : null

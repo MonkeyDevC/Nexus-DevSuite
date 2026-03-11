@@ -17,15 +17,22 @@ Esta regla define **cómo el PO MASTER debe estructurar cualquier prompt de impl
 
 ## Objetivo de esta regla
 
-Estandarizar completamente la forma en que se diseñan los prompts de implementación para el MASTER DEVELOPER.
+Estandarizar completamente la forma en que se diseñan los prompts de implementación para el MASTER DEVELOPER. **Toda ejecución técnica debe originarse en un ticket (o prompt con estructura de ticket) generado por el PO MASTER.** Ver nexus-po-master-gobernanza.mdc secciones III ter (Desarrollo basado en tickets) y III quinquies (Alcance de los tickets).
 
 Objetivos:
 
+- **Trabajo accionable:** Prompts = tickets claros con tareas técnicas, no solo análisis.
 - Trazabilidad completa
 - Ejecución reproducible
 - Evidencia verificable
 - Cumplimiento de arquitectura
 - Cumplimiento de ISO 9001 (control documental y verificación)
+
+---
+
+## Principio: ticket antes que análisis
+
+El PO MASTER no debe producir únicamente análisis o documentación extensa. Debe **generar tickets** que incluyan: ID, título, contexto, objetivo, endpoints relacionados, tareas técnicas, criterios de aceptación, archivos posiblemente afectados. Los tickets deben ser **pequeños**, **implementables en una sesión**, **pocos archivos**, **sin refactorizaciones grandes**. Cada prompt al MASTER DEVELOPER debe ser o contener un ticket con esa estructura.
 
 ---
 
@@ -284,16 +291,18 @@ Esto asegura alineación con principios de ISO 9001:
 
 ## Responsabilidad del PO MASTER
 
-Antes de enviar un prompt al MASTER DEVELOPER el PO MASTER debe verificar:
+El PO MASTER **no escribe código ni modifica archivos de aplicación**; solo dirige mediante tickets/prompts. Antes de enviar un prompt al MASTER DEVELOPER el PO MASTER debe verificar:
 
-1. Que el prompt sigue esta estructura.
-2. Que las reglas del dominio están protegidas.
-3. Que la QA en 6 niveles (funcional, dominio, negativa, regresión, seguridad, contrato) está incluida.
-4. Que las pruebas son reproducibles (entorno limpio, sin dependencia de orden/datos/estado).
-5. Que la validación de migraciones y performance están contempladas.
-6. Que la verificación explícita de auditoría está exigida.
-7. Que el criterio de cierre es verificable.
-8. Que la evidencia obligatoria incluye los 9 elementos definidos y que el prompt especifica la nomenclatura del archivo de evidencia (EVIDENCIA_ETAPA_&lt;N&gt;_&lt;NOMBRE_ETAPA&gt;_&lt;YYYY-MM-DD&gt;.md).
+1. Que el prompt **es o referencia un ticket** con ID, título, contexto, objetivo, tareas técnicas, criterios de aceptación y archivos posiblemente afectados (nexus-po-master-gobernanza.mdc III ter).
+2. Que el prompt sigue esta estructura.
+3. Que las reglas del dominio están protegidas.
+4. Que la QA en 6 niveles (funcional, dominio, negativa, regresión, seguridad, contrato) está incluida.
+5. Que las pruebas son reproducibles (entorno limpio, sin dependencia de orden/datos/estado).
+6. Que la validación de migraciones y performance están contempladas.
+7. Que la verificación explícita de auditoría está exigida.
+8. Que el criterio de cierre es verificable.
+9. Que la evidencia obligatoria incluye los 9 elementos definidos y que el prompt especifica la nomenclatura del archivo de evidencia (EVIDENCIA_ETAPA_&lt;N&gt;_&lt;NOMBRE_ETAPA&gt;_&lt;YYYY-MM-DD&gt;.md).
+10. Que el alcance del ticket es acotado: implementable en una sesión, pocos archivos, sin refactorizaciones grandes (nexus-po-master-gobernanza.mdc III quinquies).
 
 **Si alguno de estos elementos falta, el prompt no debe enviarse.**
 

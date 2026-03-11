@@ -3,6 +3,8 @@
 **Base URL:** `/api/v1`  
 **Prefijo en rutas:** Todas las rutas listadas van bajo `https://<origen>/api/v1/...`
 
+**Referencia de auditoría:** Las nuevas implementaciones de UI y la conexión de endpoints siguen los tickets y criterios definidos en el documento de **auditoría funcional del frontend** (p. ej. `docs/AUDITORIA_FUNCIONAL_FRONTEND_2026-03.md`). Ese documento es la referencia principal para qué endpoints deben tener uso en frontend y con qué flujo. Tras implementar cada ticket derivado de la auditoría, este archivo debe actualizarse para reflejar el uso real.
+
 ---
 
 ## 1. Listado completo de endpoints existentes
@@ -46,6 +48,9 @@
 | POST | `/api/v1/projects` | Crear proyecto (MASTER) |
 | GET | `/api/v1/projects` | Listar proyectos |
 | GET | `/api/v1/projects/:id` | Obtener proyecto por id |
+| PATCH | `/api/v1/projects/:id` | Actualizar proyecto (MASTER) |
+| DELETE | `/api/v1/projects/:id` | Eliminar proyecto (MASTER) |
+| POST | `/api/v1/projects/bulk-delete` | Eliminar múltiples proyectos; body: `{ "ids": ["uuid1", "uuid2", ...] }` (MASTER, máx. 100) |
 | PATCH | `/api/v1/projects/:id/archive` | Archivar proyecto (MASTER) |
 | GET | `/api/v1/projects/:projectId/features` | Listar features del proyecto |
 | POST | `/api/v1/projects/:projectId/features` | Crear feature en proyecto |
@@ -79,6 +84,8 @@
 | POST | `/api/v1/releases/:id/features/:featureId` | Asignar feature al release |
 | POST | `/api/v1/releases/:id/hotfix` | Crear hotfix en release |
 | PATCH | `/api/v1/releases/:id` | Actualizar release (descripción, etc.) (MASTER) |
+| DELETE | `/api/v1/releases/:id` | Eliminar release (MASTER); las features quedan desasociadas |
+| POST | `/api/v1/releases/bulk-delete` | Eliminar múltiples releases; body: `{ "ids": ["uuid1", "uuid2", ...] }` (MASTER, máx. 100) |
 
 ### Change Requests
 | Método | Ruta | Descripción |
@@ -126,6 +133,11 @@
 | PATCH | `/api/v1/documents/:documentId/versions/:versionId` | Actualizar versión |
 | PATCH | `/api/v1/documents/:documentId/versions/:versionId/status` | Cambiar estado de versión |
 
+### Dashboard
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/v1/dashboard/summary` | Resumen del panel (proyectos, stories, sprint activo, incidentes críticos, mis asignaciones). Requiere autenticación. |
+
 ### Reports
 | Método | Ruta | Descripción |
 |--------|------|-------------|
@@ -154,6 +166,7 @@ En la carpeta `public/` (HTML + JS) estos son los endpoints que se llaman desde 
 | POST `/api/v1/auth/refresh` | `api.js` (automático) | Renovar token en 401 |
 | POST `/api/v1/auth/logout` | Cerrar sesión (auth.js) | Logout |
 | GET `/api/v1/auth/me` | Dashboard, Admin, guard de rutas | Usuario actual |
+| GET `/api/v1/dashboard/summary` | Dashboard (#/dashboard) | Tarjetas métricas, sprint activo, mis asignaciones |
 | GET `/api/v1/auth/roles` | Admin → usuarios | Listado de roles al crear/editar usuario |
 | **Users** | | |
 | GET `/api/v1/users` | Admin → usuarios | Listado de usuarios |
@@ -174,50 +187,83 @@ En la carpeta `public/` (HTML + JS) estos son los endpoints que se llaman desde 
 | POST `/api/v1/projects/:projectId/sprints` | Sprints | Crear sprint |
 | GET `/api/v1/projects/:projectId/incidents` | Incidents | Listado de incidentes de un proyecto |
 | POST `/api/v1/projects/:projectId/incidents` | Incidents | Crear incidente |
+| GET `/api/v1/incidents/:id` | Incidents → detalle | Detalle de incidente (#/incidents/:id) |
+| PATCH `/api/v1/incidents/:id` | Incidents → detalle | Actualizar asignado a y causa raíz |
+| PATCH `/api/v1/incidents/:id/status` | Incidents → detalle | Cambiar estado (OPEN, IN_PROGRESS, RESOLVED, CLOSED) |
 | **Features** | | |
+| GET `/api/v1/features/:id` | Features, Stories | Detalle de feature (breadcrumb, proyecto) |
 | GET `/api/v1/features/:featureId/stories` | Stories | Listado de stories de una feature |
 | POST `/api/v1/features/:featureId/stories` | Stories | Crear user story |
+| PATCH `/api/v1/features/:id/status` | Features → lista | Cambiar estado de la feature (dropdown por fila). Cuerpo: `{ "status": "..." }`. |
+| **Stories** | | |
+| GET `/api/v1/stories/:id` | Stories → detalle (modal) | Cargar detalle de la story al hacer clic en Ver. |
+| PATCH `/api/v1/stories/:id/status` | Stories → detalle | Cambiar estado desde pestaña Vista o Edición. |
+| PATCH `/api/v1/stories/:id/assign` | Stories → detalle | Asignar usuario (dropdown "Asignado a" en Edición). Cuerpo: `{ "assigned_to": "userId" }`. |
+| PATCH `/api/v1/stories/:id` | Stories → detalle | Editar título, descripción, prioridad, criterios. |
 | **Releases** | | |
-| GET `/api/v1/releases` | Releases | Listado de releases |
+| GET `/api/v1/releases` | Releases | Listado de releases (contador de registros para todos los perfiles) |
 | GET `/api/v1/releases/:id` | Releases → detalle | Detalle de un release |
 | POST `/api/v1/releases` | Releases | Crear release |
+| PATCH `/api/v1/releases/:id/status` | Releases → detalle | Cambiar estado del release (PLANNED, IN_PROGRESS, QA, RELEASED, ARCHIVED). |
+| POST `/api/v1/releases/:id/features/:featureId` | Releases → detalle | Asignar feature al release (selector proyecto + feature + botón). |
+| POST `/api/v1/releases/:id/hotfix` | Releases → detalle | Crear hotfix (MASTER); redirige al nuevo release. Solo desde release en RELEASED. |
+| PATCH `/api/v1/releases/:id` | Releases → detalle | Editar descripción del release (MASTER). |
+| DELETE `/api/v1/releases/:id` | Releases → fila | Eliminar un release (MASTER) |
+| POST `/api/v1/releases/bulk-delete` | Releases → eliminación múltiple | Eliminación múltiple (MASTER) |
 | **Sprints** | | |
 | GET `/api/v1/sprints/:id` | Sprints → detalle | Detalle de un sprint |
 | GET `/api/v1/projects/:projectId/sprints` | Sprints | Listado (véase Projects) |
 | POST `/api/v1/projects/:projectId/sprints` | Sprints | Crear (véase Projects) |
-| PATCH `/api/v1/sprints/:id/close` | Sprints → cerrar sprint | **Nota:** Backend expone `PATCH /sprints/:id/status`; si `/close` no existe, la UI podría estar desalineada. |
+| PATCH `/api/v1/sprints/:id/status` | Sprints → cerrar sprint | Cuerpo: `{ "status": "CLOSED" }`. La acción "Cerrar sprint" en el detalle del sprint usa exclusivamente esta ruta. |
+| GET `/api/v1/sprints/:id/stories` | Sprints → detalle | Listar stories del sprint (sección "Stories del sprint"). |
+| POST `/api/v1/sprints/:id/stories/:storyId` | Sprints → detalle | Asignar story al sprint (selector + botón "Asignar"). |
+| DELETE `/api/v1/sprints/:id/stories/:storyId` | Sprints → detalle | Quitar story del sprint (botón "Quitar del sprint"). |
+| **Organizations** | | |
+| GET `/api/v1/organizations/current` | Admin → Organización (#/admin/organization) | Mostrar datos de la organización actual. |
+| GET `/api/v1/organizations/:id` | Admin → Organización | Detalle al editar (si aplica). |
+| PATCH `/api/v1/organizations/:id` | Admin → Organización | Editar nombre, plan, billing_email, next_billing_date (MASTER). |
+| **Improvements** | | |
+| GET `/api/v1/improvements` | Mejoras (#/improvements) | Listado con paginación y filtro por estado. |
+| POST `/api/v1/improvements` | Mejoras → Nueva mejora | Crear mejora (título, descripción). |
+| GET `/api/v1/improvements/:id` | Mejoras → detalle (#/improvements/:id) | Detalle de la mejora. |
+| PATCH `/api/v1/improvements/:id/status` | Mejoras → detalle | Cambiar estado (DRAFT, PROPOSED, APPROVED, REJECTED, IMPLEMENTED). |
 | **Documents** | | |
 | GET `/api/v1/documents` | Documents | Listado de documentos |
+| GET `/api/v1/documents/code/:code` | Documents | Búsqueda por código exacto (control "Buscar por código" + Ir); redirección a #/documents/:id. |
 | GET `/api/v1/documents/:id` | Documents → detalle | Detalle de un documento |
 | POST `/api/v1/documents` | Documents | Crear documento |
+| GET `/api/v1/documents/:documentId/versions` | Documents → detalle | Listar versiones del documento (sección Versiones). |
+| GET `/api/v1/documents/:documentId/versions/:versionId` | Documents → detalle | Obtener versión (botón "Ver contenido"; modal con contenido; edición si DRAFT y MASTER). |
+| PATCH `/api/v1/documents/:documentId/versions/:versionId` | Documents → detalle | Actualizar contenido de versión (modal "Ver contenido" → Guardar cuando versión DRAFT y usuario MASTER). |
+| POST `/api/v1/documents/:documentId/versions` | Documents → detalle | Crear nueva versión (Nueva versión; change_reason, content opcionales). |
+| PATCH `/api/v1/documents/:documentId/versions/:versionId/status` | Documents → detalle | Aprobar (APPROVED) o Archivar (ARCHIVED) versión. |
+| **Change Requests** | | |
+| POST `/api/v1/change-requests` | Change Requests (#/change-requests) | Crear CR (entity_type, entity_id obligatorios; title, description, type, impact_level opcionales). |
+| PATCH `/api/v1/change-requests/:id/submit` | Change Requests | Enviar a revisión (acciones por ID). |
+| PATCH `/api/v1/change-requests/:id/approve` | Change Requests | Aprobar (MASTER). |
+| PATCH `/api/v1/change-requests/:id/reject` | Change Requests | Rechazar (MASTER). |
+| PATCH `/api/v1/change-requests/:id/implement` | Change Requests | Marcar implementado (MASTER). |
 | **Reports** | | |
 | GET `/api/v1/reports/projects/:projectId/summary` | Reports | Resumen por proyecto |
 | GET `/api/v1/reports/sprints/:sprintId/summary` | Reports | Resumen por sprint |
 | GET `/api/v1/projects/:projectId/sprints` | Reports | Sprints del proyecto para selector |
+| GET `/api/v1/reports/users/:userId/activity` | Dashboard, Reportes → Actividad por usuario | Actividad reciente (dashboard) y vista dedicada en Reportes (selector usuario + Ver actividad). |
 | GET `/api/v1/reports/audit` | Admin → auditoría | Log de auditoría |
 | **System** | | |
 | GET `/api/v1/system/metrics` | Admin → métricas | Panel de métricas (MASTER) |
+| GET `/api/v1/health` | Footer (layout) | Indicador de estado de la API (API: OK / API: Error). Llamada al cargar la navegación; no bloquea la app si falla. |
 
 ### No usados desde el frontend (solo API / tests)
 
-- GET `/api/v1/health` — comprobación de servicio (no hay pantalla).
 - GET `/api/v1/auth/admin/test` — test interno.
-- **Organizations:** GET current, GET by id, PATCH — sin vistas que los llamen.
-- **Stories (detalle/estado/asignación):** GET `/stories/:id`, PATCH status, PATCH assign — la UI lista y crea stories desde Features, pero no usa estos endpoints en las vistas revisadas.
-- **Releases (avanzado):** PATCH status, POST features, POST hotfix, PATCH release — la UI lista, detalle y crea release; no hay flujo de cambio de estado, asignar feature ni hotfix.
-- **Change Requests:** todos (POST, PATCH submit/approve/reject/implement) — sin pantalla.
-- **Sprints (avanzado):** PATCH `/sprints/:id/status`, POST/DELETE stories en sprint, GET sprint stories — la UI usa listado y “cerrar” (ver nota sobre `/close`); el resto no está enlazado.
-- **Incidents (detalle/estado):** GET by id, PATCH status, PATCH incident — la UI lista y crea por proyecto; no hay vista de detalle/edición de incidente.
-- **Improvements:** todos — sin pantalla.
-- **Documents (versiones):** GET by code, POST/GET/PATCH versions y status — la UI solo lista, detalle y crea documento; no gestiona versiones.
-- **Reports:** GET `/reports/users/:userId/activity` — no encontrado en las vistas revisadas.
+- (Documents: GET by code y GET/PATCH versión por versionId pasan a usarse desde el frontend; ver tabla Documents.)
 
 ---
 
 ## 3. Resumen
 
 - **Endpoints totales (por método y ruta):** los listados en la sección 1.
-- **Con interfaz en frontend:** los de la tabla de la sección 2 (auth, users, projects, features, stories creación/listado, releases listado/detalle/crear, sprints listado/detalle/crear y “close”, documents listado/detalle/crear, reports summary/audit, system/metrics).
-- **Solo API / tests:** health, auth admin/test, organizations, change-requests, improvements, y los endpoints avanzados de stories, releases, sprints, incidents, documents (versiones) y reports/users/activity indicados arriba.
+- **Con interfaz en frontend:** los de la tabla de la sección 2 (auth, users, projects, features, stories, releases, sprints, organizations, improvements, incidents, documents con versiones, change-requests, reports con actividad por usuario, system/metrics).
+- **Solo API / tests:** auth admin/test.
 
-**Nota sobre Sprints:** El frontend llama a `PATCH /sprints/:id/close`. El backend define `PATCH /sprints/:id/status`. Conviene comprobar si existe un alias `/close` o adaptar la UI a `/status` con el cuerpo adecuado.
+**Nota sobre Sprints:** El frontend usa `PATCH /sprints/:id/status` con cuerpo `{ "status": "CLOSED" }` para "Cerrar sprint". En el detalle del sprint se usan GET `/sprints/:id/stories`, POST y DELETE `/sprints/:id/stories/:storyId` para listar, asignar y quitar stories. No se utiliza la ruta `/close`.

@@ -43,9 +43,15 @@ async function update(id, payload) {
   return findById(id);
 }
 
+async function updateReleaseIdToNull(releaseId) {
+  const Feature = getFeatureModel();
+  await Feature.update({ release_id: null }, { where: { release_id: releaseId } });
+}
+
 module.exports = {
   create,
   findById,
   listByProject,
-  update
+  update,
+  updateReleaseIdToNull
 };

@@ -59,6 +59,10 @@ const patchStorySprintValidator = [
 
 const patchStoryValidator = [
   param("id").isUUID(),
+  body("title").optional().trim().notEmpty().withMessage("title no puede estar vacío").isLength({ max: 500 }),
+  body("description").optional().trim().notEmpty().withMessage("description no puede estar vacío"),
+  body("priority").optional().isIn(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+  body("assigned_to").optional({ nullable: true }).isUUID().withMessage("assigned_to debe ser UUID o null"),
   body("acceptance_criteria")
     .optional({ nullable: true })
     .custom(function (val) { return val === null || val === undefined || typeof val === "object"; })

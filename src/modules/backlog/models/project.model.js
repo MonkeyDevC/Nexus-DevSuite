@@ -14,6 +14,11 @@ function defineProjectModel(sequelize) {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
       },
+      number: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: false,
+        unique: true
+      },
       organization_id: {
         type: DataTypes.UUID,
         allowNull: true

@@ -18,6 +18,12 @@
           return;
         }
         var s = body.data;
+        var storiesRes = await window.fetchApi("/sprints/" + sid + "/stories?limit=50");
+        var stories = [];
+        if (storiesRes && storiesRes.success && storiesRes.data) {
+          var d = storiesRes.data;
+          stories = d.data || d.items || (Array.isArray(d) ? d : []);
+        }
         var breadcrumbs;
         if (s.project_id) {
           var projectName = "Proyecto";
@@ -36,23 +42,131 @@
           breadcrumbs = [{ label: "Panel", href: "#/dashboard" }, { label: "Sprints", href: "#/sprints" }, { label: s.name || "Sprint", href: "" }];
         }
         var html = window.renderBreadcrumbs(breadcrumbs);
-        html += '<div class="nexus-card nexus-section-spacing"><h1 class="nexus-page-title">' + esc(s.name || "Sprint") + "</h1>";
+        html += '<div class="nexus-card nexus-section-spacing">';
+        html += '<div id="sprint-detail-view">';
+        html += '<h1 class="nexus-page-title">' + esc(s.name || "Sprint") + "</h1>";
         html += "<p class=\"nexus-text-secondary\">Estado: <span class=\"" + window.nexusBadgeClass(s.status) + "\">" + esc(s.status || "") + "</span></p>";
         html += "<p class=\"nexus-text-sm\">Inicio: " + (s.start_date || "—") + " · Fin: " + (s.end_date || "—") + "</p>";
         if (isMaster && s.status !== "CLOSED") html += '<button class="btn btn-nexus-primary btn-sm me-2" id="sprint-close-btn">Cerrar sprint</button>';
-        html += ' <a href="#/sprints' + (s.project_id ? '?project=' + s.project_id : '') + '" class="btn btn-nexus-secondary btn-sm">Volver</a></div>';
-        var stories = (s.user_stories || s.stories || []);
-        if (stories.length) {
-          html += '<div class="nexus-panel"><h2 class="nexus-font-semibold nexus-text-primary mb-3">Stories asignadas</h2><div class="table-responsive"><table class="table table-sm nexus-table"><thead><tr><th>Título</th><th>Estado</th><th>Asignado</th></tr></thead><tbody>';
-          stories.forEach(function (st) { html += "<tr><td>" + esc(st.title || st.id) + "</td><td><span class=\"" + window.nexusBadgeClass(st.status) + "\">" + esc(st.status || "") + "</span></td><td>" + (st.assignee ? esc(st.assignee.email || st.assigned_to) : "—") + "</td></tr>"; });
-          html += "</tbody></table></div></div>";
+        if (isMaster && s.status !== "CLOSED") html += '<button class="btn btn-nexus-secondary btn-sm me-2" id="sprint-edit-btn">Editar</button>';
+        html += ' <a href="#/sprints' + (s.project_id ? '?project=' + s.project_id : '') + '" class="btn btn-nexus-secondary btn-sm" aria-label="Volver al listado de sprints">Volver</a>';
+        html += "</div>";
+        html += '<div id="sprint-detail-edit" class="d-none">';
+        html += '<h2 class="nexus-font-semibold nexus-text-primary mb-3">Editar sprint</h2>';
+        html += '<div class="mb-3"><label class="form-label">Nombre</label><input type="text" id="sprint-edit-name" class="form-control" value="' + esc(s.name || "") + '" placeholder="Nombre del sprint"></div>';
+        html += '<div class="mb-3"><label class="form-label">Fecha de inicio</label><input type="date" id="sprint-edit-start" class="form-control" value="' + esc(s.start_date || "") + '" aria-label="Fecha de inicio"></div>';
+        html += '<div class="mb-3"><label class="form-label">Fecha fin</label><input type="date" id="sprint-edit-end" class="form-control" value="' + esc(s.end_date || "") + '" aria-label="Fecha fin"></div>';
+        html += '<div id="sprint-edit-error" class="alert alert-danger d-none mb-3"></div>';
+        html += '<button class="btn btn-nexus-primary btn-sm me-2" id="sprint-edit-submit">Guardar</button>';
+        html += '<button class="btn btn-nexus-secondary btn-sm" id="sprint-edit-cancel">Cancelar</button>';
+        html += "</div></div>";
+        html += '<div class="nexus-panel"><h2 class="nexus-font-semibold nexus-text-primary mb-3">Stories del sprint</h2>';
+        if (s.status !== "CLOSED" && s.project_id) {
+          html += '<div class="mb-3"><label class="form-label nexus-text-sm">Asignar story al sprint</label><div class="d-flex gap-2 align-items-center flex-wrap"><select id="sprint-add-story-select" class="form-select form-select-sm nexus-input" style="max-width:320px" aria-label="Story a asignar"><option value="">— Seleccionar story —</option></select><button type="button" class="btn btn-nexus-primary btn-sm" id="sprint-add-story-btn">Asignar</button></div><div id="sprint-stories-msg" class="nexus-text-sm text-muted mt-1"></div></div>';
         }
+        html += '<div class="table-responsive"><table class="table table-sm nexus-table"><thead><tr><th>Título</th><th>Estado</th><th>Asignado</th>' + (s.status !== "CLOSED" ? "<th>Acciones</th>" : "") + '</tr></thead><tbody>';
+        if (stories.length === 0) {
+          html += "<tr><td colspan=\"" + (s.status !== "CLOSED" ? "4" : "3") + "\" class=\"text-muted text-center py-4\">No hay stories en este sprint.</td></tr>";
+        } else {
+          stories.forEach(function (st) {
+            var storyId = st.id || "";
+            var titleCell = storyId ? '<a href="#/stories?story=' + encodeURIComponent(storyId) + '">' + esc(st.title || st.id) + '</a>' : esc(st.title || st.id);
+            html += "<tr data-story-id=\"" + esc(storyId) + "\"><td>" + titleCell + "</td><td><span class=\"" + window.nexusBadgeClass(st.status) + "\">" + esc(st.status || "") + "</span></td><td>" + (st.assignee ? esc(st.assignee.email || st.assigned_to) : "—") + "</td>";
+            if (s.status !== "CLOSED") html += '<td><button type="button" class="btn btn-outline-danger btn-sm sprint-remove-story" data-story-id="' + esc(storyId) + '">Quitar del sprint</button></td>';
+            html += "</tr>";
+          });
+        }
+        html += "</tbody></table></div></div>";
         window.setContent(html);
+        if (s.status !== "CLOSED" && s.project_id) {
+          var addSelect = document.getElementById("sprint-add-story-select");
+          var addBtn = document.getElementById("sprint-add-story-btn");
+          var msgEl = document.getElementById("sprint-stories-msg");
+          var sprintStoryIds = {};
+          stories.forEach(function (st) { sprintStoryIds[st.id] = true; });
+          var featuresRes = await window.fetchApi("/projects/" + s.project_id + "/features?limit=30");
+          var features = (featuresRes && featuresRes.success && featuresRes.data && (featuresRes.data.items || featuresRes.data.data || featuresRes.data)) ? (featuresRes.data.items || featuresRes.data.data || featuresRes.data) : [];
+          if (!Array.isArray(features)) features = [];
+          var allStories = [];
+          await Promise.all(features.slice(0, 15).map(function (f) {
+            return window.fetchApi("/features/" + (f.id || f) + "/stories?limit=50").then(function (r) {
+              if (r && r.success && r.data) {
+                var list = r.data.data || r.data.items || r.data || [];
+                if (!Array.isArray(list)) return;
+                list.forEach(function (story) { if (!sprintStoryIds[story.id]) allStories.push(story); });
+              }
+            });
+          }));
+          allStories.forEach(function (story) {
+            var opt = document.createElement("option");
+            opt.value = story.id;
+            opt.textContent = (story.title || story.id || "").slice(0, 60);
+            if (addSelect) addSelect.appendChild(opt);
+          });
+          if (msgEl) msgEl.textContent = allStories.length ? "Stories del proyecto que no están en este sprint." : "No hay stories disponibles para asignar (todas están ya en el sprint o no hay stories en el proyecto).";
+          if (addBtn && addSelect) addBtn.onclick = function () {
+            var storyId = addSelect.value;
+            if (!storyId) return;
+            addBtn.disabled = true;
+            window.fetchApi("/sprints/" + s.id + "/stories/" + storyId, { method: "POST", body: JSON.stringify({}) }).then(function (r) {
+              if (r && r.success) loadSprintDetail(s.id);
+              else { window.openNexusAlertModal({ title: "Error", message: (r && r.error && r.error.message) || "Error al asignar." }); addBtn.disabled = false; }
+            });
+          };
+        }
+        document.querySelectorAll("#content .sprint-remove-story").forEach(function (btn) {
+          btn.onclick = function () {
+            var storyId = btn.getAttribute("data-story-id");
+            if (!storyId) return;
+            window.openNexusConfirmModal({ title: "Quitar del sprint", message: "¿Quitar esta story del sprint?", primaryLabel: "Quitar", primaryDanger: true }, function (closeModal, showError) {
+              window.fetchApi("/sprints/" + s.id + "/stories/" + storyId, { method: "DELETE" }).then(function (r) {
+                if (r && r.success) { closeModal(); loadSprintDetail(s.id); }
+                else showError((r && r.error && r.error.message) || "Error.");
+              });
+            });
+          };
+        });
         var closeBtn = document.getElementById("sprint-close-btn");
         if (closeBtn) closeBtn.onclick = function () {
-          window.fetchApi("/sprints/" + s.id + "/close", { method: "PATCH", body: JSON.stringify({}) }).then(function (r) {
+          window.fetchApi("/sprints/" + s.id + "/status", { method: "PATCH", body: JSON.stringify({ status: "CLOSED" }) }).then(function (r) {
             if (r && r.success) loadSprintDetail(s.id);
             else window.openNexusAlertModal({ title: "Error", message: (r && r.error && r.error.message) || "Error." });
+          });
+        };
+        var editBtn = document.getElementById("sprint-edit-btn");
+        if (editBtn) editBtn.onclick = function () {
+          document.getElementById("sprint-detail-view").classList.add("d-none");
+          document.getElementById("sprint-detail-edit").classList.remove("d-none");
+          var nameEl = document.getElementById("sprint-edit-name");
+          var startEl = document.getElementById("sprint-edit-start");
+          var endEl = document.getElementById("sprint-edit-end");
+          if (nameEl) nameEl.value = s.name || "";
+          if (startEl) startEl.value = s.start_date || "";
+          if (endEl) endEl.value = s.end_date || "";
+        };
+        var editCancel = document.getElementById("sprint-edit-cancel");
+        if (editCancel) editCancel.onclick = function () {
+          document.getElementById("sprint-detail-edit").classList.add("d-none");
+          document.getElementById("sprint-detail-view").classList.remove("d-none");
+        };
+        var editSubmit = document.getElementById("sprint-edit-submit");
+        if (editSubmit) editSubmit.onclick = function () {
+          var nameEl = document.getElementById("sprint-edit-name");
+          var startEl = document.getElementById("sprint-edit-start");
+          var endEl = document.getElementById("sprint-edit-end");
+          var errEl = document.getElementById("sprint-edit-error");
+          var name = (nameEl && nameEl.value || "").trim();
+          var startDate = startEl && startEl.value ? startEl.value : null;
+          var endDate = endEl && endEl.value ? endEl.value : null;
+          errEl.classList.add("d-none");
+          if (!name) { errEl.textContent = "El nombre es obligatorio."; errEl.classList.remove("d-none"); return; }
+          if (startDate && endDate && endDate < startDate) { errEl.textContent = "La fecha fin no puede ser anterior a la fecha de inicio."; errEl.classList.remove("d-none"); return; }
+          var payload = { name: name };
+          if (startDate !== undefined) payload.start_date = startDate || null;
+          if (endDate !== undefined) payload.end_date = endDate || null;
+          window.fetchApi("/sprints/" + s.id, { method: "PATCH", body: JSON.stringify(payload) }).then(function (r) {
+            if (r && r.success) { loadSprintDetail(s.id); }
+            else { errEl.textContent = (r && r.error && r.error.message) || "Error al guardar."; errEl.classList.remove("d-none"); }
           });
         };
       }
@@ -159,7 +273,10 @@
               (s.start_date || "—"),
               (s.end_date || "—"),
               "<span class=\"" + window.nexusBadgeClass(s.status) + "\">" + esc(s.status || "") + "</span>",
-              window.renderTableActions({ view: { href: "#/sprints/" + s.id } })
+              window.renderTableActions({
+                view: { href: "#/sprints/" + s.id },
+                delete: isMaster && s.status === "PLANNED" ? { id: s.id, className: "btn-delete-sprint" } : null
+              })
             ];
           }
         });
@@ -303,6 +420,23 @@
       document.querySelectorAll("#content [data-sort]").forEach(function (a) {
         a.onclick = function (e) { e.preventDefault(); setSort(a.getAttribute("data-sort")); };
       });
+      document.querySelectorAll("#content .btn-delete-sprint").forEach(function (a) {
+        a.onclick = function (e) {
+          e.preventDefault();
+          var id = a.getAttribute("data-id");
+          window.openNexusConfirmModal({
+            title: "Eliminar sprint",
+            message: "¿Está seguro de eliminar este sprint? Las stories asignadas quedarán sin sprint.",
+            primaryLabel: "Eliminar",
+            primaryDanger: true
+          }, function (closeModal, showError) {
+            window.fetchApi("/sprints/" + id, { method: "DELETE" }).then(function (r) {
+              if (r && r.success) { closeModal(); load(); }
+              else showError((r && r.error && r.error.message) || "Error al eliminar.");
+            });
+          });
+        };
+      });
       var btn = document.getElementById("sprints-btn-new");
       if (btn) btn.onclick = function (e) {
         e.preventDefault();
@@ -310,13 +444,24 @@
           window.openNexusAlertModal({ title: "Nuevo sprint", message: "Seleccione un proyecto." });
           return;
         }
-        var bodyHtml = '<div class="mb-3"><label class="form-label">Nombre del sprint</label><input type="text" id="sprint-form-name" class="form-control" placeholder="Nombre del sprint" required></div><div id="sprint-form-error" class="alert alert-danger d-none"></div>';
+        var bodyHtml = '<div class="mb-3"><label class="form-label">Nombre del sprint</label><input type="text" id="sprint-form-name" class="form-control" placeholder="Nombre del sprint" required></div>';
+        bodyHtml += '<div class="mb-3"><label class="form-label">Fecha de inicio</label><input type="date" id="sprint-form-start" class="form-control" aria-label="Fecha de inicio"></div>';
+        bodyHtml += '<div class="mb-3"><label class="form-label">Fecha fin</label><input type="date" id="sprint-form-end" class="form-control" aria-label="Fecha fin"></div>';
+        bodyHtml += '<div id="sprint-form-error" class="alert alert-danger d-none"></div>';
         window.openNexusFormModal({ id: "sprintNewModal", title: "Nuevo sprint", bodyHtml: bodyHtml, primaryButtonId: "sprint-form-submit", primaryLabel: "Crear" }, function (bsModal) {
           var name = (document.getElementById("sprint-form-name").value || "").trim();
+          var startInput = document.getElementById("sprint-form-start");
+          var endInput = document.getElementById("sprint-form-end");
+          var startDate = startInput && startInput.value ? startInput.value : null;
+          var endDate = endInput && endInput.value ? endInput.value : null;
           var errEl = document.getElementById("sprint-form-error");
           errEl.classList.add("d-none");
           if (!name) { errEl.textContent = "El nombre es obligatorio."; errEl.classList.remove("d-none"); return; }
-          window.fetchApi("/projects/" + state.projectId + "/sprints", { method: "POST", body: JSON.stringify({ name: name, goal: "" }) }).then(function (r) {
+          if (startDate && endDate && endDate < startDate) { errEl.textContent = "La fecha fin no puede ser anterior a la fecha de inicio."; errEl.classList.remove("d-none"); return; }
+          var payload = { name: name, goal: "" };
+          if (startDate) payload.start_date = startDate;
+          if (endDate) payload.end_date = endDate;
+          window.fetchApi("/projects/" + state.projectId + "/sprints", { method: "POST", body: JSON.stringify(payload) }).then(function (r) {
             if (r && r.success) { bsModal.hide(); load(); }
             else { errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); }
           });

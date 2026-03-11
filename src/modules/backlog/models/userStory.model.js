@@ -18,6 +18,10 @@ function defineUserStoryModel(sequelize) {
         type: DataTypes.UUID,
         allowNull: false
       },
+      number: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: false
+      },
       title: {
         type: DataTypes.STRING(500),
         allowNull: false

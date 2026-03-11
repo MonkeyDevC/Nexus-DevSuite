@@ -1,0 +1,24 @@
+feat: Sprints, Stories, Features y botón eliminar filtro reutilizable (12/03/2026)
+
+Sprints:
+- Filtros por estado y nombre en dropdowns de cabecera de tabla
+- Botón "Eliminar filtro" cuando hay filtros activos
+- Breadcrumbs en detalle con ruta completa y enlace a lista por proyecto
+
+Stories:
+- Asignación de sprint: fix carga (limit 50, dedup, proyecto desde feature)
+- Modal detalle: edición de criterios de aceptación (PATCH /stories/:id)
+- Limpieza de backdrop al cerrar modales
+- Nueva story: campo Sprint en formulario (sprint_id al crear)
+- Backend: PATCH /stories/:id con acceptance_criteria opcional
+
+Features:
+- Cant. stories calculado en backend (user_stories_count en listado)
+- Búsqueda por título en dropdown de columna "Título de feature"
+- Botón "Eliminar filtro" cuando hay búsqueda o filtro estado
+
+Punto único:
+- ux.js: renderClearFiltersButton({ show, id }) para tablas con filtros
+- Usado en Sprints y Features
+
+Otros: reports limit=50 sprints; limpieza backdrop en modales (ux.js)

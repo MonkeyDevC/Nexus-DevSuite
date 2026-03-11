@@ -47,10 +47,11 @@
         spanInitial.textContent = initial;
       }
     }
+    const isMaster = typeof window.nexusCanAccessMasterActions === "function" ? window.nexusCanAccessMasterActions(user) : (user && user.role === "MASTER");
+    // NEXUS-AUD-031: El enlace "Reportes" en el sidebar se muestra solo para rol MASTER. Si el PO decide que Reportes (resumen proyecto/sprint, actividad por usuario) sea visible para todos, cambiar a mostrar siempre; la sección "Auditoría" dentro de Reportes sigue restringida a MASTER.
     const navReports = document.getElementById("nav-reports");
-    if (navReports) navReports.style.display = user && user.role === "MASTER" ? "" : "none";
-    const isMaster = user && user.role === "MASTER";
-    ["nav-apps-users", "nav-apps-audit", "nav-apps-metrics"].forEach(function (id) {
+    if (navReports) navReports.style.display = isMaster ? "" : "none";
+    ["nav-apps-users", "nav-apps-audit", "nav-apps-metrics", "nav-apps-organization"].forEach(function (id) {
       const el = document.getElementById(id);
       if (el) el.style.display = isMaster ? "" : "none";
     });
@@ -70,16 +71,34 @@
         });
       });
     }
-    const btnNewProject = document.getElementById("btn-new-project");
-    if (btnNewProject && !btnNewProject._navBound) {
-      btnNewProject._navBound = true;
-      btnNewProject.addEventListener("click", function () { window.location.hash = "#/projects"; });
+    const btnSettings = document.getElementById("btn-settings");
+    if (btnSettings && !btnSettings._navBound) {
+      btnSettings._navBound = true;
+      btnSettings.addEventListener("click", function (e) { e.preventDefault(); window.location.hash = "#/settings"; });
     }
     var name = window.getViewName && window.getViewName();
     if (name) {
       document.querySelectorAll(".nexus-sidebar-link").forEach(function (a) {
         var view = a.getAttribute("data-view");
         a.classList.toggle("nexus-nav-item-active", view === name);
+      });
+    }
+    var footer = document.getElementById("app-footer");
+    var healthEl = document.getElementById("app-health-status");
+    if (footer) footer.style.display = "";
+    if (healthEl) {
+      healthEl.textContent = "API: …";
+      healthEl.classList.remove("text-success", "text-danger");
+      healthEl.classList.add("text-muted");
+      var base = window.APP_CONFIG && window.APP_CONFIG.API_BASE ? window.APP_CONFIG.API_BASE : "/api/v1";
+      var healthUrl = base + "/health";
+      fetch(healthUrl).then(function (r) {
+        if (healthEl) {
+          if (r.ok) { healthEl.textContent = "API: OK"; healthEl.classList.remove("text-muted", "text-danger"); healthEl.classList.add("text-success"); }
+          else { healthEl.textContent = "API: Error"; healthEl.classList.remove("text-muted", "text-success"); healthEl.classList.add("text-danger"); }
+        }
+      }).catch(function () {
+        if (healthEl) { healthEl.textContent = "API: Error"; healthEl.classList.remove("text-muted", "text-success"); healthEl.classList.add("text-danger"); }
       });
     }
   };
@@ -121,4 +140,46 @@
   window.showLoading = function () {
     return '<div class="text-center py-5"><div class="spinner-border"></div><p class="mt-2">Cargando...</p></div>';
   };
+
+  (function initTopbarSearch() {
+    function bind() {
+      var wrap = document.getElementById("nexus-topbar-search-wrap");
+      var input = document.getElementById("nexus-topbar-search-input");
+      var dropdown = document.getElementById("nexus-topbar-search-dropdown");
+      if (!wrap || !input || !dropdown || input._topbarSearchBound) return;
+      input._topbarSearchBound = true;
+
+      function show() {
+        dropdown.style.display = "block";
+        input.setAttribute("aria-expanded", "true");
+      }
+      function hide() {
+        dropdown.style.display = "none";
+        input.setAttribute("aria-expanded", "false");
+      }
+
+      input.addEventListener("focus", function () { show(); });
+      input.addEventListener("input", function () { show(); });
+      input.addEventListener("blur", function () {
+        setTimeout(function () {
+          if (dropdown && !dropdown.contains(document.activeElement) && document.activeElement !== input) hide();
+        }, 150);
+      });
+      dropdown.querySelectorAll("a.dropdown-item").forEach(function (a) {
+        a.addEventListener("mousedown", function (e) { e.preventDefault(); });
+        a.addEventListener("click", function (e) {
+          e.preventDefault();
+          if (this.getAttribute("href")) {
+            window.location.hash = this.getAttribute("href");
+            hide();
+          }
+        });
+      });
+      document.addEventListener("click", function (e) {
+        if (wrap && !wrap.contains(e.target)) hide();
+      });
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
+    else bind();
+  })();
 })();

@@ -9,15 +9,20 @@ const {
   getProjectController,
   listProjectsController,
   archiveProjectController,
+  updateProjectController,
+  deleteProjectController,
+  deleteProjectsBulkController,
   createFeatureController,
   listFeaturesController
 } = require("./backlog.controller");
 const {
   createProjectValidator,
+  updateProjectValidator,
   projectIdParamValidator,
   projectIdAsParamValidator,
   createFeatureValidator,
-  listQueryValidator
+  listQueryValidator,
+  bulkDeleteProjectsValidator
 } = require("./backlog.validator");
 const {
   createSprintController,
@@ -50,7 +55,16 @@ router.post("/:projectId/sprints", authenticateMiddleware, authorizeMiddleware("
 router.get("/:projectId/incidents", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), incidentProjectIdParamValidator, listIncidentsQueryValidator, listIncidentsController);
 router.post("/:projectId/incidents", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), incidentProjectIdParamValidator, createIncidentValidator, createIncidentController);
 router.get("/:id", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), projectIdParamValidator, getProjectController);
+router.patch("/:id", authenticateMiddleware, authorizeMiddleware("MASTER"), projectIdParamValidator, updateProjectValidator, updateProjectController);
 router.patch("/:id/archive", authenticateMiddleware, authorizeMiddleware("MASTER"), projectIdParamValidator, archiveProjectController);
+router.post(
+  "/bulk-delete",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER"),
+  bulkDeleteProjectsValidator,
+  deleteProjectsBulkController
+);
+router.delete("/:id", authenticateMiddleware, authorizeMiddleware("MASTER"), projectIdParamValidator, deleteProjectController);
 router.post(
   "/:projectId/features",
   authenticateMiddleware,

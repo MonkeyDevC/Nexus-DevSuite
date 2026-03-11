@@ -26,3 +26,13 @@ Cada plan es una guía detallada para ejecutar la etapa en su día asignado. Inc
 4. **Cierre:** Al terminar el día, cumplir el Paso final de “PO MASTER audita cierre” y actualizar docs/CHECKLIST_ETAPAS_PROYECTO.md.
 
 **Referencia general:** docs/CHECKLIST_ETAPAS_PROYECTO.md (Semana 2 — Etapas 18–22), docs/ENDPOINTS_API_Y_USO_FRONTEND.md.
+
+---
+
+## Plan de implementación derivado de auditoría
+
+El backlog de desarrollo puede derivarse de **auditorías funcionales** del PO. En ese caso, el orden de implementación se define en un plan específico:
+
+- **`docs/plans/PLAN_IMPLEMENTACION_AUDITORIA_FRONTEND_2026-03.md`** — Agrupación de tickets por módulo, orden lógico, dependencias y riesgos para la auditoría de frontend 2026-03.
+
+Véase `docs/process/WORKFLOW_DESARROLLO_AUDITORIA.md` para el flujo PO → Auditoría → Tickets → Implementación → QA.

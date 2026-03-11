@@ -49,10 +49,17 @@ async function countStoriesBySprintId(sprintId) {
   return UserStory.count({ where: { sprint_id: sprintId } });
 }
 
+async function remove(id) {
+  const Sprint = getSprintModel();
+  const n = await Sprint.destroy({ where: { id } });
+  return n > 0;
+}
+
 module.exports = {
   create,
   findById,
   list,
   update,
-  countStoriesBySprintId
+  countStoriesBySprintId,
+  remove
 };

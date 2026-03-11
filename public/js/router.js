@@ -10,7 +10,8 @@
 
   function getViewName() {
     const hash = window.location.hash.slice(1) || "/";
-    const path = hash.startsWith("/") ? hash : "/" + hash;
+    const pathOnly = hash.split("?")[0];
+    const path = pathOnly.startsWith("/") ? pathOnly : "/" + pathOnly;
     const segment = path.split("/")[1] || "dashboard";
     return segment === "login" ? "login" : segment;
   }
@@ -21,7 +22,9 @@
     return hash.startsWith("/") ? hash : "/" + hash;
   };
   window.getHashSegments = function () {
-    return window.getHashPath().split("/").filter(Boolean);
+    const pathOnly = (window.location.hash.slice(1) || "/").split("?")[0];
+    const path = pathOnly.startsWith("/") ? pathOnly : "/" + pathOnly;
+    return path.split("/").filter(Boolean);
   };
 
   async function showView() {
@@ -31,7 +34,7 @@
       return;
     }
     if (!window.requireAuth()) return;
-    if (name === "admin") {
+    if (name === "admin" || name === "settings") {
       var user = await window.getMe();
       if (!user || user.role !== "MASTER") {
         window.location.hash = "#/dashboard";

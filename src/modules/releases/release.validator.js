@@ -42,6 +42,13 @@ const hotfixValidator = [
   body("change_request_id").optional().isUUID()
 ];
 
+const bulkDeleteReleasesValidator = [
+  body("ids")
+    .isArray({ min: 1, max: 100 })
+    .withMessage("ids debe ser un array con entre 1 y 100 UUIDs"),
+  body("ids.*").isUUID().withMessage("Cada id debe ser un UUID válido")
+];
+
 module.exports = {
   createReleaseValidator,
   releaseIdParamValidator,
@@ -49,5 +56,6 @@ module.exports = {
   assignFeatureValidator,
   patchReleaseValidator,
   listReleasesQueryValidator,
-  hotfixValidator
+  hotfixValidator,
+  bulkDeleteReleasesValidator
 };

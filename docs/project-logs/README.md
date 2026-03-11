@@ -6,11 +6,18 @@ Este directorio contiene el **registro de cambios** en checklists y tareas, y lo
 
 ---
 
+## Backlog basado en auditorías
+
+Desde la introducción del flujo de **auditorías funcionales** por el PO, el **backlog de desarrollo inmediato** se origina a partir de los **tickets recomendados** en el documento de auditoría (p. ej. `docs/AUDITORIA_FUNCIONAL_FRONTEND_2026-03.md` o `docs/audits/AUDITORIA_FUNCIONAL_FRONTEND_YYYY-MM.md`). Los tickets se implementan según el plan de ejecución (p. ej. `docs/plans/PLAN_IMPLEMENTACION_AUDITORIA_FRONTEND_2026-03.md`) y **sin modificar la arquitectura existente**. Véase `docs/process/WORKFLOW_DESARROLLO_AUDITORIA.md`.
+
+---
+
 ## Archivos en este directorio
 
 | Archivo | Descripción |
 |---------|-------------|
 | `checklist-change-log.md` | Log de todos los cambios en archivos de checklist/tareas. Cada modificación debe añadir una entrada al final. |
+| `TICKETS_IMPLEMENTADOS.md` | Registro de trazabilidad de tickets derivados de la auditoría: Ticket ID, archivos modificados, endpoints utilizados, cambios funcionales. Se actualiza tras cada implementación (véase docs/process/PROTOCOLO_IMPLEMENTACION_TICKETS.md). |
 | `daily-dev-report-YYYY-MM-DD.md` | Reporte diario de desarrollo (uno por día y por desarrollador o equipo). Generar antes del commit/push al final de la jornada. |
 | `README.md` | Este archivo: instrucciones y convenciones. |
 

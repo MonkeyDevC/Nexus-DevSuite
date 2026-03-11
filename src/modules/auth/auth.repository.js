@@ -45,7 +45,7 @@ async function createAuditLog(payload) {
 async function findAllRoles() {
   const { Role } = getAuthModels();
   return Role.findAll({
-    attributes: ["id", "name"],
+    attributes: ["id", "name", "description"],
     order: [["name", "ASC"]]
   });
 }

@@ -161,6 +161,41 @@ async function updateSprintStatus(sprintId, nextStatus, context) {
   return plain;
 }
 
+async function updateSprint(sprintId, payload, context) {
+  const sprint = await sprintRepository.findById(sprintId);
+  if (!sprint) {
+    throw new AppError("Sprint no encontrado", {
+      statusCode: 404,
+      code: ERROR_CODES.SPRINT_NOT_FOUND
+    });
+  }
+  const project = await projectsRepository.findById(sprint.project_id);
+  if (project) featureService.ensureProjectInOrg(project, context.organizationId);
+  if (sprint.status === "CLOSED") {
+    throw new AppError("No se puede modificar un sprint cerrado", {
+      statusCode: 400,
+      code: ERROR_CODES.SPRINT_CLOSED
+    });
+  }
+  const updatePayload = {};
+  if (payload.name !== undefined && payload.name !== null && String(payload.name).trim() !== "") {
+    updatePayload.name = String(payload.name).trim();
+  }
+  if (payload.start_date !== undefined) updatePayload.start_date = payload.start_date || null;
+  if (payload.end_date !== undefined) updatePayload.end_date = payload.end_date || null;
+  const startDate = updatePayload.start_date !== undefined ? updatePayload.start_date : sprint.start_date;
+  const endDate = updatePayload.end_date !== undefined ? updatePayload.end_date : sprint.end_date;
+  if (startDate && endDate && endDate < startDate) {
+    throw new AppError("La fecha fin no puede ser anterior a la fecha de inicio", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  if (Object.keys(updatePayload).length === 0) return toPlain(sprint);
+  const updated = await sprintRepository.update(sprintId, updatePayload);
+  return toPlain(updated);
+}
+
 async function assignStoryToSprint(sprintId, storyId, context) {
   const sprint = await sprintRepository.findById(sprintId);
   if (!sprint) {
@@ -272,13 +307,43 @@ async function listStoriesBySprintId(sprintId, params = {}, organizationId) {
   };
 }
 
+async function deleteSprint(sprintId, context) {
+  const sprint = await sprintRepository.findById(sprintId);
+  if (!sprint) {
+    throw new AppError("Sprint no encontrado", {
+      statusCode: 404,
+      code: ERROR_CODES.SPRINT_NOT_FOUND
+    });
+  }
+  const project = await projectsRepository.findById(sprint.project_id);
+  if (project) featureService.ensureProjectInOrg(project, context.organizationId);
+  if (sprint.status !== "PLANNED") {
+    throw new AppError("Solo se puede eliminar un sprint en estado PLANNED", {
+      statusCode: 400,
+      code: ERROR_CODES.SPRINT_CANNOT_DELETE
+    });
+  }
+  await sprintRepository.remove(sprintId);
+  const auditCtx = ensureAuditContext(context);
+  await authRepository.createAuditLog({
+    ...auditCtx,
+    action: "SPRINT_DELETED",
+    entity: "SPRINT",
+    entity_id: sprintId,
+    metadata: { project_id: sprint.project_id, name: sprint.name }
+  });
+  return { deleted: true, id: sprintId };
+}
+
 module.exports = {
   createSprint,
   getSprintById,
   listSprints,
   updateSprintStatus,
+  updateSprint,
   assignStoryToSprint,
   unassignStoryFromSprint,
   listStoriesBySprintId,
+  deleteSprint,
   toPlain
 };

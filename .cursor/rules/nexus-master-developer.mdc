@@ -99,6 +99,18 @@ controller → service → repository
 
 ---
 
+## PRESENTACIÓN EN INTERFAZ (CARDS)
+
+Cada contenido desplegable en la interfaz debe presentarse en **cards** (tarjetas modales), de forma coherente con el design system del proyecto:
+
+- **Formularios** (alta/edición de entidades): en modal tipo card (p. ej. `nexus-manage-user-card`, `modal-dialog-centered`).
+- **Mensajes de confirmación** (eliminar, archivar, acciones destructivas): en card con título, texto de confirmación y botones Cancelar / Confirmar (no usar `confirm()` nativo del navegador).
+- **Diálogos y ventanas flotantes**: mismo estilo de card para mantener consistencia visual.
+
+Referencia en el frontend: `buildNexusFormCardModal` y modales de confirmación que reutilizan la clase `nexus-manage-user-card`.
+
+---
+
 ## PROTOCOLO DE IMPLEMENTACIÓN
 
 Cuando el PO MASTER entregue un plan de implementación, el MASTER DEVELOPER debe seguir el siguiente proceso:

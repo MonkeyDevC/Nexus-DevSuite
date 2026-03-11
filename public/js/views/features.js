@@ -11,6 +11,12 @@
     const projects = (projectsRes && projectsRes.success && projectsRes.data && projectsRes.data.items) ? projectsRes.data.items : [];
     var match = window.location.hash.match(/[?&]project=([^&]+)/);
     var projectParam = match ? decodeURIComponent(match[1]) : (window.getHashSegments()[1] || "");
+    if (projectParam && !match) {
+      try {
+        var featCheck = await window.fetchApi("/features/" + projectParam);
+        if (featCheck && featCheck.success && featCheck.data && featCheck.data.project_id) projectParam = featCheck.data.project_id;
+      } catch (e) {}
+    }
 
     var state = { projectId: projectParam || "", page: 1, limit: 10, statusFilter: [], search: "", sort: "title", dir: "asc" };
     var currentMeta = null;
@@ -46,6 +52,7 @@
       html += '<div class="nexus-panel nexus-section-spacing">';
       var hasFilter = !!(state.search || (state.statusFilter && state.statusFilter.length > 0 && state.statusFilter.length < 5));
       html += '<div class="d-flex flex-wrap gap-2 align-items-end mb-2">';
+      html += (typeof window.renderPageSizeSelector === "function" ? window.renderPageSizeSelector({ selectId: "feat-per-page", currentLimit: state.limit, options: [10, 25, 50] }) : "");
       html += '<label class="mb-0 nexus-text-sm">Proyecto</label>';
       html += '<select class="form-select form-select-sm nexus-input" id="sel-project" style="max-width:320px" aria-label="Proyecto"><option value="">Seleccionar proyecto</option>';
       projects.forEach(function (p) {
@@ -102,6 +109,7 @@
         html += window.renderNexusTable({
           columns: [
             { headerHtml: tituloHeaderHtml },
+            { label: "Descripción de la feature" },
             { headerHtml: estadoHeaderHtml },
             { label: "Cant. stories" },
             { label: "Acciones" }
@@ -110,9 +118,19 @@
           sortState: { sort: state.sort, dir: state.dir },
           rowRenderer: function (f) {
             var count = f.user_stories_count != null ? f.user_stories_count : (f.stories_count != null ? f.stories_count : "—");
+            var desc = (f.description || "").trim();
+            var descShort = desc.length > 80 ? desc.slice(0, 77) + "…" : desc;
+            var descCell = desc ? ('<span class="nexus-text-sm" title="' + esc(desc) + '">' + esc(descShort || "—") + "</span>") : "—";
+            var featStatuses = ["DRAFT", "APPROVED", "IN_PROGRESS", "DONE", "ARCHIVED"];
+            var statusSelect = '<select class="form-select form-select-sm feat-status-select nexus-input" data-feature-id="' + esc(f.id) + '" style="max-width:140px" aria-label="Estado">';
+            featStatuses.forEach(function (st) {
+              statusSelect += '<option value="' + esc(st) + '"' + (f.status === st ? ' selected' : '') + '>' + esc(st) + '</option>';
+            });
+            statusSelect += '</select>';
             return [
               '<a href="#/stories?feature=' + f.id + (state.projectId ? '&project=' + state.projectId : '') + '">' + esc(f.title || f.id) + "</a>",
-              "<span class=\"" + window.nexusBadgeClass(f.status) + "\">" + esc(f.status || "") + "</span>",
+              descCell,
+              statusSelect,
               String(count),
               window.renderTableActions({ view: { href: "#/stories?feature=" + f.id + (state.projectId ? "&project=" + state.projectId : ""), label: "Stories" } })
             ];
@@ -164,6 +182,8 @@
     }
 
     function bindFeatures() {
+      var perPageEl = document.getElementById("feat-per-page");
+      if (perPageEl) perPageEl.onchange = function () { state.limit = parseInt(perPageEl.value, 10) || 10; state.page = 1; loadFeatures(); };
       var sel = document.getElementById("sel-project");
       if (sel) {
         sel.value = state.projectId;
@@ -267,6 +287,23 @@
       document.querySelectorAll("#content [data-sort]").forEach(function (a) {
         a.onclick = function (e) { e.preventDefault(); setSort(a.getAttribute("data-sort")); };
       });
+      document.querySelectorAll("#content .feat-status-select").forEach(function (sel) {
+        sel.onchange = function () {
+          var featureId = sel.getAttribute("data-feature-id");
+          var status = (sel.value || "").trim();
+          if (!featureId || !status) return;
+          var prevVal = sel.dataset.prevStatus;
+          sel.disabled = true;
+          window.fetchApi("/features/" + featureId + "/status", { method: "PATCH", body: JSON.stringify({ status: status }) }).then(function (r) {
+            sel.disabled = false;
+            if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Estado actualizado correctamente."); sel.dataset.prevStatus = status; refreshFromCurrent(); }
+            else {
+              if (prevVal) sel.value = prevVal;
+              window.openNexusAlertModal({ title: "Error", message: (r && r.error && r.error.message) || "Error al cambiar estado." });
+            }
+          });
+        };
+      });
       var btnNew = document.getElementById("feat-btn-new");
       if (btnNew) btnNew.onclick = function (e) {
         e.preventDefault();
@@ -284,7 +321,7 @@
           if (!title) { errEl.textContent = "El título es obligatorio."; errEl.classList.remove("d-none"); return; }
           if (!desc) { errEl.textContent = "La descripción es obligatoria."; errEl.classList.remove("d-none"); return; }
           window.fetchApi("/projects/" + state.projectId + "/features", { method: "POST", body: JSON.stringify({ title: title, description: desc }) }).then(function (r) {
-            if (r && r.success) { bsModal.hide(); loadFeatures(); }
+            if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Feature creada correctamente."); bsModal.hide(); loadFeatures(); }
             else { errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); }
           });
         });

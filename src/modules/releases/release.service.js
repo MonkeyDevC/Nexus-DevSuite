@@ -325,6 +325,59 @@ async function createHotfixFromRelease(releaseId, context) {
   return toPlain(created);
 }
 
+async function deleteRelease(id, organizationId) {
+  const release = await releaseRepository.findById(id);
+  if (!release) {
+    throw new AppError("Release no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.RELEASE_NOT_FOUND
+    });
+  }
+  if (organizationId != null && release.organization_id !== organizationId) {
+    throw new AppError("No tiene acceso a esta release", {
+      statusCode: 403,
+      code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
+    });
+  }
+  await featureRepository.updateReleaseIdToNull(id);
+  await releaseRepository.deleteById(id);
+  return { id: release.id, deleted: true };
+}
+
+async function deleteReleasesBulk(ids, organizationId) {
+  if (!ids || ids.length === 0) {
+    throw new AppError("Se requiere al menos un id de release", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  const uniqueIds = [...new Set(ids.map((id) => String(id)))];
+  const releases = await Promise.all(uniqueIds.map((id) => releaseRepository.findById(id)));
+  const notFound = uniqueIds.filter((id, i) => !releases[i]);
+  if (notFound.length > 0) {
+    throw new AppError("Release(s) no encontrada(s): " + notFound.join(", "), {
+      statusCode: 404,
+      code: ERROR_CODES.RELEASE_NOT_FOUND
+    });
+  }
+  if (organizationId != null) {
+    const forbidden = releases.filter((r) => r && r.organization_id !== organizationId);
+    if (forbidden.length > 0) {
+      throw new AppError("No tiene acceso a una o más releases", {
+        statusCode: 403,
+        code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
+      });
+    }
+  }
+  for (const id of uniqueIds) {
+    await featureRepository.updateReleaseIdToNull(id);
+  }
+  for (const id of uniqueIds) {
+    await releaseRepository.deleteById(id);
+  }
+  return { deleted: uniqueIds.length, ids: uniqueIds };
+}
+
 module.exports = {
   createRelease,
   getReleaseById,
@@ -333,6 +386,8 @@ module.exports = {
   assignFeatureToRelease,
   updateReleaseDescription,
   createHotfixFromRelease,
+  deleteRelease,
+  deleteReleasesBulk,
   rejectVersionInPayload,
   toPlain
 };

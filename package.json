@@ -19,6 +19,7 @@
     "db:migrate:undo": "sequelize-cli db:migrate:undo:all",
     "db:seed": "sequelize-cli db:seed:all",
     "db:seed:undo": "sequelize-cli db:seed:undo:all",
+    "db:clean": "node scripts/clean-dummy-data.js",
     "create-master-user": "node scripts/create-master-user.js"
   },
   "keywords": [

@@ -98,6 +98,27 @@ async function createHotfixController(req, res, next) {
   }
 }
 
+async function deleteReleaseController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const data = await releaseService.deleteRelease(req.params.id, req.organizationId);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function deleteReleasesBulkController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const ids = req.body.ids || [];
+    const data = await releaseService.deleteReleasesBulk(ids, req.organizationId);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 module.exports = {
   createReleaseController,
   getReleaseController,
@@ -105,5 +126,7 @@ module.exports = {
   patchReleaseStatusController,
   assignFeatureController,
   patchReleaseController,
-  createHotfixController
+  createHotfixController,
+  deleteReleaseController,
+  deleteReleasesBulkController
 };

@@ -1,30 +1,9 @@
 /**
  * Panel Administrativo — Solo MASTER. #/admin (dashboard), #/admin/users, #/admin/audit, #/admin/metrics.
- * Guard en router; menú Admin en layout. GET/POST/PUT/DELETE /users, PATCH /users/:id/password, GET /reports/audit, GET /system/metrics.
  * openManageUserModal(userId, onSaved) expuesto en window para abrir la card desde el menú de usuario (Editar usuario).
- * buildNexusFormCardModal: punto único para desplegar formularios en tarjeta (mismo estilo que Edición de usuario).
+ * Formularios y confirmaciones usan buildNexusFormCardModal / openNexusConfirmModal en ux.js (punto único).
  */
 (function () {
-  /**
-   * Construye el HTML de un modal tipo "form card" (tarjeta centrada, bordes redondeados, sombra).
-   * @param {Object} opts - { id, title, bodyHtml, primaryButtonId, primaryLabel }
-   * @returns {string} HTML del modal completo
-   */
-  function buildNexusFormCardModal(opts) {
-    var id = opts.id || "nexusFormCardModal";
-    var title = opts.title || "";
-    var bodyHtml = opts.bodyHtml || "";
-    var primaryId = opts.primaryButtonId || "nexus-form-card-submit";
-    var primaryLabel = opts.primaryLabel || "Guardar";
-    var html = '<div class="modal fade nexus-modal-manage-user" id="' + id + '" tabindex="-1" aria-labelledby="' + id + 'Label" aria-hidden="true">';
-    html += '<div class="modal-dialog modal-dialog-centered"><div class="nexus-manage-user-card modal-content">';
-    html += '<div class="modal-header border-0 pb-0"><h5 class="modal-title nexus-manage-user-title" id="' + id + 'Label">' + title + '</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>';
-    html += '<div class="modal-body pt-2">' + bodyHtml + '</div>';
-    html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-nexus-primary" id="' + primaryId + '">' + primaryLabel + '</button></div>';
-    html += "</div></div></div>";
-    return html;
-  }
-
   function openManageUserModal(userId, onSaved) {
     var bodyHtml = '<div class="d-flex flex-column align-items-center mb-4">';
     bodyHtml += '<div class="nexus-manage-user-avatar-wrap" id="admin-manage-user-avatar"><span class="nexus-manage-user-initials" id="admin-manage-user-initials">—</span></div>';
@@ -43,7 +22,7 @@
     bodyHtml += '<span class="input-group-text nexus-manage-user-pencil" title="Cambiar contraseña" id="admin-manage-user-pwd-edit" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span></div></div>';
     bodyHtml += '<div class="mb-3 d-none" id="admin-manage-user-pwd-fields"><label class="form-label">Nueva contraseña (mín. 8 caracteres)</label><input type="password" id="admin-manage-user-new-pwd" class="form-control" placeholder="Nueva contraseña"></div>';
     bodyHtml += '<div id="admin-manage-user-error" class="alert alert-danger d-none"></div>';
-    var modalHtml = buildNexusFormCardModal({
+    var modalHtml = window.buildNexusFormCardModal({
       id: "adminManageUserModal",
       title: "Edición de usuario",
       bodyHtml: bodyHtml,
@@ -235,12 +214,18 @@
     html += '<div class="col-md-4"><div class="nexus-card h-100"><div class="nexus-font-semibold nexus-text-primary mb-2">Usuarios</div><p class="nexus-text-secondary nexus-text-sm">Gestionar usuarios, roles y contraseñas.</p><a href="#/admin/users" class="btn btn-nexus-primary btn-sm">Abrir</a></div></div>';
     html += '<div class="col-md-4"><div class="nexus-card h-100"><div class="nexus-font-semibold nexus-text-primary mb-2">Registro de auditoría</div><p class="nexus-text-secondary nexus-text-sm">Ver registro de auditoría con filtros.</p><a href="#/admin/audit" class="btn btn-nexus-primary btn-sm">Abrir</a></div></div>';
     html += '<div class="col-md-4"><div class="nexus-card h-100"><div class="nexus-font-semibold nexus-text-primary mb-2">Métricas</div><p class="nexus-text-secondary nexus-text-sm">Métricas de la instancia del sistema.</p><a href="#/admin/metrics" class="btn btn-nexus-primary btn-sm">Abrir</a></div></div>';
+    html += '<div class="col-md-4"><div class="nexus-card h-100"><div class="nexus-font-semibold nexus-text-primary mb-2">Organización</div><p class="nexus-text-secondary nexus-text-sm">Ver y editar datos de la organización actual.</p><a href="#/admin/organization" class="btn btn-nexus-primary btn-sm">Abrir</a></div></div>';
     html += "</div>";
     return html;
   }
 
   window.registerView("admin", async function () {
     await window.showNav();
+    var user = await window.getMe();
+    if (typeof window.nexusCanAccessMasterActions === "function" && !window.nexusCanAccessMasterActions(user)) {
+      window.setContent(window.showError("No tiene permisos para acceder a Administración. Solo usuarios con rol MASTER pueden ver esta sección."));
+      return;
+    }
     var segs = window.getHashSegments();
     var sub = segs[1]; // "users" | "audit" | "metrics" | undefined (dashboard)
     if (!sub || sub === "dashboard") {
@@ -262,8 +247,69 @@
       await renderAdminMetrics();
       return;
     }
+    if (sub === "organization") {
+      window.setContent(window.showLoading());
+      await renderAdminOrganization();
+      return;
+    }
     window.setContent(renderDashboard());
   });
+
+  async function renderAdminOrganization() {
+    var body = await window.fetchApi("/organizations/current");
+    if (!body || !body.success || !body.data) {
+      window.setContent(window.showError(body && body.error && body.error.message || "No se pudo cargar la organización."));
+      return;
+    }
+    var org = body.data;
+    var user = await window.getMe();
+    var isMaster = user && user.role === "MASTER";
+    function esc(s) { if (s == null) return ""; var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+    var html = renderBreadcrumb("Organización");
+    html += '<h1 class="nexus-page-title">Organización</h1>';
+    html += '<div class="nexus-panel nexus-section-spacing">';
+    html += "<p class=\"nexus-text-secondary\">Nombre: <strong>" + esc(org.name || "—") + "</strong></p>";
+    html += "<p class=\"nexus-text-sm\">Slug: " + esc(org.slug || "—") + "</p>";
+    if (isMaster) {
+      html += '<hr><h2 class="nexus-font-semibold nexus-text-primary mb-3">Editar (MASTER)</h2>';
+      html += '<div class="mb-3"><label class="form-label">Nombre <span class="text-danger">*</span></label><input type="text" id="org-edit-name" class="form-control" value="' + esc(org.name || "") + '" placeholder="Nombre de la organización" required maxlength="255"></div>';
+      html += '<div class="mb-3"><label class="form-label">Plan</label><input type="text" id="org-edit-plan" class="form-control" value="' + esc(org.plan || "") + '" placeholder="Plan (ej. free, pro)" maxlength="50"></div>';
+      html += '<div class="mb-3"><label class="form-label">Email de facturación</label><input type="email" id="org-edit-billing" class="form-control" value="' + esc(org.billing_email || "") + '" placeholder="billing@ejemplo.com"></div>';
+      html += '<div class="mb-3"><label class="form-label">Próxima fecha de facturación (YYYY-MM-DD)</label><input type="text" id="org-edit-next-billing" class="form-control" value="' + esc(org.next_billing_date || "") + '" placeholder="YYYY-MM-DD"></div>';
+      html += '<div id="org-edit-error" class="alert alert-danger d-none mb-3"></div>';
+      html += '<button type="button" class="btn btn-nexus-primary btn-sm" id="org-edit-save">Guardar cambios</button>';
+    } else {
+      html += "<p class=\"nexus-text-sm\">Plan: " + esc(org.plan || "—") + "</p>";
+      html += "<p class=\"nexus-text-sm\">Email facturación: " + esc(org.billing_email || "—") + "</p>";
+    }
+    html += "</div>";
+    window.setContent(html);
+    if (isMaster) {
+      var saveBtn = document.getElementById("org-edit-save");
+      var errEl = document.getElementById("org-edit-error");
+      if (saveBtn) saveBtn.onclick = function () {
+        var name = (document.getElementById("org-edit-name") && document.getElementById("org-edit-name").value || "").trim();
+        var plan = (document.getElementById("org-edit-plan") && document.getElementById("org-edit-plan").value || "").trim();
+        var billing = (document.getElementById("org-edit-billing") && document.getElementById("org-edit-billing").value || "").trim();
+        var nextBilling = (document.getElementById("org-edit-next-billing") && document.getElementById("org-edit-next-billing").value || "").trim();
+        errEl.classList.add("d-none");
+        if (!name) {
+          errEl.textContent = "El nombre de la organización es obligatorio.";
+          errEl.classList.remove("d-none");
+          return;
+        }
+        var payload = { name: name, plan: plan || undefined, billing_email: billing || undefined, next_billing_date: nextBilling || undefined };
+        window.fetchApi("/organizations/" + org.id, { method: "PATCH", body: JSON.stringify(payload) }).then(function (r) {
+          if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Cambios guardados correctamente."); renderAdminOrganization(); }
+          else {
+            if (typeof window.showApiError === "function") window.showApiError(r);
+            errEl.textContent = (r && r.error && r.error.message) || "Error al guardar.";
+            errEl.classList.remove("d-none");
+          }
+        });
+      };
+    }
+  }
 
   async function renderAdminUsers() {
     var state = { page: 1, limit: 10, email: "", role_id: "", sort: "email", dir: "asc" };
@@ -295,13 +341,31 @@
       if (!items || items.length === 0) {
         html += '<div class="nexus-empty-state"><p class="nexus-empty-state-title">No hay usuarios</p><p class="nexus-text-secondary">No hay usuarios o no hay resultados para el filtro.</p></div>';
       } else {
-        html += '<div class="table-responsive" id="admin-users-table"><table class="table table-sm nexus-table"><thead><tr>';
-        html += window.sortableTh("Email", "email", state.sort, state.dir, setSort) + "<th scope=\"col\">Rol</th>" + window.sortableTh("Estado", "is_active", state.sort, state.dir, setSort) + "<th scope=\"col\">Acciones</th></tr></thead><tbody>";
-        items.forEach(function (u) {
-          var roleName = (u.role && u.role.name) || (u.role_id ? "Rol" : "—");
-          html += "<tr><td>" + (u.email || "") + "</td><td>" + roleName + "</td><td>" + (u.is_active ? "Activo" : "Inactivo") + "</td><td><button type=\"button\" class=\"btn btn-nexus-primary btn-sm me-1 admin-btn-manage\" data-id=\"" + u.id + "\">Gestionar usuario</button> <button type=\"button\" class=\"btn btn-link btn-sm p-0 admin-btn-edit\" data-id=\"" + u.id + "\">Editar</button> <button type=\"button\" class=\"btn btn-link btn-sm p-0 admin-btn-pwd\" data-id=\"" + u.id + "\">Contraseña</button> <button type=\"button\" class=\"btn btn-link btn-sm p-0 text-danger admin-btn-del\" data-id=\"" + u.id + "\">Eliminar</button></td></tr>";
+        html += window.renderNexusTable({
+          wrapperId: "admin-users-table",
+          columns: [
+            { label: "Email", sortKey: "email" },
+            { label: "Rol" },
+            { label: "Estado", sortKey: "is_active" },
+            { label: "Acciones" }
+          ],
+          items: items,
+          sortState: { sort: state.sort, dir: state.dir },
+          rowRenderer: function (u) {
+            var roleName = (u.role && u.role.name) || (u.role_id ? "Rol" : "—");
+            return [
+              (u.email || ""),
+              roleName,
+              (u.is_active ? "Activo" : "Inactivo"),
+              window.renderTableActions({
+                otherFirst: [ { id: u.id, label: "Gestionar usuario", className: "admin-btn-manage" } ],
+                edit: { id: u.id, className: "admin-btn-edit" },
+                other: [ { id: u.id, label: "Contraseña", className: "admin-btn-pwd" } ],
+                delete: { id: u.id, className: "admin-btn-del" }
+              })
+            ];
+          }
         });
-        html += "</tbody></table></div>";
         if (meta && meta.totalPages > 1) html += '<div id="admin-users-pagination" class="mt-2"></div>';
       }
       html += "</div>";
@@ -389,7 +453,7 @@
       bodyHtml += '<div class="mb-3" id="admin-user-form-pwd-wrap"><label class="form-label">Contraseña (mín. 8 caracteres)</label><input type="password" id="admin-user-form-pwd" class="form-control" placeholder="Contraseña"></div>';
       bodyHtml += '<div class="mb-3"><label class="form-label">Rol</label><select id="admin-user-form-role" class="form-select" aria-label="Rol"></select></div>';
       bodyHtml += '<div id="admin-user-form-error" class="alert alert-danger d-none"></div>';
-      var html = buildNexusFormCardModal({
+      var html = window.buildNexusFormCardModal({
         id: "adminUserModal",
         title: title,
         bodyHtml: bodyHtml,
@@ -474,10 +538,16 @@
     }
 
     function confirmDeleteUser(userId) {
-      if (!confirm("¿Eliminar este usuario? Esta acción no se puede deshacer.")) return;
-      window.fetchApi("/users/" + userId, { method: "DELETE" }).then(function (r) {
-        if (r && r.success) loadUsers();
-        else alert((r && r.error && r.error.message) || "Error al eliminar");
+      window.openNexusConfirmModal({
+        title: "Eliminar usuario",
+        message: "¿Eliminar este usuario? Esta acción no se puede deshacer.",
+        primaryLabel: "Eliminar",
+        primaryDanger: true
+      }, function (closeModal, showError) {
+        window.fetchApi("/users/" + userId, { method: "DELETE" }).then(function (r) {
+          if (r && r.success) { closeModal(); loadUsers(); }
+          else showError((r && r.error && r.error.message) || "Error al eliminar");
+        });
       });
     }
 

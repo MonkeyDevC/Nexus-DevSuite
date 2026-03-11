@@ -20,6 +20,13 @@ const patchSprintStatusValidator = [
   body("status").notEmpty().isIn(["PLANNED", "IN_PROGRESS", "CLOSED"])
 ];
 
+const patchSprintValidator = [
+  param("id").isUUID(),
+  body("name").optional({ values: "falsy" }).trim().isLength({ max: 255 }),
+  body("start_date").optional({ nullable: true }).isDate(),
+  body("end_date").optional({ nullable: true }).isDate()
+];
+
 const storyIdParamValidator = [param("storyId").isUUID().withMessage("storyId debe ser UUID")];
 
 const listSprintsQueryValidator = [
@@ -33,6 +40,7 @@ module.exports = {
   projectIdParamValidator,
   sprintIdParamValidator,
   patchSprintStatusValidator,
+  patchSprintValidator,
   storyIdParamValidator,
   listSprintsQueryValidator
 };

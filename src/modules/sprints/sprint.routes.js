@@ -7,13 +7,16 @@ const express = require("express");
 const {
   getSprintController,
   patchSprintStatusController,
+  patchSprintController,
   assignStoryController,
   unassignStoryController,
-  listSprintStoriesController
+  listSprintStoriesController,
+  deleteSprintController
 } = require("./sprint.controller");
 const {
   sprintIdParamValidator,
   patchSprintStatusValidator,
+  patchSprintValidator,
   storyIdParamValidator
 } = require("./sprint.validator");
 const { listSprintsQueryValidator } = require("./sprint.validator");
@@ -29,6 +32,13 @@ router.get(
   sprintIdParamValidator,
   getSprintController
 );
+router.delete(
+  "/:id",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  sprintIdParamValidator,
+  deleteSprintController
+);
 router.patch(
   "/:id/status",
   authenticateMiddleware,
@@ -36,6 +46,14 @@ router.patch(
   sprintIdParamValidator,
   patchSprintStatusValidator,
   patchSprintStatusController
+);
+router.patch(
+  "/:id",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  sprintIdParamValidator,
+  patchSprintValidator,
+  patchSprintController
 );
 router.post(
   "/:id/stories/:storyId",

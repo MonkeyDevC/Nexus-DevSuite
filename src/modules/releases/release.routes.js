@@ -12,7 +12,9 @@ const {
   patchReleaseStatusController,
   assignFeatureController,
   patchReleaseController,
-  createHotfixController
+  createHotfixController,
+  deleteReleaseController,
+  deleteReleasesBulkController
 } = require("./release.controller");
 const {
   createReleaseValidator,
@@ -21,7 +23,8 @@ const {
   assignFeatureValidator,
   patchReleaseValidator,
   listReleasesQueryValidator,
-  hotfixValidator
+  hotfixValidator,
+  bulkDeleteReleasesValidator
 } = require("./release.validator");
 const { authenticateMiddleware } = require("../../middlewares/authenticate.middleware");
 const { authorizeMiddleware } = require("../../middlewares/authorize.middleware");
@@ -30,7 +33,15 @@ const router = express.Router();
 
 router.post("/", authenticateMiddleware, authorizeMiddleware("MASTER"), createReleaseValidator, createReleaseController);
 router.get("/", authenticateMiddleware, authorizeMiddleware("MASTER"), listReleasesQueryValidator, listReleasesController);
+router.post(
+  "/bulk-delete",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER"),
+  bulkDeleteReleasesValidator,
+  deleteReleasesBulkController
+);
 router.get("/:id", authenticateMiddleware, authorizeMiddleware("MASTER"), releaseIdParamValidator, getReleaseController);
+router.delete("/:id", authenticateMiddleware, authorizeMiddleware("MASTER"), releaseIdParamValidator, deleteReleaseController);
 router.patch(
   "/:id/status",
   authenticateMiddleware,

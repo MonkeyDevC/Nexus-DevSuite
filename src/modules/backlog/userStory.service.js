@@ -229,7 +229,23 @@ async function updateStory(id, payload, context) {
     if (project) featureService.ensureProjectInOrg(project, context.organizationId);
   }
   const updatePayload = {};
+  if (payload.title !== undefined) updatePayload.title = payload.title;
+  if (payload.description !== undefined) updatePayload.description = payload.description;
+  if (payload.priority !== undefined) updatePayload.priority = payload.priority;
   if (payload.acceptance_criteria !== undefined) updatePayload.acceptance_criteria = payload.acceptance_criteria;
+  if (payload.assigned_to !== undefined) {
+    const assignedTo = payload.assigned_to === null || payload.assigned_to === "" ? null : payload.assigned_to;
+    if (assignedTo != null) {
+      const user = await usersRepository.findById(assignedTo);
+      if (!user || !user.is_active) {
+        throw new AppError("No se puede asignar a usuario inexistente o inactivo", {
+          statusCode: 400,
+          code: ERROR_CODES.INVALID_ASSIGNMENT
+        });
+      }
+    }
+    updatePayload.assigned_to = assignedTo;
+  }
   if (Object.keys(updatePayload).length === 0) return toPlain(story);
   const updated = await userStoryRepository.update(id, updatePayload);
   return toPlain(updated);

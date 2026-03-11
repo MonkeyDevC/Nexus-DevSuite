@@ -326,7 +326,9 @@
       });
     }
     if (opts.view && opts.view.href) {
-      html += '<a href="' + escAttr(opts.view.href) + '" class="nexus-action-view">' + escAttr(opts.view.label || "Ver") + "</a>";
+      var viewLabel = escAttr(opts.view.label || "Ver");
+      var viewAria = opts.view.ariaLabel ? ' aria-label="' + escAttr(opts.view.ariaLabel) + '"' : "";
+      html += '<a href="' + escAttr(opts.view.href) + '" class="nexus-action-view"' + viewAria + '>' + viewLabel + "</a>";
     }
     if (opts.edit) {
       var e = opts.edit;

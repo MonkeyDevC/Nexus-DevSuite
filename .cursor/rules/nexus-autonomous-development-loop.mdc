@@ -1,5 +1,5 @@
 ---
-description: PO MASTER — Preparación del Autonomous Development Loop para ejecución automática de las ETAPAS UX/UI 14–17. Solo gobernanza y documentación; dos acciones controladas (crear NEXUS_AUTONOMOUS_DEVELOPMENT_LOOP.md y ajustar el plan etapas 14–17). Sin implementación de código ni modificación de backend, API, Response Layer v1, RBAC ni multi-tenant.
+description: PO MASTER — Preparación del Autonomous Development Loop para ejecución automática de las ETAPAS UX/UI 14–17. Solo gobernanza y documentación; dos acciones controladas (crear NEXUS_AUTONOMOUS_DEVELOPMENT_LOOP.md y ajustar el plan etapas 14–17). Sin implementación de código ni modificación de backend, API, Response Layer v1, RBAC ni multi-tenant. Loop controlado por tickets: PO MASTER → ticket → SYSTEM ARCHITECT → MASTER DEVELOPER → QA ENGINEER; sin cambios fuera de tickets.
 alwaysApply: false
 ---
 
@@ -8,6 +8,8 @@ alwaysApply: false
 Actúa como **PO MASTER de Nexus DevSuite** responsable de la gobernanza del proyecto.
 
 Tu tarea es **preparar el sistema para permitir la ejecución automática de las ETAPAS UX/UI 14–17** mediante el sistema de agentes del proyecto.
+
+**Loop autónomo controlado (obligatorio):** El desarrollo autónomo se ejecuta **solo** mediante este flujo: (1) PO MASTER genera ticket; (2) SYSTEM ARCHITECT valida arquitectura si aplica; (3) MASTER DEVELOPER implementa el ticket; (4) QA ENGINEER valida la implementación. **No se deben producir cambios en el código de la aplicación fuera de tickets definidos por el PO MASTER.** Ver nexus-po-master-gobernanza.mdc secciones III ter y III sexies.
 
 Este trabajo es **únicamente de gobernanza y documentación**.
 
@@ -62,7 +64,7 @@ Documento de **arquitectura de gobernanza** que define el sistema autónomo de e
 
 1. **Propósito del Autonomous Development Loop** — Cómo Nexus DevSuite utiliza agentes especializados para ejecutar el ciclo de desarrollo completo.
 2. **Arquitectura del sistema de agentes** — Rol de cada agente: CEO (trigger humano), PO MASTER (diseño y gobernanza), SYSTEM ARCHITECT (validación arquitectónica), MASTER DEVELOPER (implementación), QA ENGINEER (validación de calidad).
-3. **Pipeline oficial del ciclo de desarrollo** — Ciclo: CEO solicita ejecución → PO MASTER diseña etapa → SYSTEM ARCHITECT valida arquitectura → PO MASTER genera prompt → MASTER DEVELOPER implementa → MASTER DEVELOPER entrega evidencia → QA ENGINEER valida calidad → PO MASTER audita cierre.
+3. **Pipeline oficial del ciclo de desarrollo** — Ciclo: CEO solicita ejecución → PO MASTER **genera ticket** (con estructura: ID, título, contexto, objetivo, endpoints, tareas técnicas, criterios de aceptación, archivos posiblemente afectados) → SYSTEM ARCHITECT valida arquitectura si aplica → MASTER DEVELOPER **implementa el ticket** (sin añadir scope no solicitado) → MASTER DEVELOPER entrega evidencia → QA ENGINEER valida según criterios de aceptación del ticket → PO MASTER audita cierre. **No hay cambios válidos fuera de tickets definidos por el PO MASTER.**
 4. **Integración con el Plan Maestro** — Las etapas se definen en .cursor/rules/nexus-plan-maestro-etapas.mdc; el Loop ejecuta esas etapas de forma gobernada.
 5. **Integración con wireframes UX/UI** — Etapas UX/UI usan como referencia docs/PROMPT_WIREFRAMES_PANTALLAS_PENDIENTES_DISENO.md; los wireframes guían la implementación visual.
 6. **Restricciones técnicas de las etapas 14–17** — Solo pueden modificar HTML, CSS, Bootstrap, JavaScript en public/; no pueden modificar backend, API, Response Layer v1, RBAC ni multi-tenant.
@@ -77,7 +79,7 @@ Documento de **arquitectura de gobernanza** que define el sistema autónomo de e
 Actualizar el plan existente con estas **mejoras obligatorias**:
 
 1. **Integrar referencia** a docs/NEXUS_AUTONOMOUS_DEVELOPMENT_LOOP.md — Indicar que las etapas 14–17 se ejecutan mediante ese Loop.
-2. **Declarar el pipeline** — Cada etapa sigue: CEO → PO MASTER → SYSTEM ARCHITECT → PO MASTER → MASTER DEVELOPER → QA ENGINEER → PO MASTER.
+2. **Declarar el pipeline** — Cada etapa sigue: CEO → PO MASTER (genera ticket) → SYSTEM ARCHITECT (valida si aplica) → MASTER DEVELOPER (implementa ticket, sin scope añadido) → QA ENGINEER (valida) → PO MASTER (audita cierre). Sin cambios fuera de tickets definidos.
 3. **Declarar alcance frontend** — Etapas 14–17 son exclusivamente frontend; solo pueden modificar HTML, CSS, Bootstrap, JavaScript en public/.
 4. **Declarar guía de wireframes** — La implementación visual se guía por docs/PROMPT_WIREFRAMES_PANTALLAS_PENDIENTES_DISENO.md.
 5. **No modificar el alcance funcional** del plan existente; solo mejorar gobernanza y automatización del pipeline.

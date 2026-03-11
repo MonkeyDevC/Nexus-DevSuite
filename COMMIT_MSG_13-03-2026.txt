@@ -1,0 +1,19 @@
+feat: Proyectos filtro nombre + scroll; Story detail 75%, 3 cols, criterios por casillas; regla no-Cursor (13/03/2026)
+
+Proyectos:
+- Filtro por nombre en dropdown de columna Nombre (lista con scroll, Aplicar/Borrar)
+- Botón Eliminar filtro cuando hay búsqueda o filtro estado
+- Popper fixed y dropdown-menu-start para evitar desfase al reabrir
+- Scroll vertical en lista del dropdown de nombre
+
+Story detail (modal):
+- Card al 75% (modalDialogClass + .nexus-modal-story-detail)
+- Parte superior en 3 columnas; Sprint como último campo
+- Criterios de aceptación: una casilla por criterio, + Añadir criterio, × quitar; Guardar criterios
+
+Infra:
+- ux.js: modalDialogClass en buildNexusFormCardModal/openNexusFormModal
+- design-system.css: .nexus-modal-story-detail
+- .cursor/rules/nexus-no-cursor-attribution.mdc: no atribución Cursor en código
+
+Docs: docs/ENTREGA_DIA_2026-03-13.md
