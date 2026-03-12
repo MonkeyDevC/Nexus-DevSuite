@@ -56,6 +56,12 @@
   },
   "jest": {
     "testEnvironment": "node",
+    "forceExit": true,
+    "setupFiles": [
+      "<rootDir>/src/tests/jest/jest.env.js"
+    ],
+    "globalSetup": "<rootDir>/src/tests/jest/jest.globalSetup.js",
+    "globalTeardown": "<rootDir>/src/tests/jest/jest.globalTeardown.js",
     "roots": [
       "<rootDir>/src/tests"
     ]

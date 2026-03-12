@@ -409,6 +409,33 @@ paths:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
               example:
                 error: { code: STORY_NOT_FOUND }
+    patch:
+      tags: [backlog]
+      summary: Actualizar story (campos editables)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                acceptance_criteria: { type: object }
+                priority: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+      responses:
+        "200":
+          description: Story actualizada
+        "400":
+          description: Regla de dominio violada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
   /stories/{id}/status:
     patch:
       tags: [backlog]
@@ -464,6 +491,167 @@ paths:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
               example:
                 error: { code: INVALID_ASSIGNMENT }
+
+  /stories/{id}/sprint:
+    patch:
+      tags: [backlog]
+      summary: Asignar/quitar sprint a una story
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sprint_id: { type: string, format: uuid, nullable: true }
+      responses:
+        "200":
+          description: Sprint asignado/quitado
+        "400":
+          description: Regla de dominio violada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /sprints/{id}:
+    get:
+      tags: [sprints]
+      summary: Obtener sprint por ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Sprint }
+        "404":
+          description: Sprint no encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    patch:
+      tags: [sprints]
+      summary: Actualizar sprint
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200": { description: Sprint actualizado }
+        "400":
+          description: Regla de dominio violada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [sprints]
+      summary: Eliminar sprint
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Sprint eliminado }
+        "400":
+          description: Regla de dominio violada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /sprints/{id}/status:
+    patch:
+      tags: [sprints]
+      summary: Cambiar estado del sprint
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string }
+      responses:
+        "200": { description: Estado actualizado }
+        "400":
+          description: Transición inválida o reglas de dominio
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /sprints/{id}/stories:
+    get:
+      tags: [sprints]
+      summary: Listar stories del sprint
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Stories del sprint }
+
+  /sprints/{id}/stories/{storyId}:
+    post:
+      tags: [sprints]
+      summary: Asignar story al sprint
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: storyId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Story asignada }
+        "400":
+          description: Regla de dominio violada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [sprints]
+      summary: Quitar story del sprint
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: storyId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Story quitada }
+        "400":
+          description: Regla de dominio violada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /releases:
     post:

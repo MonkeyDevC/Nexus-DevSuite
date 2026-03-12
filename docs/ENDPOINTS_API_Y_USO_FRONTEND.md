@@ -73,6 +73,8 @@
 | GET | `/api/v1/stories/:id` | Obtener story por id |
 | PATCH | `/api/v1/stories/:id/status` | Cambiar estado de la story |
 | PATCH | `/api/v1/stories/:id/assign` | Asignar story |
+| PATCH | `/api/v1/stories/:id/sprint` | Asignar/quitar sprint a la story (por ID) |
+| PATCH | `/api/v1/stories/:id` | Actualizar story (título, descripción, prioridad, criterios, etc.) |
 
 ### Releases
 | Método | Ruta | Descripción |
@@ -100,6 +102,8 @@
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | GET | `/api/v1/sprints/:id` | Obtener sprint por id |
+| PATCH | `/api/v1/sprints/:id` | Actualizar sprint (campos permitidos) |
+| DELETE | `/api/v1/sprints/:id` | Eliminar sprint (según reglas de dominio) |
 | PATCH | `/api/v1/sprints/:id/status` | Cambiar estado del sprint |
 | POST | `/api/v1/sprints/:id/stories/:storyId` | Asignar story al sprint |
 | DELETE | `/api/v1/sprints/:id/stories/:storyId` | Quitar story del sprint |

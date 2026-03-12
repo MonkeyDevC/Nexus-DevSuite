@@ -20,6 +20,8 @@ function asBoolean(value, fallback) {
 
 const NODE_ENV = process.env.NODE_ENV || "development";
 const isDevelopment = NODE_ENV === "development";
+const isTest = NODE_ENV === "test";
+const isNonProduction = isDevelopment || isTest;
 
 function getEnvValue(name) {
   const value = process.env[name];
@@ -42,7 +44,7 @@ function getCriticalSecret(name, developmentFallback) {
   const value = getEnvValue(name);
 
   if (value) {
-    if (!isDevelopment && isWeakSecret(value)) {
+    if (!isNonProduction && isWeakSecret(value)) {
       throw new Error(
         `[ENV] La variable ${name} usa un valor inseguro para ${NODE_ENV}. Defina un secreto robusto antes de iniciar.`
       );
@@ -50,8 +52,8 @@ function getCriticalSecret(name, developmentFallback) {
     return value;
   }
 
-  if (isDevelopment) {
-    // En development se permite fallback para facilitar bootstrap local.
+  if (isNonProduction) {
+    // En development y test se permite fallback para facilitar bootstrap local y ejecución de suites.
     return developmentFallback;
   }
 
@@ -64,7 +66,7 @@ function getRequiredNoDevelopment(name, developmentFallback = "") {
     return value;
   }
 
-  if (isDevelopment) {
+  if (isNonProduction) {
     return developmentFallback;
   }
 
