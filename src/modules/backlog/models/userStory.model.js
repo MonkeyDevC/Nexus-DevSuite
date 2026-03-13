@@ -34,6 +34,10 @@ function defineUserStoryModel(sequelize) {
         type: DataTypes.JSON,
         allowNull: true
       },
+      implementation_criteria: {
+        type: DataTypes.JSON,
+        allowNull: true
+      },
       status: {
         type: DataTypes.ENUM(
           "DRAFT",

@@ -117,6 +117,42 @@ async function listFeaturesByProject(projectId, { page = 1, limit = 10, status }
   };
 }
 
+async function updateFeature(id, payload, context = {}) {
+  const feature = await featureRepository.findById(id);
+  if (!feature) {
+    throw new AppError("Feature no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.FEATURE_NOT_FOUND
+    });
+  }
+  const project = await projectsRepository.findById(feature.project_id);
+  if (project) {
+    ensureProjectInOrg(project, context.organizationId);
+    if (project.status === "ARCHIVED") {
+      throw new AppError("No se puede actualizar feature de un proyecto archivado", {
+        statusCode: 400,
+        code: ERROR_CODES.PROJECT_ARCHIVED
+      });
+    }
+  }
+  const updatePayload = {};
+  if (payload.title !== undefined) updatePayload.title = payload.title;
+  if (payload.description !== undefined) updatePayload.description = payload.description;
+  if (payload.priority !== undefined) updatePayload.priority = payload.priority;
+  if (Object.keys(updatePayload).length === 0) return toPlain(feature);
+
+  const updated = await featureRepository.update(id, updatePayload);
+  const auditCtx = ensureAuditContext(context);
+  await authRepository.createAuditLog({
+    ...auditCtx,
+    action: "UPDATE",
+    entity: "Feature",
+    entity_id: id,
+    metadata: { fields: Object.keys(updatePayload) }
+  });
+  return toPlain(updated);
+}
+
 async function updateFeatureStatus(id, nextStatus, context, changeRequestId = null) {
   const feature = await featureRepository.findById(id);
   if (!feature) {
@@ -166,6 +202,7 @@ module.exports = {
   createFeature,
   getFeatureById,
   listFeaturesByProject,
+  updateFeature,
   updateFeatureStatus,
   ensureProjectInOrg
 };

@@ -32,6 +32,13 @@ const patchFeatureStatusValidator = [
   body("change_request_id").optional().isUUID()
 ];
 
+const patchFeatureValidator = [
+  param("id").isUUID(),
+  body("title").optional().trim().notEmpty().withMessage("title no puede estar vacío").isLength({ max: 500 }),
+  body("description").optional().trim().notEmpty().withMessage("description no puede estar vacío"),
+  body("priority").optional().isIn(["LOW", "MEDIUM", "HIGH", "CRITICAL"])
+];
+
 const createStoryValidator = [
   body("title").trim().notEmpty().withMessage("title es obligatorio").isLength({ max: 500 }),
   body("description").trim().notEmpty().withMessage("description es obligatorio"),
@@ -66,7 +73,11 @@ const patchStoryValidator = [
   body("acceptance_criteria")
     .optional({ nullable: true })
     .custom(function (val) { return val === null || val === undefined || typeof val === "object"; })
-    .withMessage("acceptance_criteria debe ser un objeto o array JSON")
+    .withMessage("acceptance_criteria debe ser un objeto o array JSON"),
+  body("implementation_criteria")
+    .optional({ nullable: true })
+    .custom(function (val) { return val === null || val === undefined || typeof val === "object"; })
+    .withMessage("implementation_criteria debe ser un objeto o array JSON")
 ];
 
 const listQueryValidator = [
@@ -91,6 +102,7 @@ module.exports = {
   createFeatureValidator,
   featureIdParamValidator,
   featureIdAsParamValidator,
+  patchFeatureValidator,
   patchFeatureStatusValidator,
   createStoryValidator,
   storyIdParamValidator,

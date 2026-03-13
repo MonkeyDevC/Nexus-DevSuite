@@ -9,6 +9,8 @@
     await window.showNav();
     const segs = window.getHashSegments();
     const projectId = segs[1];
+    const projectMode = segs[2] || "";
+    const openInEditMode = String(projectMode).toLowerCase() === "edit";
     const user = await window.getMe();
     const isMaster = typeof window.nexusCanAccessMasterActions === "function" ? window.nexusCanAccessMasterActions(user) : (user && user.role === "MASTER");
 
@@ -41,6 +43,9 @@
           html += '<button type="button" class="btn btn-outline-danger btn-sm" id="btn-bulk-delete-confirm" ' + (state.selectedIds.length === 0 ? " disabled" : "") + '>Eliminación múltiple</button>';
         } else {
           html += '<button type="button" class="btn btn-outline-danger btn-sm" id="btn-bulk-delete">Eliminación múltiple</button>';
+          html += '<button type="button" class="btn btn-outline-secondary btn-sm" id="btn-projects-export-full">Exportar</button>';
+          html += '<input type="file" id="projects-import-full-input" class="d-none" accept=".json,application/json">';
+          html += '<button type="button" class="btn btn-outline-secondary btn-sm" id="btn-projects-import-full">Importar</button>';
           html += '<a href="#" id="btn-create-project" class="btn btn-nexus-primary btn-sm">+ Nuevo proyecto</a>';
         }
         html += "</div>";
@@ -108,7 +113,7 @@
           } : null,
           rowRenderer: function (p) {
             var created = (p.created_at && p.created_at.slice) ? p.created_at.slice(0, 10) : (p.created_at || "—");
-            var idDisplay = (p.number != null && p.number !== "") ? String(p.number) : ((p.id && p.id.substring) ? p.id.substring(0, 8) : (p.id || "—"));
+            var idDisplay = (p.number != null && p.number !== "") ? ("P" + String(p.number)) : ((p.id && p.id.substring) ? p.id.substring(0, 8) : (p.id || "—"));
             return [
               '<span class="nexus-text-sm text-muted" title="' + esc(p.id || "") + '">' + esc(idDisplay) + "</span>",
               '<a href="#/projects/' + p.id + '">' + esc(p.name || p.id) + "</a>",
@@ -116,8 +121,8 @@
               esc(created),
               window.renderTableActions({
                 view: { href: "#/projects/" + p.id, ariaLabel: "Ver proyecto " + (p.name || p.id || "").slice(0, 40) },
-                edit: isMaster ? { id: p.id, className: "btn-edit-project" } : null,
-                archive: isMaster && p.status !== "ARCHIVED" ? { href: "#/projects/" + p.id } : null,
+                edit: isMaster ? { href: "#/projects/" + p.id + "/edit" } : null,
+                archive: isMaster && p.status !== "ARCHIVED" ? { id: p.id, className: "btn-archive-project" } : null,
                 delete: isMaster ? { id: p.id, className: "btn-delete-project" } : null
               })
             ];
@@ -186,21 +191,6 @@
       bindProjects();
     }
 
-    function openEditModal(project, onSuccess) {
-      var bodyHtml = '<div class="mb-3"><label class="form-label">Nombre</label><input type="text" id="project-edit-name" class="form-control" placeholder="Nombre del proyecto" value="' + esc(project.name || "") + '" required></div>';
-      bodyHtml += '<div class="mb-3"><label class="form-label">Descripción</label><textarea id="project-edit-desc" class="form-control" rows="3" placeholder="Descripción del proyecto">' + esc(project.description || "") + '</textarea></div><div id="project-edit-error" class="alert alert-danger d-none"></div>';
-      window.openNexusFormModal({ id: "projectEditModal", title: "Editar proyecto", bodyHtml: bodyHtml, primaryButtonId: "project-edit-submit", primaryLabel: "Guardar" }, function (bsModal) {
-        var name = (document.getElementById("project-edit-name").value || "").trim();
-        var desc = (document.getElementById("project-edit-desc").value || "").trim();
-        var errEl = document.getElementById("project-edit-error");
-        errEl.classList.add("d-none");
-        if (!name) { errEl.textContent = "El nombre es obligatorio."; errEl.classList.remove("d-none"); return; }
-        window.fetchApi("/projects/" + project.id, { method: "PATCH", body: JSON.stringify({ name: name, description: desc }) }).then(function (r) {
-          if (r && r.success) { bsModal.hide(); if (typeof onSuccess === "function") onSuccess(); } else { errEl.textContent = (r && r.error && r.error.message) || "Error al guardar."; errEl.classList.remove("d-none"); }
-        });
-      });
-    }
-
     function confirmDeleteProject(projectId, onSuccess) {
       var modalId = "projectDeleteConfirmModal";
       var bodyHtml = '<p class="nexus-text-secondary mb-0">¿Está seguro de eliminar el proyecto y todos sus datos relacionados?</p>';
@@ -225,6 +215,27 @@
           if (r && r.success) { bsModal.hide(); if (typeof onSuccess === "function") onSuccess(); else window.location.hash = "#/projects"; } else { errEl.textContent = (r && r.error && r.error.message) || "Error al eliminar el proyecto."; errEl.classList.remove("d-none"); }
         });
       };
+    }
+
+    function confirmArchiveProject(project, onSuccess) {
+      var projectName = (project && project.name) ? String(project.name).trim() : "";
+      var titleSuffix = projectName ? (": " + projectName) : "";
+      window.openNexusConfirmModal({
+        title: "Archivar proyecto",
+        message: "¿Esta seguro que desea archivar este proyecto" + titleSuffix + "?",
+        primaryLabel: "Sí, archivar",
+        primaryDanger: true
+      }, function (closeModal, showError) {
+        window.fetchApi("/projects/" + project.id + "/archive", { method: "PATCH" }).then(function (r) {
+          if (r && r.success) {
+            if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Proyecto archivado correctamente.");
+            closeModal();
+            if (typeof onSuccess === "function") onSuccess();
+            return;
+          }
+          showError((r && r.error && r.error.message) || "Error al archivar el proyecto.");
+        });
+      });
     }
 
     function confirmBulkDeleteProjects(ids, onSuccess) {
@@ -263,7 +274,283 @@
       };
     }
 
-    async function loadProjectDetail(pid) {
+    function projectCriteriaStorageKey(projectId) {
+      return "nexus-project-criteria:" + projectId;
+    }
+
+    function loadProjectCriteria(projectId) {
+      try {
+        var raw = localStorage.getItem(projectCriteriaStorageKey(projectId));
+        if (!raw) return { acceptance: [], implementation: [] };
+        var parsed = JSON.parse(raw);
+        return {
+          acceptance: Array.isArray(parsed && parsed.acceptance) ? parsed.acceptance : [],
+          implementation: Array.isArray(parsed && parsed.implementation) ? parsed.implementation : []
+        };
+      } catch (e) {
+        return { acceptance: [], implementation: [] };
+      }
+    }
+
+    function saveProjectCriteria(projectId, acceptance, implementation) {
+      var payload = {
+        acceptance: Array.isArray(acceptance) ? acceptance : [],
+        implementation: Array.isArray(implementation) ? implementation : []
+      };
+      localStorage.setItem(projectCriteriaStorageKey(projectId), JSON.stringify(payload));
+    }
+
+    function projectEvidenceStorageKey(projectId) {
+      return "nexus.project.evidence." + String(projectId || "");
+    }
+
+    function normalizeEvidencePayload(payload) {
+      var p = payload && typeof payload === "object" ? payload : {};
+      return {
+        notes: p.notes != null ? String(p.notes) : "",
+        files: Array.isArray(p.files) ? p.files.filter(function (f) { return f && f.data_url; }).map(function (f) {
+          return {
+            name: f.name ? String(f.name) : "archivo",
+            type: f.type ? String(f.type) : "application/octet-stream",
+            data_url: String(f.data_url)
+          };
+        }) : []
+      };
+    }
+
+    function loadProjectEvidence(projectId) {
+      try {
+        var raw = localStorage.getItem(projectEvidenceStorageKey(projectId));
+        if (!raw) return { notes: "", files: [] };
+        return normalizeEvidencePayload(JSON.parse(raw));
+      } catch (e) {
+        return { notes: "", files: [] };
+      }
+    }
+
+    function saveProjectEvidence(projectId, evidence) {
+      localStorage.setItem(projectEvidenceStorageKey(projectId), JSON.stringify(normalizeEvidencePayload(evidence)));
+    }
+
+    function featureCriteriaStorageKey(featureId) {
+      return "nexus.feature.criteria." + String(featureId || "");
+    }
+
+    function loadFeatureCriteria(featureId) {
+      try {
+        var raw = localStorage.getItem(featureCriteriaStorageKey(featureId));
+        if (!raw) return { acceptance: [], implementation: [] };
+        var parsed = JSON.parse(raw);
+        return {
+          acceptance: Array.isArray(parsed && parsed.acceptance) ? parsed.acceptance : [],
+          implementation: Array.isArray(parsed && parsed.implementation) ? parsed.implementation : []
+        };
+      } catch (e) {
+        return { acceptance: [], implementation: [] };
+      }
+    }
+
+    function saveFeatureCriteria(featureId, acceptance, implementation) {
+      var payload = {
+        acceptance: Array.isArray(acceptance) ? acceptance : [],
+        implementation: Array.isArray(implementation) ? implementation : []
+      };
+      localStorage.setItem(featureCriteriaStorageKey(featureId), JSON.stringify(payload));
+    }
+
+    function getProjectCriteriaLines(selector) {
+      var inputs = document.querySelectorAll(selector);
+      var lines = [];
+      if (inputs) for (var i = 0; i < inputs.length; i++) { var v = (inputs[i].value || "").trim(); if (v) lines.push(v); }
+      return lines;
+    }
+
+    function fetchAllProjectFeatures(projectId) {
+      if (!projectId) return Promise.resolve([]);
+      var all = [];
+      function fetchPage(page) {
+        return window.fetchApi("/projects/" + projectId + "/features?page=" + page + "&limit=100").then(function (body) {
+          if (!(body && body.success && body.data)) return all;
+          var data = body.data;
+          var items = data.items || (Array.isArray(data) ? data : []);
+          all = all.concat(items);
+          var totalPages = data.totalPages != null ? data.totalPages : 1;
+          if (page < totalPages) return fetchPage(page + 1);
+          return all;
+        });
+      }
+      return fetchPage(1);
+    }
+
+    function fetchAllFeatureStories(featureId) {
+      if (!featureId) return Promise.resolve([]);
+      var all = [];
+      function fetchPage(page) {
+        return window.fetchApi("/features/" + featureId + "/stories?page=" + page + "&limit=100").then(function (body) {
+          if (!(body && body.success && body.data)) return all;
+          var data = body.data;
+          var items = data.items || (Array.isArray(data) ? data : []);
+          all = all.concat(items);
+          var totalPages = data.totalPages != null ? data.totalPages : 1;
+          if (page < totalPages) return fetchPage(page + 1);
+          return all;
+        });
+      }
+      return fetchPage(1);
+    }
+
+    function fetchAllProjects() {
+      var all = [];
+      function fetchPage(page) {
+        return window.fetchApi("/projects?page=" + page + "&limit=100").then(function (body) {
+          if (!(body && body.success && body.data)) return all;
+          var data = body.data;
+          var items = data.items || (Array.isArray(data) ? data : []);
+          all = all.concat(items);
+          var totalPages = data.totalPages != null ? data.totalPages : 1;
+          if (page < totalPages) return fetchPage(page + 1);
+          return all;
+        });
+      }
+      return fetchPage(1);
+    }
+
+    function buildProjectExportNode(project) {
+      return fetchAllProjectFeatures(project.id).then(function (features) {
+        var featurePromises = (features || []).map(function (f) {
+          return fetchAllFeatureStories(f.id).then(function (stories) {
+            var fCrit = loadFeatureCriteria(f.id);
+            return {
+              title: f.title || "",
+              description: f.description || "",
+              priority: f.priority || "MEDIUM",
+              status: f.status || "DRAFT",
+              acceptance_criteria: fCrit.acceptance || [],
+              implementation_criteria: fCrit.implementation || [],
+              stories: (stories || []).map(function (s) {
+                return {
+                  title: s.title || "",
+                  description: s.description || "",
+                  status: s.status || "DRAFT",
+                  priority: s.priority || "MEDIUM",
+                  assigned_to: s.assigned_to || null,
+                  sprint_id: s.sprint_id || null,
+                  acceptance_criteria: Array.isArray(s.acceptance_criteria) ? s.acceptance_criteria : (s.acceptance_criteria && s.acceptance_criteria.items) ? s.acceptance_criteria.items : [],
+                  implementation_criteria: Array.isArray(s.implementation_criteria) ? s.implementation_criteria : (s.implementation_criteria && s.implementation_criteria.items) ? s.implementation_criteria.items : []
+                };
+              })
+            };
+          });
+        });
+        return Promise.all(featurePromises).then(function (featureNodes) {
+          var crit = loadProjectCriteria(project.id);
+          return {
+            project: {
+              id: project.id,
+              name: project.name || "",
+              description: project.description || "",
+              status: project.status || "ACTIVE",
+              acceptance_criteria: crit.acceptance || [],
+              implementation_criteria: crit.implementation || []
+            },
+            features: featureNodes
+          };
+        });
+      });
+    }
+
+    function importFeaturesAndStoriesForProject(projectId, features) {
+      var createdFeatures = 0;
+      var createdStories = 0;
+      var failed = 0;
+      return fetchAllProjectFeatures(projectId).then(function (existingFeatures) {
+        var byTitle = {};
+        (existingFeatures || []).forEach(function (f) { byTitle[(f.title || "").trim().toLowerCase()] = f; });
+        var chain = Promise.resolve();
+        (features || []).forEach(function (feat) {
+          chain = chain.then(function () {
+            var title = (feat && feat.title ? String(feat.title) : "").trim();
+            var desc = (feat && feat.description ? String(feat.description) : "").trim();
+            var prio = (feat && feat.priority ? String(feat.priority) : "MEDIUM").toUpperCase();
+            var st = (feat && feat.status ? String(feat.status) : "DRAFT").toUpperCase();
+            if (!title || !desc) { failed += 1; return; }
+            var existing = byTitle[title.toLowerCase()];
+            var featurePromise = existing ? Promise.resolve({ success: true, data: existing }) : window.fetchApi("/projects/" + projectId + "/features", { method: "POST", body: JSON.stringify({ title: title, description: desc, priority: prio }) });
+            return featurePromise.then(function (fr) {
+              if (!(fr && fr.success && fr.data && fr.data.id)) { failed += 1; return; }
+              var fid = fr.data.id;
+              if (!existing) createdFeatures += 1;
+              var postFeatTasks = [];
+              if (st && st !== "DRAFT") postFeatTasks.push(window.fetchApi("/features/" + fid + "/status", { method: "PATCH", body: JSON.stringify({ status: st }) }));
+              var stories = Array.isArray(feat && feat.stories) ? feat.stories : [];
+              stories.forEach(function (story) {
+                postFeatTasks.push((function () {
+                  var stTitle = (story && story.title ? String(story.title) : "").trim();
+                  var stDesc = (story && story.description ? String(story.description) : "").trim();
+                  var stPrio = (story && story.priority ? String(story.priority) : "MEDIUM").toUpperCase();
+                  var stStatus = (story && story.status ? String(story.status) : "DRAFT").toUpperCase();
+                  var assignedTo = story && story.assigned_to ? String(story.assigned_to) : null;
+                  var sprintId = story && story.sprint_id ? String(story.sprint_id) : null;
+                  var acceptance = story && Array.isArray(story.acceptance_criteria) ? story.acceptance_criteria : [];
+                  var implementation = story && Array.isArray(story.implementation_criteria) ? story.implementation_criteria : [];
+                  if (!stTitle || !stDesc) { failed += 1; return Promise.resolve(); }
+                  var createPayload = { title: stTitle, description: stDesc, priority: stPrio };
+                  if (assignedTo) createPayload.assigned_to = assignedTo;
+                  if (sprintId) createPayload.sprint_id = sprintId;
+                  return window.fetchApi("/features/" + fid + "/stories", { method: "POST", body: JSON.stringify(createPayload) }).then(function (sr) {
+                    if (!(sr && sr.success && sr.data && sr.data.id)) { failed += 1; return; }
+                    createdStories += 1;
+                    var sid = sr.data.id;
+                    var postStoryTasks = [];
+                    if (acceptance.length || implementation.length || assignedTo) {
+                      postStoryTasks.push(window.fetchApi("/stories/" + sid, { method: "PATCH", body: JSON.stringify({ acceptance_criteria: acceptance, implementation_criteria: implementation, assigned_to: assignedTo || null }) }));
+                    }
+                    if (stStatus && stStatus !== "DRAFT") postStoryTasks.push(window.fetchApi("/stories/" + sid + "/status", { method: "PATCH", body: JSON.stringify({ status: stStatus }) }));
+                    if (sprintId) postStoryTasks.push(window.fetchApi("/stories/" + sid + "/sprint", { method: "PATCH", body: JSON.stringify({ sprint_id: sprintId }) }));
+                    return Promise.all(postStoryTasks);
+                  }).catch(function () { failed += 1; });
+                })());
+              });
+              return Promise.all(postFeatTasks);
+            }).catch(function () { failed += 1; });
+          });
+        });
+        return chain.then(function () { return { createdFeatures: createdFeatures, createdStories: createdStories, failed: failed }; });
+      });
+    }
+
+    function applyImportedFeatureCriteria(payload) {
+      var nodes = Array.isArray(payload && payload.projects) ? payload.projects : [];
+      if (!nodes.length) return Promise.resolve();
+      return fetchAllProjects().then(function (projects) {
+        var projectsByName = {};
+        (projects || []).forEach(function (p) { projectsByName[(p.name || "").trim().toLowerCase()] = p; });
+        var tasks = nodes.map(function (node) {
+          var projectData = node && node.project ? node.project : null;
+          var projectName = (projectData && projectData.name) ? String(projectData.name).trim().toLowerCase() : "";
+          var targetProject = projectName ? projectsByName[projectName] : null;
+          var featuresInPayload = Array.isArray(node && node.features) ? node.features : [];
+          if (!targetProject || !featuresInPayload.length) return Promise.resolve();
+          return fetchAllProjectFeatures(targetProject.id).then(function (targetFeatures) {
+            var byTitle = {};
+            (targetFeatures || []).forEach(function (f) { byTitle[(f.title || "").trim().toLowerCase()] = f; });
+            featuresInPayload.forEach(function (featNode) {
+              var featTitle = (featNode && featNode.title) ? String(featNode.title).trim().toLowerCase() : "";
+              var targetFeature = featTitle ? byTitle[featTitle] : null;
+              if (!targetFeature) return;
+              var acceptance = Array.isArray(featNode && featNode.acceptance_criteria) ? featNode.acceptance_criteria : [];
+              var implementation = Array.isArray(featNode && featNode.implementation_criteria) ? featNode.implementation_criteria : [];
+              if (acceptance.length || implementation.length) {
+                saveFeatureCriteria(targetFeature.id, acceptance, implementation);
+              }
+            });
+          });
+        });
+        return Promise.all(tasks).then(function () { return true; });
+      });
+    }
+
+    async function loadProjectDetail(pid, forceEditMode) {
       window.setContent(window.showLoading());
       var body = await window.fetchApi("/projects/" + pid);
       if (!body || !body.success || !body.data) {
@@ -271,6 +558,17 @@
         return;
       }
       var p = body.data;
+      var storedCriteria = loadProjectCriteria(p.id);
+      var evidenceState = loadProjectEvidence(p.id);
+      var evidenceBaselineJson = JSON.stringify(evidenceState);
+      var acceptanceLines = storedCriteria.acceptance || [];
+      var implementationLines = storedCriteria.implementation || [];
+      var statusOpts = ["ACTIVE", "ARCHIVED"];
+      var statusSelectHtml = '<span class="nexus-text-sm text-muted">Estado</span><select id="project-detail-status-edit" class="form-select form-select-sm mt-1" style="max-width:100%">';
+      statusOpts.forEach(function (st) {
+        statusSelectHtml += '<option value="' + esc(st) + '"' + (p.status === st ? ' selected' : '') + '>' + esc(st) + '</option>';
+      });
+      statusSelectHtml += "</select>";
       var html = window.renderBreadcrumbs([
         { label: "Panel", href: "#/dashboard" },
         { label: "Proyectos", href: "#/projects" },
@@ -278,40 +576,377 @@
       ]);
       html += '<div class="nexus-panel nexus-section-spacing">';
       html += '<h1 class="nexus-page-title">' + esc(p.name || "Proyecto") + "</h1>";
-      html += "<p class=\"nexus-text-secondary\">" + esc(p.description || "") + "</p>";
-      html += "<p>Estado: <span class=\"" + window.nexusBadgeClass(p.status) + "\">" + esc(p.status || "") + "</span></p>";
+      html += '<div class="nexus-card p-4" style="max-width:100%">';
+      html += '<ul class="nav nav-tabs mb-3" role="tablist"><li class="nav-item"><button type="button" class="nav-link' + (forceEditMode ? "" : " active") + '" id="project-detail-tab-vista" data-bs-toggle="tab" data-bs-target="#project-detail-panel-vista" aria-selected="' + (forceEditMode ? "false" : "true") + '">Vista</button></li><li class="nav-item"><button type="button" class="nav-link' + (forceEditMode ? " active" : "") + '" id="project-detail-tab-edicion" data-bs-toggle="tab" data-bs-target="#project-detail-panel-edicion" aria-selected="' + (forceEditMode ? "true" : "false") + '">Edición</button></li><li class="nav-item"><button type="button" class="nav-link" id="project-detail-tab-evidencia" data-bs-toggle="tab" data-bs-target="#project-detail-panel-evidencia" aria-selected="false">Evidencia</button></li></ul>';
+      html += '<div class="tab-content">';
+      html += '<div class="tab-pane fade' + (forceEditMode ? "" : " show active") + '" id="project-detail-panel-vista" role="tabpanel"><div class="row g-3">';
+      html += '<div class="col-md-4"><span class="nexus-text-sm text-muted">ID</span><p class="nexus-font-semibold mb-0">' + esc((p.number != null && p.number !== "") ? ("P" + String(p.number)) : ((p.id || "").slice(0, 8) || "—")) + "</p></div>";
+      html += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Estado</span><p class="mb-0">' + esc(p.status || "—") + "</p></div>";
+      html += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Creado</span><p class="mb-0 nexus-text-sm">' + esc((p.created_at && p.created_at.slice) ? p.created_at.slice(0, 10) : (p.created_at || "—")) + "</p></div>";
+      html += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Descripción</span>';
+      html += (p.description && String(p.description).trim()) ? '<p class="mb-0" style="white-space:pre-wrap">' + esc(p.description) + "</p>" : '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
+      html += "</div>";
+      html += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de aceptación</span><div id="project-detail-criteria-vista">';
+      if (!acceptanceLines.length) html += '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
+      else {
+        html += '<ul class="list-unstyled mb-0">';
+        acceptanceLines.forEach(function (line, idx) { html += '<li class="py-1">' + (idx + 1) + ". " + esc(line || "—") + "</li>"; });
+        html += "</ul>";
+      }
+      html += "</div></div>";
+      html += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de implementación</span><div id="project-detail-impl-vista">';
+      if (!implementationLines.length) html += '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
+      else {
+        html += '<ul class="list-unstyled mb-0">';
+        implementationLines.forEach(function (line, idx) { html += '<li class="py-1">' + (idx + 1) + ". " + esc(line || "—") + "</li>"; });
+        html += "</ul>";
+      }
+      html += "</div></div>";
+      html += "</div></div>";
+      html += '<div class="tab-pane fade' + (forceEditMode ? " show active" : "") + '" id="project-detail-panel-edicion" role="tabpanel"><div class="row g-3">';
+      html += '<div class="col-md-4"><span class="nexus-text-sm text-muted">ID</span><p class="nexus-font-semibold mb-0">' + esc((p.number != null && p.number !== "") ? ("P" + String(p.number)) : ((p.id || "").slice(0, 8) || "—")) + "</p></div>";
+      html += '<div class="col-md-4">' + statusSelectHtml + "</div>";
+      html += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Creado</span><p class="mb-0 nexus-text-sm">' + esc((p.created_at && p.created_at.slice) ? p.created_at.slice(0, 10) : (p.created_at || "—")) + "</p></div>";
+      html += '<div class="col-12"><span class="nexus-text-sm text-muted">Nombre</span><input type="text" id="project-detail-edit-name" class="form-control form-control-sm mt-1" value="' + esc(p.name || "") + '" placeholder="Nombre" aria-label="Nombre"></div>';
+      html += '<div class="col-12"><span class="nexus-text-sm text-muted">Descripción</span><textarea id="project-detail-edit-desc" class="form-control form-control-sm mt-1" rows="3" placeholder="Descripción" aria-label="Descripción">' + esc(p.description || "") + "</textarea></div>";
+      html += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de aceptación</span><div id="project-detail-criteria-list">';
+      var numCriteria = acceptanceLines.length || 1;
+      for (var i = 0; i < numCriteria; i++) {
+        html += '<div class="project-criterion-row d-flex gap-2 align-items-center mb-2"><input type="text" class="form-control form-control-sm project-detail-criteria-input" placeholder="Criterio ' + (i + 1) + '" value="' + esc(acceptanceLines[i] || "") + '" aria-label="Criterio ' + (i + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm project-criterion-remove" aria-label="Quitar criterio">&times;</button></div>';
+      }
+      html += '</div><div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button type="button" id="project-detail-criteria-add" class="btn btn-outline-secondary btn-sm">+ Añadir criterio</button><button type="button" id="project-detail-criteria-save" class="btn btn-nexus-primary btn-sm">Guardar criterios</button><span id="project-detail-criteria-msg" class="nexus-text-sm text-muted"></span></div></div>';
+      html += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de implementación</span><div id="project-detail-impl-criteria-list">';
+      var numImpl = implementationLines.length || 1;
+      for (var j = 0; j < numImpl; j++) {
+        html += '<div class="project-impl-row d-flex gap-2 align-items-center mb-2"><input type="text" class="form-control form-control-sm project-detail-impl-input" placeholder="Criterio ' + (j + 1) + '" value="' + esc(implementationLines[j] || "") + '" aria-label="Criterio ' + (j + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm project-impl-remove" aria-label="Quitar criterio">&times;</button></div>';
+      }
+      html += '</div><div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button type="button" id="project-detail-impl-add" class="btn btn-outline-secondary btn-sm">+ Añadir criterio</button><button type="button" id="project-detail-impl-save" class="btn btn-nexus-primary btn-sm">Guardar criterios</button><span id="project-detail-impl-msg" class="nexus-text-sm text-muted"></span></div></div>';
+      html += '</div></div>';
+      html += '<div class="tab-pane fade" id="project-detail-panel-evidencia" role="tabpanel"><div class="row g-3">';
+      html += '<div class="col-md-6"><span class="nexus-text-sm text-muted d-block mb-2">Edición</span><textarea id="project-detail-evidence-notes" class="form-control form-control-sm mb-2" rows="5" placeholder="Notas de evidencia...">' + esc(evidenceState.notes || "") + '</textarea><input type="file" id="project-detail-evidence-files" class="form-control form-control-sm mb-2" accept="image/*,video/*,.pdf,.doc,.docx,.txt" multiple><div id="project-detail-evidence-list"></div></div>';
+      html += '<div class="col-md-6"><span class="nexus-text-sm text-muted d-block mb-2">Previsualización</span><div id="project-detail-evidence-preview"></div></div>';
+      html += "</div></div></div>";
       html += '<div class="mt-3 d-flex flex-wrap justify-content-between align-items-center gap-2">';
+      html += '<div class="d-flex flex-wrap gap-2">';
+      html += '<button type="button" id="project-detail-export" class="btn btn-outline-secondary btn-sm">Exportar</button>';
+      html += '<input type="file" id="project-detail-import-input" class="d-none" accept=".json,application/json">';
+      html += '<button type="button" id="project-detail-import" class="btn btn-outline-secondary btn-sm">Importar</button>';
+      html += '</div>';
       html += '<div class="d-flex flex-wrap gap-2">';
       html += '<a href="#/features?project=' + esc(p.id) + '" class="btn btn-nexus-secondary btn-sm">Features</a>';
       html += '<a href="#/sprints?project=' + esc(p.id) + '" class="btn btn-nexus-secondary btn-sm">Sprints</a>';
       html += '<a href="#/incidents?project=' + esc(p.id) + '" class="btn btn-nexus-secondary btn-sm">Incidentes</a>';
-      html += '</div>';
-      html += '<div class="d-flex flex-wrap gap-2">';
       if (isMaster) {
-        html += '<button class="btn btn-nexus-secondary btn-sm" id="btn-edit-project">Editar</button>';
-        if (p.status !== "ARCHIVED") {
-          html += '<button class="btn btn-outline-danger btn-sm" id="btn-archive">Archivar</button>';
-        }
+        if (p.status !== "ARCHIVED") html += '<button class="btn btn-outline-danger btn-sm" id="btn-archive">Archivar</button>';
         html += '<button class="btn btn-outline-danger btn-sm" id="btn-delete-project">Eliminar</button>';
       }
-      html += '<a href="#/projects" class="btn btn-nexus-secondary btn-sm">Volver</a>';
-      html += '</div></div>';
+      html += "</div></div>";
       html += "</div>";
-      window.setContent(html);
-      var btnArchive = document.getElementById("btn-archive");
-      if (btnArchive) btnArchive.onclick = async function () {
-        var r = await window.fetchApi("/projects/" + p.id + "/archive", { method: "PATCH" });
-        if (r && r.success) window.location.hash = "#/projects";
-        else window.setContent(window.showError(r && r.error && r.error.message));
+      window.openNexusFormModal({
+        id: "projectDetailModal",
+        title: "Detalle del proyecto",
+        bodyHtml: html,
+        mode: isMaster ? "edit" : "view",
+        primaryButtonId: "project-detail-save-modal",
+        primaryLabel: "Guardar",
+        cancelButtonId: "project-detail-cancel-modal",
+        modalDialogClass: "nexus-modal-story-detail",
+        getDirtyState: isMaster ? isDirty : undefined,
+        onSaveBeforeClose: isMaster ? function () {
+          return saveMain().then(function (ok) {
+            if (!ok) {
+              window.openNexusAlertModal({ title: "Error", message: "No se pudieron guardar los cambios del proyecto." });
+              return false;
+            }
+            saveCriteriaOnly();
+            if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Proyecto actualizado correctamente.");
+            runList();
+            return true;
+          });
+        } : undefined
+      }, function (bsModal) {
+        if (!isMaster) bsModal.hide();
+      });
+
+      var modalEl = document.getElementById("projectDetailModal");
+      if (modalEl) {
+        modalEl.addEventListener("hidden.bs.modal", function () {
+          if (window.location.hash.indexOf("#/projects/") === 0) window.location.hash = "#/projects";
+        }, { once: true });
+      }
+
+      if (!isMaster) {
+        var tabEd = document.getElementById("project-detail-tab-edicion");
+        if (tabEd && tabEd.parentNode) tabEd.parentNode.remove();
+      }
+      var initialName = (p.name || "").trim();
+      var initialDesc = (p.description || "").trim();
+      var baselineCriteria = acceptanceLines.slice();
+      var baselineImpl = implementationLines.slice();
+      var baselineStatus = p.status || "ACTIVE";
+      function readFilesAsDataUrl(fileList) {
+        var files = Array.prototype.slice.call(fileList || []);
+        return Promise.all(files.map(function (file) {
+          return new Promise(function (resolve) {
+            var reader = new FileReader();
+            reader.onload = function () { resolve({ name: file.name || "archivo", type: file.type || "application/octet-stream", data_url: reader.result }); };
+            reader.onerror = function () { resolve(null); };
+            reader.readAsDataURL(file);
+          });
+        })).then(function (rows) { return rows.filter(Boolean); });
+      }
+      function getCurrentProjectEvidence() {
+        var notesEl = document.getElementById("project-detail-evidence-notes");
+        return normalizeEvidencePayload({ notes: notesEl ? notesEl.value : "", files: evidenceState.files });
+      }
+      function renderProjectEvidencePane() {
+        var listEl = document.getElementById("project-detail-evidence-list");
+        var previewEl = document.getElementById("project-detail-evidence-preview");
+        if (listEl) {
+          if (!evidenceState.files.length) listEl.innerHTML = '<p class="mb-0 nexus-text-sm text-muted">Sin archivos adjuntos.</p>';
+          else {
+            var listHtml = '<ul class="list-unstyled mb-0">';
+            evidenceState.files.forEach(function (file, idx) {
+              listHtml += '<li class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2"><span class="nexus-text-sm text-truncate me-2">' + esc(file.name || ("Archivo " + (idx + 1))) + '</span><button type="button" class="btn btn-outline-danger btn-sm project-evidence-remove" data-evidence-index="' + idx + '">Quitar</button></li>';
+            });
+            listHtml += "</ul>";
+            listEl.innerHTML = listHtml;
+            listEl.querySelectorAll(".project-evidence-remove").forEach(function (btn) {
+              btn.onclick = function () {
+                var index = parseInt(btn.getAttribute("data-evidence-index"), 10);
+                if (!isNaN(index)) evidenceState.files.splice(index, 1);
+                renderProjectEvidencePane();
+              };
+            });
+          }
+        }
+        if (previewEl) {
+          var preview = "";
+          var notesText = (document.getElementById("project-detail-evidence-notes") && document.getElementById("project-detail-evidence-notes").value || "").trim();
+          preview += '<div class="border rounded p-2 mb-2"><div class="nexus-text-sm text-muted mb-1">Notas</div>' + (notesText ? ('<div style="white-space:pre-wrap">' + esc(notesText) + '</div>') : '<div class="nexus-text-sm text-muted">Sin notas.</div>') + "</div>";
+          if (!evidenceState.files.length) preview += '<p class="mb-0 nexus-text-sm text-muted">Sin previsualizaciones.</p>';
+          else {
+            evidenceState.files.forEach(function (file) {
+              if (String(file.type || "").indexOf("image/") === 0) preview += '<img src="' + file.data_url + '" alt="' + esc(file.name || "evidencia") + '" class="img-fluid rounded border mb-2">';
+              else if (String(file.type || "").indexOf("video/") === 0) preview += '<video src="' + file.data_url + '" controls class="w-100 rounded border mb-2" style="max-height:240px"></video>';
+              else preview += '<div class="border rounded p-2 mb-2"><span class="nexus-text-sm">' + esc(file.name || "Archivo") + "</span></div>";
+            });
+          }
+          previewEl.innerHTML = preview;
+        }
+      }
+      function bindProjectEvidenceEvents() {
+        var notesEl = document.getElementById("project-detail-evidence-notes");
+        var filesEl = document.getElementById("project-detail-evidence-files");
+        if (notesEl) notesEl.oninput = function () { renderProjectEvidencePane(); };
+        if (filesEl) filesEl.onchange = function () {
+          if (!(filesEl.files && filesEl.files.length)) return;
+          readFilesAsDataUrl(filesEl.files).then(function (rows) {
+            evidenceState.files = evidenceState.files.concat(rows);
+            filesEl.value = "";
+            renderProjectEvidencePane();
+          });
+        };
+      }
+      function isDirty() {
+        var n = (document.getElementById("project-detail-edit-name") && document.getElementById("project-detail-edit-name").value || "").trim();
+        var d = (document.getElementById("project-detail-edit-desc") && document.getElementById("project-detail-edit-desc").value || "").trim();
+        var st = (document.getElementById("project-detail-status-edit") && document.getElementById("project-detail-status-edit").value) || baselineStatus;
+        if (n !== initialName || d !== initialDesc || st !== baselineStatus) return true;
+        var curr = getProjectCriteriaLines("#project-detail-impl-criteria-list .project-detail-criteria-input, #project-detail-criteria-list .project-detail-criteria-input");
+        // curr combines all by selector above; split properly below for robust check
+        var currA = getProjectCriteriaLines("#project-detail-criteria-list .project-detail-criteria-input");
+        var currI = getProjectCriteriaLines("#project-detail-impl-criteria-list .project-detail-impl-input");
+        if (currA.length !== baselineCriteria.length || currI.length !== baselineImpl.length) return true;
+        for (var i = 0; i < baselineCriteria.length; i++) if (currA[i] !== baselineCriteria[i]) return true;
+        for (var k = 0; k < baselineImpl.length; k++) if (currI[k] !== baselineImpl[k]) return true;
+        if (JSON.stringify(getCurrentProjectEvidence()) !== evidenceBaselineJson) return true;
+        return false;
+      }
+      function saveMain() {
+        var name = (document.getElementById("project-detail-edit-name").value || "").trim();
+        var desc = (document.getElementById("project-detail-edit-desc").value || "").trim();
+        var st = (document.getElementById("project-detail-status-edit") && document.getElementById("project-detail-status-edit").value) || (p.status || "ACTIVE");
+        if (!name) return Promise.resolve(false);
+        var payload = { name: name, description: desc };
+        return window.fetchApi("/projects/" + p.id, { method: "PATCH", body: JSON.stringify(payload) }).then(function (r) {
+          if (!(r && r.success)) return false;
+          if (st !== p.status) {
+            if (st === "ARCHIVED") return window.fetchApi("/projects/" + p.id + "/archive", { method: "PATCH" }).then(function (x) { return !!(x && x.success); });
+          }
+          return true;
+        }).then(function (ok) {
+          if (ok) {
+            initialName = name;
+            initialDesc = desc;
+            baselineStatus = st;
+          }
+          return ok;
+        });
+      }
+      function saveCriteriaOnly() {
+        var a = getProjectCriteriaLines("#project-detail-criteria-list .project-detail-criteria-input");
+        var i = getProjectCriteriaLines("#project-detail-impl-criteria-list .project-detail-impl-input");
+        saveProjectCriteria(p.id, a, i);
+        var evidenceSnapshot = getCurrentProjectEvidence();
+        saveProjectEvidence(p.id, evidenceSnapshot);
+        evidenceState = normalizeEvidencePayload(evidenceSnapshot);
+        evidenceBaselineJson = JSON.stringify(evidenceState);
+        baselineCriteria = a.slice();
+        baselineImpl = i.slice();
+        refreshProjectViewCriteriaFromEdit();
+      }
+      function criteriaToViewHtml(lines) {
+        if (!lines || !lines.length) return '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
+        var h = '<ul class="list-unstyled mb-0">';
+        lines.forEach(function (line, idx) { h += '<li class="py-1">' + (idx + 1) + ". " + esc(line || "—") + "</li>"; });
+        h += "</ul>";
+        return h;
+      }
+      function refreshProjectViewCriteriaFromEdit() {
+        var a = getProjectCriteriaLines("#project-detail-criteria-list .project-detail-criteria-input");
+        var i = getProjectCriteriaLines("#project-detail-impl-criteria-list .project-detail-impl-input");
+        var viewA = document.getElementById("project-detail-criteria-vista");
+        var viewI = document.getElementById("project-detail-impl-vista");
+        if (viewA) viewA.innerHTML = criteriaToViewHtml(a);
+        if (viewI) viewI.innerHTML = criteriaToViewHtml(i);
+      }
+      function bindRowRemoveButtons() {
+        document.querySelectorAll(".project-criterion-remove").forEach(function (btn) {
+          btn.onclick = function () {
+            var row = btn.closest(".project-criterion-row");
+            var list = document.getElementById("project-detail-criteria-list");
+            if (row && list && list.querySelectorAll(".project-criterion-row").length > 1) row.remove();
+          };
+        });
+        document.querySelectorAll(".project-impl-remove").forEach(function (btn) {
+          btn.onclick = function () {
+            var row = btn.closest(".project-impl-row");
+            var list = document.getElementById("project-detail-impl-criteria-list");
+            if (row && list && list.querySelectorAll(".project-impl-row").length > 1) row.remove();
+          };
+        });
+      }
+      bindRowRemoveButtons();
+      var btnCriteriaAdd = document.getElementById("project-detail-criteria-add");
+      if (btnCriteriaAdd) btnCriteriaAdd.onclick = function () {
+        var list = document.getElementById("project-detail-criteria-list");
+        var n = list.querySelectorAll(".project-criterion-row").length + 1;
+        var row = document.createElement("div");
+        row.className = "project-criterion-row d-flex gap-2 align-items-center mb-2";
+        row.innerHTML = '<input type="text" class="form-control form-control-sm project-detail-criteria-input" placeholder="Criterio ' + n + '" aria-label="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm project-criterion-remove" aria-label="Quitar criterio">&times;</button>';
+        list.appendChild(row);
+        bindRowRemoveButtons();
       };
-      var btnEdit = document.getElementById("btn-edit-project");
-      if (btnEdit) btnEdit.onclick = function () { openEditModal(p, function () { loadProjectDetail(p.id); }); };
+      var btnImplAdd = document.getElementById("project-detail-impl-add");
+      if (btnImplAdd) btnImplAdd.onclick = function () {
+        var list = document.getElementById("project-detail-impl-criteria-list");
+        var n = list.querySelectorAll(".project-impl-row").length + 1;
+        var row = document.createElement("div");
+        row.className = "project-impl-row d-flex gap-2 align-items-center mb-2";
+        row.innerHTML = '<input type="text" class="form-control form-control-sm project-detail-impl-input" placeholder="Criterio ' + n + '" aria-label="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm project-impl-remove" aria-label="Quitar criterio">&times;</button>';
+        list.appendChild(row);
+        bindRowRemoveButtons();
+      };
+      var btnCriteriaSave = document.getElementById("project-detail-criteria-save");
+      if (btnCriteriaSave) btnCriteriaSave.onclick = function () {
+        saveCriteriaOnly();
+        var msg = document.getElementById("project-detail-criteria-msg");
+        if (msg) msg.textContent = "Guardado";
+      };
+      var btnImplSave = document.getElementById("project-detail-impl-save");
+      if (btnImplSave) btnImplSave.onclick = function () {
+        saveCriteriaOnly();
+        var msg = document.getElementById("project-detail-impl-msg");
+        if (msg) msg.textContent = "Guardado";
+      };
+      var btnExport = document.getElementById("project-detail-export");
+      if (btnExport) btnExport.onclick = function () {
+        var payload = {
+          project: {
+            id: p.id,
+            name: (document.getElementById("project-detail-edit-name") && document.getElementById("project-detail-edit-name").value) || (p.name || ""),
+            description: (document.getElementById("project-detail-edit-desc") && document.getElementById("project-detail-edit-desc").value) || (p.description || ""),
+            status: (document.getElementById("project-detail-status-edit") && document.getElementById("project-detail-status-edit").value) || (p.status || "ACTIVE"),
+            evidence: getCurrentProjectEvidence(),
+            acceptance_criteria: getProjectCriteriaLines("#project-detail-criteria-list .project-detail-criteria-input"),
+            implementation_criteria: getProjectCriteriaLines("#project-detail-impl-criteria-list .project-detail-impl-input")
+          },
+          exported_at: new Date().toISOString()
+        };
+        var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "project-" + ((p.number != null && p.number !== "") ? String(p.number) : (p.id || "config")) + "-config.json";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      };
+      var importInput = document.getElementById("project-detail-import-input");
+      var btnImport = document.getElementById("project-detail-import");
+      if (btnImport && importInput) btnImport.onclick = function () { importInput.click(); };
+      if (importInput) importInput.onchange = function () {
+        var file = importInput.files && importInput.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+          try {
+            var data = JSON.parse(reader.result);
+            var nameEl = document.getElementById("project-detail-edit-name");
+            var descEl = document.getElementById("project-detail-edit-desc");
+            var stEl = document.getElementById("project-detail-status-edit");
+            var notesEl = document.getElementById("project-detail-evidence-notes");
+            var projectData = (data && data.project && typeof data.project === "object") ? data.project : data;
+            if (nameEl && projectData.name !== undefined) nameEl.value = projectData.name || "";
+            if (descEl && projectData.description !== undefined) descEl.value = projectData.description || "";
+            if (stEl && projectData.status) stEl.value = projectData.status;
+            if (projectData.evidence) evidenceState = normalizeEvidencePayload(projectData.evidence);
+            if (notesEl) notesEl.value = evidenceState.notes || "";
+            var listA = document.getElementById("project-detail-criteria-list");
+            if (listA && Array.isArray(projectData.acceptance_criteria)) {
+              listA.innerHTML = "";
+              (projectData.acceptance_criteria.length ? projectData.acceptance_criteria : [""]).forEach(function (val, idx) {
+                var row = document.createElement("div");
+                row.className = "project-criterion-row d-flex gap-2 align-items-center mb-2";
+                row.innerHTML = '<input type="text" class="form-control form-control-sm project-detail-criteria-input" placeholder="Criterio ' + (idx + 1) + '" value="' + esc(String(val || "")) + '" aria-label="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm project-criterion-remove" aria-label="Quitar criterio">&times;</button>';
+                listA.appendChild(row);
+              });
+            }
+            var listI = document.getElementById("project-detail-impl-criteria-list");
+            if (listI && Array.isArray(projectData.implementation_criteria)) {
+              listI.innerHTML = "";
+              (projectData.implementation_criteria.length ? projectData.implementation_criteria : [""]).forEach(function (val, idx) {
+                var row = document.createElement("div");
+                row.className = "project-impl-row d-flex gap-2 align-items-center mb-2";
+                row.innerHTML = '<input type="text" class="form-control form-control-sm project-detail-impl-input" placeholder="Criterio ' + (idx + 1) + '" value="' + esc(String(val || "")) + '" aria-label="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm project-impl-remove" aria-label="Quitar criterio">&times;</button>';
+                listI.appendChild(row);
+              });
+            }
+            bindRowRemoveButtons();
+            bindProjectEvidenceEvents();
+            renderProjectEvidencePane();
+            var tabEd = document.getElementById("project-detail-tab-edicion");
+            if (tabEd) tabEd.click();
+            if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Configuración del proyecto importada correctamente.");
+          } catch (e) {
+            window.openNexusAlertModal({ title: "Error", message: "El archivo no es un JSON válido." });
+          }
+          importInput.value = "";
+        };
+        reader.readAsText(file);
+      };
+      var btnArchive = document.getElementById("btn-archive");
+      if (btnArchive) btnArchive.onclick = function () {
+        confirmArchiveProject(p, function () { window.location.hash = "#/projects"; });
+      };
       var btnDelete = document.getElementById("btn-delete-project");
       if (btnDelete) btnDelete.onclick = function () { confirmDeleteProject(p.id, function () { window.location.hash = "#/projects"; }); };
+      bindProjectEvidenceEvents();
+      renderProjectEvidencePane();
     }
 
     if (projectId) {
-      loadProjectDetail(projectId);
+      runList();
+      loadProjectDetail(projectId, openInEditMode);
       return;
     }
 
@@ -427,14 +1062,12 @@
       document.querySelectorAll("#content [data-sort]").forEach(function (a) {
         a.onclick = function (e) { e.preventDefault(); setSort(a.getAttribute("data-sort")); };
       });
-      document.querySelectorAll("#content .btn-edit-project").forEach(function (a) {
+      document.querySelectorAll("#content .btn-archive-project").forEach(function (a) {
         a.onclick = function (e) {
           e.preventDefault();
           var id = a.getAttribute("data-id");
-          window.fetchApi("/projects/" + id).then(function (body) {
-            if (body && body.success && body.data) openEditModal(body.data, runList);
-            else window.openNexusAlertModal({ title: "Error", message: (body && body.error && body.error.message) || "Error al cargar el proyecto." });
-          });
+          var project = (currentItems || []).find(function (p) { return p.id === id; }) || { id: id };
+          confirmArchiveProject(project, runList);
         };
       });
       document.querySelectorAll("#content .btn-delete-project").forEach(function (a) {
@@ -447,15 +1080,24 @@
       function doNew() {
         var bodyHtml = '<div class="mb-3"><label class="form-label">Nombre</label><input type="text" id="project-form-name" class="form-control" placeholder="Nombre del proyecto" required></div>';
         bodyHtml += '<div class="mb-3"><label class="form-label">Descripción</label><textarea id="project-form-desc" class="form-control" rows="3" placeholder="Descripción del proyecto"></textarea></div><div id="project-form-error" class="alert alert-danger d-none"></div>';
-        window.openNexusFormModal({ id: "projectNewModal", title: "Nuevo proyecto", bodyHtml: bodyHtml, primaryButtonId: "project-form-submit", primaryLabel: "Crear" }, function (bsModal) {
+        function doCreate() {
           var name = (document.getElementById("project-form-name").value || "").trim();
           var desc = (document.getElementById("project-form-desc").value || "").trim();
           var errEl = document.getElementById("project-form-error");
           errEl.classList.add("d-none");
-          if (!name) { errEl.textContent = "El nombre es obligatorio."; errEl.classList.remove("d-none"); return; }
-          window.fetchApi("/projects", { method: "POST", body: JSON.stringify({ name: name, description: desc }) }).then(function (r) {
-            if (r && r.success) { bsModal.hide(); runList(); } else { errEl.textContent = (r && r.error && r.error.message) || "Error al crear el proyecto."; errEl.classList.remove("d-none"); }
+          if (!name) { errEl.textContent = "El nombre es obligatorio."; errEl.classList.remove("d-none"); return Promise.resolve(false); }
+          return window.fetchApi("/projects", { method: "POST", body: JSON.stringify({ name: name, description: desc }) }).then(function (r) {
+            if (r && r.success) { runList(); return true; }
+            errEl.textContent = (r && r.error && r.error.message) || "Error al crear el proyecto."; errEl.classList.remove("d-none"); return false;
           });
+        }
+        window.openNexusFormModal({
+          id: "projectNewModal", title: "Nuevo proyecto", bodyHtml: bodyHtml, mode: "create",
+          primaryButtonId: "project-form-submit", primaryLabel: "Crear",
+          getDirtyState: function () { var n = (document.getElementById("project-form-name").value || "").trim(); var d = (document.getElementById("project-form-desc").value || "").trim(); return n.length > 0 || d.length > 0; },
+          onSaveBeforeClose: doCreate
+        }, function (bsModal) {
+          doCreate().then(function (ok) { if (ok) bsModal.hide(); });
         });
       }
       var btnNew = document.getElementById("btn-create-project");
@@ -471,6 +1113,63 @@
           refreshFromCurrent();
         };
       }
+      var btnExportFull = document.getElementById("btn-projects-export-full");
+      if (btnExportFull) btnExportFull.onclick = function () {
+        fetchAllProjects().then(function (projects) {
+          var nodesP = (projects || []).map(function (proj) { return buildProjectExportNode(proj); });
+          return Promise.all(nodesP).then(function (nodes) {
+            var payload = { exported_at: new Date().toISOString(), projects: nodes };
+            var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+            var a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "projects-full-config.json";
+            a.click();
+            URL.revokeObjectURL(a.href);
+          });
+        });
+      };
+      var btnImportFull = document.getElementById("btn-projects-import-full");
+      var inputImportFull = document.getElementById("projects-import-full-input");
+      if (btnImportFull && inputImportFull) btnImportFull.onclick = function () { inputImportFull.click(); };
+      if (inputImportFull) inputImportFull.onchange = function () {
+        var file = inputImportFull.files && inputImportFull.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+          var parsed;
+          try {
+            parsed = JSON.parse(reader.result);
+          } catch (e) {
+            window.openNexusAlertModal({ title: "Importar proyectos", message: "El archivo no es un JSON válido." });
+            inputImportFull.value = "";
+            return;
+          }
+          window.fetchApi("/projects/import", { method: "POST", body: JSON.stringify(parsed) }).then(function (resp) {
+            if (resp && resp.success && resp.data) {
+              var d = resp.data;
+              applyImportedFeatureCriteria(parsed).then(function () {
+                if (typeof window.showSuccessMessage === "function") {
+                  window.showSuccessMessage("Importación completada. Proyectos: " + (d.projects_created || 0) + ", Features: " + (d.features_created || 0) + ", Stories: " + (d.stories_created || 0) + ".");
+                }
+                runList();
+              }).catch(function () {
+                if (typeof window.showSuccessMessage === "function") {
+                  window.showSuccessMessage("Importación completada. Proyectos: " + (d.projects_created || 0) + ", Features: " + (d.features_created || 0) + ", Stories: " + (d.stories_created || 0) + ".");
+                }
+                runList();
+              });
+              return;
+            }
+            var code = resp && resp.error && resp.error.code;
+            var msg = (resp && resp.error && resp.error.message) || "No se pudo importar el archivo.";
+            var detailsPath = resp && resp.error && resp.error.details && resp.error.details.path;
+            if (detailsPath) msg += " (" + detailsPath + ")";
+            window.openNexusAlertModal({ title: code || "Importar proyectos", message: msg });
+          });
+          inputImportFull.value = "";
+        };
+        reader.readAsText(file);
+      };
       var btnCancelSelection = document.getElementById("btn-cancel-selection");
       if (btnCancelSelection) {
         btnCancelSelection.onclick = function () {

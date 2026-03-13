@@ -26,6 +26,7 @@ function toPlain(story) {
     title: s.title,
     description: s.description,
     acceptance_criteria: s.acceptance_criteria,
+    implementation_criteria: s.implementation_criteria,
     status: s.status,
     priority: s.priority,
     assigned_to: s.assigned_to,
@@ -233,6 +234,7 @@ async function updateStory(id, payload, context) {
   if (payload.description !== undefined) updatePayload.description = payload.description;
   if (payload.priority !== undefined) updatePayload.priority = payload.priority;
   if (payload.acceptance_criteria !== undefined) updatePayload.acceptance_criteria = payload.acceptance_criteria;
+  if (payload.implementation_criteria !== undefined) updatePayload.implementation_criteria = payload.implementation_criteria;
   if (payload.assigned_to !== undefined) {
     const assignedTo = payload.assigned_to === null || payload.assigned_to === "" ? null : payload.assigned_to;
     if (assignedTo != null) {

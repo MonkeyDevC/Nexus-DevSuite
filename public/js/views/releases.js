@@ -76,10 +76,16 @@
         var featSel = document.getElementById("release-detail-feature");
         var btnAssignFeat = document.getElementById("release-detail-assign-feature");
         var featuresListEl = document.getElementById("release-detail-features-list");
+        function formatProjectListLabel(project) {
+          if (!project) return "—";
+          var pid = (project.number != null && project.number !== "") ? ("P" + String(project.number)) : ((project.id || "").slice(0, 8) || "—");
+          var name = (project.name && String(project.name).trim()) ? String(project.name).trim() : (project.id || "—");
+          return pid + " - " + name;
+        }
         window.fetchApi("/projects").then(function (projRes) {
           var projList = (projRes && projRes.success && projRes.data && projRes.data.items) ? projRes.data.items : [];
           if (!projSel) return;
-          projList.forEach(function (p) { var opt = document.createElement("option"); opt.value = p.id; opt.textContent = p.name || p.id; projSel.appendChild(opt); });
+          projList.forEach(function (p) { var opt = document.createElement("option"); opt.value = p.id; opt.textContent = formatProjectListLabel(p); projSel.appendChild(opt); });
           projSel.onchange = function () {
             featSel.innerHTML = '<option value="">Seleccionar feature</option>';
             var pid = projSel.value;
@@ -333,17 +339,23 @@
         e.preventDefault();
         var bodyHtml = '<div class="mb-3"><label class="form-label">Versión (ej. 1.0.0)</label><input type="text" id="rel-form-version" class="form-control" placeholder="1.0.0" required></div>';
         bodyHtml += '<div class="mb-3"><label class="form-label">Descripción</label><textarea id="rel-form-desc" class="form-control" rows="2" placeholder="Descripción"></textarea></div><div id="rel-form-error" class="alert alert-danger d-none"></div>';
-        window.openNexusFormModal({ id: "relNewModal", title: "Nuevo release", bodyHtml: bodyHtml, primaryButtonId: "rel-form-submit", primaryLabel: "Crear" }, function (bsModal) {
+        function doCreate() {
           var version = (document.getElementById("rel-form-version").value || "").trim();
           var desc = (document.getElementById("rel-form-desc").value || "").trim();
           var errEl = document.getElementById("rel-form-error");
           errEl.classList.add("d-none");
-          if (!version) { errEl.textContent = "La versión es obligatoria."; errEl.classList.remove("d-none"); return; }
-          window.fetchApi("/releases", { method: "POST", body: JSON.stringify({ version: version, description: desc }) }).then(function (r) {
-            if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Release creado correctamente."); bsModal.hide(); runList(); }
-            else { errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); }
+          if (!version) { errEl.textContent = "La versión es obligatoria."; errEl.classList.remove("d-none"); return Promise.resolve(false); }
+          return window.fetchApi("/releases", { method: "POST", body: JSON.stringify({ version: version, description: desc }) }).then(function (r) {
+            if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Release creado correctamente."); runList(); return true; }
+            errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); return false;
           });
-        });
+        }
+        window.openNexusFormModal({
+          id: "relNewModal", title: "Nuevo release", bodyHtml: bodyHtml, mode: "create",
+          primaryButtonId: "rel-form-submit", primaryLabel: "Crear",
+          getDirtyState: function () { var v = (document.getElementById("rel-form-version").value || "").trim(); var d = (document.getElementById("rel-form-desc").value || "").trim(); return v.length > 0 || d.length > 0; },
+          onSaveBeforeClose: doCreate
+        }, function (bsModal) { doCreate().then(function (ok) { if (ok) bsModal.hide(); }); });
       };
     }
 

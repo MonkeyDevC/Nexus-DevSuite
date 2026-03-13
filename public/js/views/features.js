@@ -7,7 +7,7 @@
   window.registerView("features", async function () {
     await window.showNav();
     window.setContent(window.showLoading());
-    const projectsRes = await window.fetchApi("/projects");
+    const projectsRes = await window.fetchApi("/projects?page=1&limit=50");
     const projects = (projectsRes && projectsRes.success && projectsRes.data && projectsRes.data.items) ? projectsRes.data.items : [];
     var match = window.location.hash.match(/[?&]project=([^&]+)/);
     var projectParam = match ? decodeURIComponent(match[1]) : (window.getHashSegments()[1] || "");
@@ -18,13 +18,99 @@
       } catch (e) {}
     }
 
-    var state = { projectId: projectParam || "", page: 1, limit: 10, statusFilter: [], search: "", sort: "title", dir: "asc" };
+    var state = { projectId: projectParam || "", page: 1, limit: 10, statusFilter: [], search: "", sort: "title", dir: "asc", projectSearch: "" };
     var currentMeta = null;
     var currentItems = [];
 
     function getProjectName(id) {
       var p = projects.find(function (x) { return x.id === id; });
       return (p && p.name) || id;
+    }
+
+    function formatProjectListLabel(project) {
+      if (!project) return "—";
+      var pid = (project.number != null && project.number !== "") ? ("P" + String(project.number)) : ((project.id || "").slice(0, 8) || "—");
+      var name = (project.name && String(project.name).trim()) ? String(project.name).trim() : (project.id || "—");
+      return pid + " - " + name;
+    }
+
+    function getProjectListLabelById(id) {
+      var p = projects.find(function (x) { return x.id === id; });
+      return p ? formatProjectListLabel(p) : id;
+    }
+
+    function featureCriteriaStorageKey(featureId) {
+      return "nexus.feature.criteria." + String(featureId || "");
+    }
+
+    function loadFeatureCriteria(featureId) {
+      try {
+        var raw = localStorage.getItem(featureCriteriaStorageKey(featureId));
+        if (!raw) return { acceptance: [], implementation: [] };
+        var parsed = JSON.parse(raw);
+        var acceptance = Array.isArray(parsed && parsed.acceptance) ? parsed.acceptance.filter(Boolean).map(function (x) { return String(x).trim(); }).filter(Boolean) : [];
+        var implementation = Array.isArray(parsed && parsed.implementation) ? parsed.implementation.filter(Boolean).map(function (x) { return String(x).trim(); }).filter(Boolean) : [];
+        return { acceptance: acceptance, implementation: implementation };
+      } catch (e) {
+        return { acceptance: [], implementation: [] };
+      }
+    }
+
+    function saveFeatureCriteria(featureId, acceptance, implementation) {
+      var payload = {
+        acceptance: Array.isArray(acceptance) ? acceptance.filter(Boolean).map(function (x) { return String(x).trim(); }).filter(Boolean) : [],
+        implementation: Array.isArray(implementation) ? implementation.filter(Boolean).map(function (x) { return String(x).trim(); }).filter(Boolean) : []
+      };
+      localStorage.setItem(featureCriteriaStorageKey(featureId), JSON.stringify(payload));
+    }
+
+    function featureEvidenceStorageKey(featureId) {
+      return "nexus.feature.evidence." + String(featureId || "");
+    }
+
+    function normalizeEvidencePayload(payload) {
+      var p = payload && typeof payload === "object" ? payload : {};
+      return {
+        notes: p.notes != null ? String(p.notes) : "",
+        files: Array.isArray(p.files) ? p.files.filter(function (f) { return f && f.data_url; }).map(function (f) {
+          return {
+            name: f.name ? String(f.name) : "archivo",
+            type: f.type ? String(f.type) : "application/octet-stream",
+            data_url: String(f.data_url)
+          };
+        }) : []
+      };
+    }
+
+    function loadFeatureEvidence(featureId) {
+      try {
+        var raw = localStorage.getItem(featureEvidenceStorageKey(featureId));
+        if (!raw) return { notes: "", files: [] };
+        return normalizeEvidencePayload(JSON.parse(raw));
+      } catch (e) {
+        return { notes: "", files: [] };
+      }
+    }
+
+    function saveFeatureEvidence(featureId, evidence) {
+      localStorage.setItem(featureEvidenceStorageKey(featureId), JSON.stringify(normalizeEvidencePayload(evidence)));
+    }
+
+    function getProjectOptionsBySearch(term, selectedId) {
+      var q = (term || "").trim().toLowerCase();
+      var filtered = projects.filter(function (p) {
+        if (!q) return true;
+        var name = (p.name || "").toLowerCase();
+        var description = (p.description || "").toLowerCase();
+        var id = (p.id || "").toLowerCase();
+        var number = (p.number != null && p.number !== "") ? ("p" + String(p.number).toLowerCase()) : "";
+        return name.indexOf(q) !== -1 || description.indexOf(q) !== -1 || id.indexOf(q) !== -1 || number.indexOf(q) !== -1;
+      });
+      if (selectedId && !filtered.some(function (p) { return p.id === selectedId; })) {
+        var selectedProject = projects.find(function (p) { return p.id === selectedId; });
+        if (selectedProject) filtered.unshift(selectedProject);
+      }
+      return filtered;
     }
 
     function buildQuery() {
@@ -41,6 +127,23 @@
       return window.sortArray(filtered, state.sort, state.dir);
     }
 
+    function fetchAllProjectFeatures(projectId) {
+      if (!projectId) return Promise.resolve([]);
+      var all = [];
+      function fetchPage(page) {
+        return window.fetchApi("/projects/" + projectId + "/features?page=" + page + "&limit=100").then(function (body) {
+          if (!(body && body.success && body.data)) return all;
+          var data = body.data;
+          var items = data.items || (Array.isArray(data) ? data : []);
+          all = all.concat(items);
+          var totalPages = data.totalPages != null ? data.totalPages : 1;
+          if (page < totalPages) return fetchPage(page + 1);
+          return all;
+        });
+      }
+      return fetchPage(1);
+    }
+
     function renderList(items, meta, projectId) {
       var html = window.renderBreadcrumbs([
         { label: "Panel", href: "#/dashboard" },
@@ -53,14 +156,31 @@
       var hasFilter = !!(state.search || (state.statusFilter && state.statusFilter.length > 0 && state.statusFilter.length < 5));
       html += '<div class="d-flex flex-wrap gap-2 align-items-end mb-2">';
       html += (typeof window.renderPageSizeSelector === "function" ? window.renderPageSizeSelector({ selectId: "feat-per-page", currentLimit: state.limit, options: [10, 25, 50] }) : "");
+      var selectedProjectLabel = state.projectId ? getProjectListLabelById(state.projectId) : "Seleccionar proyecto";
+      html += '<div class="d-flex flex-column">';
       html += '<label class="mb-0 nexus-text-sm">Proyecto</label>';
-      html += '<select class="form-select form-select-sm nexus-input" id="sel-project" style="max-width:320px" aria-label="Proyecto"><option value="">Seleccionar proyecto</option>';
-      projects.forEach(function (p) {
-        html += "<option value=\"" + p.id + "\">" + esc(p.name || p.id) + "</option>";
+      html += '<div class="dropdown d-inline-block" data-bs-boundary="viewport">';
+      html += '<button class="btn btn-outline-secondary btn-sm d-flex justify-content-between align-items-center text-start" type="button" id="feat-project-filter-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-auto-close="outside" aria-expanded="false" aria-haspopup="true" aria-label="Filtrar por proyecto" title="Proyecto" style="min-width:320px; max-width:320px">';
+      html += '<span id="feat-project-selected-label" class="text-truncate me-2">' + esc(selectedProjectLabel) + '</span><span aria-hidden="true">&#9662;</span>';
+      html += '</button>';
+      html += '<ul class="dropdown-menu dropdown-menu-start stories-titulo-dropdown-menu" id="feat-project-filter-menu" style="min-width:320px; max-width:360px; max-height:min(380px, 60vh); overflow:hidden; padding:0">';
+      html += '<li class="px-3 py-2 border-bottom"><input type="search" class="form-control form-control-sm" id="feat-search-project" placeholder="Buscar proyecto..." aria-label="Buscar proyecto" value="' + esc(state.projectSearch || "") + '"></li>';
+      html += '<li class="px-0 py-0 flex-grow-1" style="max-height:240px; overflow-y:auto;"><ul class="list-unstyled mb-0" id="feat-project-matches">';
+      html += '<li class="dropdown-item feat-project-match border-bottom' + (!state.projectId ? " active" : "") + '" data-project-id="" data-project-name="Seleccionar proyecto" style="cursor:pointer; white-space:normal">Seleccionar proyecto</li>';
+      getProjectOptionsBySearch(state.projectSearch, state.projectId).forEach(function (p) {
+        var activeClass = (state.projectId && p.id === state.projectId) ? " active" : "";
+        var projectLabel = formatProjectListLabel(p);
+        html += '<li class="dropdown-item feat-project-match border-bottom' + activeClass + '" data-project-id="' + esc(p.id) + '" data-project-name="' + esc(projectLabel) + '" style="cursor:pointer; white-space:normal">' + esc(projectLabel) + "</li>";
       });
-      html += "</select>";
+      html += '</ul></li>';
+      html += "</ul></div></div>";
       html += window.renderClearFiltersButton({ show: hasFilter, id: "feat-clear-filters-btn" });
-      html += '<a href="#" id="feat-btn-new" class="btn btn-nexus-primary btn-sm ms-auto">+ Nueva feature</a>';
+      html += '<div class="d-flex flex-wrap gap-2 ms-auto">';
+      html += '<button type="button" id="feat-btn-export" class="btn btn-outline-secondary btn-sm"' + (!state.projectId ? " disabled" : "") + '>Exportar</button>';
+      html += '<input type="file" id="feat-import-input" class="d-none" accept=".json,application/json">';
+      html += '<button type="button" id="feat-btn-import" class="btn btn-outline-secondary btn-sm"' + (!state.projectId ? " disabled" : "") + '>Importar</button>';
+      html += '<a href="#" id="feat-btn-new" class="btn btn-nexus-primary btn-sm">+ Nueva feature</a>';
+      html += "</div>";
       html += "</div>";
       if (!state.projectId) {
         html += '<div class="nexus-empty-state"><p class="nexus-empty-state-title">Seleccione un proyecto</p><p class="nexus-text-secondary">Elija un proyecto para ver las features.</p></div>';
@@ -70,6 +190,12 @@
       if (!items || items.length === 0) {
         html += '<div class="nexus-empty-state"><p class="nexus-empty-state-title">' + (state.search ? "Sin resultados" : "No hay features") + "</p><p class=\"nexus-text-secondary\">Cree una feature o ajuste los filtros.</p></div>";
       } else {
+        var pageOffset = ((meta && meta.page ? meta.page : state.page) - 1) * ((meta && meta.limit ? meta.limit : state.limit) || 10);
+        var featureDisplayIdById = {};
+        (items || []).forEach(function (f, idx) {
+          var number = (f && f.number != null && f.number !== "") ? f.number : (pageOffset + idx + 1);
+          featureDisplayIdById[f.id] = "FT-" + String(number);
+        });
         var featStatuses = ["DRAFT", "APPROVED", "IN_PROGRESS", "DONE", "ARCHIVED"];
         var statusSortArrow = state.sort === "status" ? (state.dir === "asc" ? " \u2191" : " \u2193") : "";
         var allFeatStatusSelected = state.statusFilter.length === 0 || state.statusFilter.length === 5;
@@ -108,8 +234,10 @@
         tituloHeaderHtml += '</ul></div>';
         html += window.renderNexusTable({
           columns: [
+            { label: "ID" },
             { headerHtml: tituloHeaderHtml },
             { label: "Descripción de la feature" },
+            { label: "Prioridad", sortKey: "priority" },
             { headerHtml: estadoHeaderHtml },
             { label: "Cant. stories" },
             { label: "Acciones" }
@@ -122,14 +250,16 @@
             var descShort = desc.length > 80 ? desc.slice(0, 77) + "…" : desc;
             var descCell = desc ? ('<span class="nexus-text-sm" title="' + esc(desc) + '">' + esc(descShort || "—") + "</span>") : "—";
             var featStatuses = ["DRAFT", "APPROVED", "IN_PROGRESS", "DONE", "ARCHIVED"];
-            var statusSelect = '<select class="form-select form-select-sm feat-status-select nexus-input" data-feature-id="' + esc(f.id) + '" style="max-width:140px" aria-label="Estado">';
+            var statusSelect = '<select class="form-select form-select-sm feat-status-select nexus-input" data-feature-id="' + esc(f.id) + '" style="min-width:9rem; width:100%; max-width:100%" aria-label="Estado">';
             featStatuses.forEach(function (st) {
               statusSelect += '<option value="' + esc(st) + '"' + (f.status === st ? ' selected' : '') + '>' + esc(st) + '</option>';
             });
             statusSelect += '</select>';
             return [
-              '<a href="#/stories?feature=' + f.id + (state.projectId ? '&project=' + state.projectId : '') + '">' + esc(f.title || f.id) + "</a>",
+              '<span class="nexus-text-sm text-muted">' + esc(featureDisplayIdById[f.id] || ("FT-" + ((f && f.id) ? String(f.id).slice(0, 8) : "—"))) + "</span>",
+              '<a href="#" class="feat-view-link" data-feature-id="' + esc(f.id || "") + '">' + esc(f.title || f.id) + "</a>",
               descCell,
+              '<span class="nexus-text-sm">' + esc(f.priority || "—") + "</span>",
               statusSelect,
               String(count),
               window.renderTableActions({ view: { href: "#/stories?feature=" + f.id + (state.projectId ? "&project=" + state.projectId : ""), label: "Stories" } })
@@ -140,6 +270,15 @@
       }
       html += "</div>";
       return html;
+    }
+
+    function syncProjectHashWithState() {
+      var nextHash = state.projectId ? ("#/features?project=" + encodeURIComponent(state.projectId)) : "#/features";
+      if (window.location.hash !== nextHash) {
+        window.location.hash = nextHash;
+        return true;
+      }
+      return false;
     }
 
     function setSort(key) {
@@ -181,14 +320,458 @@
       bindFeatures();
     }
 
+    function openFeatureDetailModal(featureId) {
+      if (!featureId || typeof window.openNexusFormModal !== "function") return;
+      window.fetchApi("/features/" + featureId).then(function (res) {
+        if (!(res && res.success && res.data)) {
+          window.openNexusAlertModal({ title: "Error", message: (res && res.error && res.error.message) || "No se pudo cargar la feature." });
+          return;
+        }
+        var f = res.data;
+        var stored = loadFeatureCriteria(f.id);
+        var acceptanceBase = stored.acceptance.slice();
+        var implementationBase = stored.implementation.slice();
+        var evidenceState = loadFeatureEvidence(f.id);
+        var evidenceBaselineJson = JSON.stringify(evidenceState);
+        var statusBase = f.status || "DRAFT";
+        var priorityBase = f.priority || "MEDIUM";
+        var titleBase = (f.title || "").trim();
+        var descriptionBase = (f.description || "").trim();
+        var featureDisplayNumber = null;
+        if (f.number != null && f.number !== "") {
+          featureDisplayNumber = String(f.number);
+        } else {
+          var idxInCurrent = (currentItems || []).findIndex(function (x) { return x && x.id === f.id; });
+          if (idxInCurrent >= 0) {
+            var pageOffsetForModal = (state.page - 1) * (state.limit || 10);
+            featureDisplayNumber = String(pageOffsetForModal + idxInCurrent + 1);
+          }
+        }
+        var featureDisplayId = "FT-" + (featureDisplayNumber || "—");
+
+        function renderCriteriaListHtml(lines) {
+          if (!lines || !lines.length) return '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
+          var h = '<ul class="list-unstyled mb-0">';
+          lines.forEach(function (line, idx) { h += '<li class="py-1">' + (idx + 1) + ". " + esc(line || "—") + "</li>"; });
+          h += "</ul>";
+          return h;
+        }
+        function getLines(selector) {
+          var inputs = document.querySelectorAll("#featureDetailModal " + selector);
+          var out = [];
+          if (inputs) for (var i = 0; i < inputs.length; i++) { var v = (inputs[i].value || "").trim(); if (v) out.push(v); }
+          return out;
+        }
+        function refreshViewFromEdit() {
+          var viewA = document.getElementById("feature-detail-criteria-vista");
+          var viewI = document.getElementById("feature-detail-impl-vista");
+          var viewStatus = document.getElementById("feature-detail-status-vista");
+          var viewPriority = document.getElementById("feature-detail-priority-vista");
+          var viewTitle = document.getElementById("feature-detail-title-vista");
+          var viewDescription = document.getElementById("feature-detail-description-vista");
+          var pageTitle = document.getElementById("feature-detail-page-title");
+          var statusSel = document.getElementById("feature-detail-status-edit");
+          var prioritySel = document.getElementById("feature-detail-priority-edit");
+          var titleEl = document.getElementById("feature-detail-title-edit");
+          var descEl = document.getElementById("feature-detail-desc-edit");
+          if (viewA) viewA.innerHTML = renderCriteriaListHtml(getLines(".feature-detail-criteria-input"));
+          if (viewI) viewI.innerHTML = renderCriteriaListHtml(getLines(".feature-detail-impl-input"));
+          if (viewStatus && statusSel) viewStatus.textContent = statusSel.value || "—";
+          if (viewPriority && prioritySel) viewPriority.textContent = prioritySel.value || "—";
+          if (viewTitle && titleEl) viewTitle.textContent = (titleEl.value || "").trim() || "—";
+          if (viewDescription && descEl) {
+            var d = (descEl.value || "").trim();
+            viewDescription.innerHTML = d ? ('<p class="mb-0" style="white-space:pre-wrap">' + esc(d) + "</p>") : '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
+          }
+          if (pageTitle && titleEl) pageTitle.textContent = (titleEl.value || "").trim() || "Feature";
+        }
+        function bindRemoveButtons() {
+          document.querySelectorAll("#featureDetailModal .feature-criterion-remove").forEach(function (btn) {
+            btn.onclick = function () {
+              var row = btn.closest(".feature-criterion-row");
+              var list = document.getElementById("feature-detail-criteria-list");
+              if (row && list && list.querySelectorAll(".feature-criterion-row").length > 1) row.remove();
+            };
+          });
+          document.querySelectorAll("#featureDetailModal .feature-impl-remove").forEach(function (btn) {
+            btn.onclick = function () {
+              var row = btn.closest(".feature-impl-row");
+              var list = document.getElementById("feature-detail-impl-list");
+              if (row && list && list.querySelectorAll(".feature-impl-row").length > 1) row.remove();
+            };
+          });
+        }
+        function readFilesAsDataUrl(fileList) {
+          var files = Array.prototype.slice.call(fileList || []);
+          return Promise.all(files.map(function (file) {
+            return new Promise(function (resolve) {
+              var reader = new FileReader();
+              reader.onload = function () {
+                resolve({
+                  name: file.name || "archivo",
+                  type: file.type || "application/octet-stream",
+                  data_url: reader.result
+                });
+              };
+              reader.onerror = function () { resolve(null); };
+              reader.readAsDataURL(file);
+            });
+          })).then(function (rows) { return rows.filter(Boolean); });
+        }
+        function getCurrentEvidenceData() {
+          var notesEl = document.getElementById("feature-detail-evidence-notes");
+          return normalizeEvidencePayload({
+            notes: notesEl ? notesEl.value : "",
+            files: evidenceState.files
+          });
+        }
+        function renderEvidencePane() {
+          var listEl = document.getElementById("feature-detail-evidence-list");
+          var previewEl = document.getElementById("feature-detail-evidence-preview");
+          if (listEl) {
+            if (!evidenceState.files.length) listEl.innerHTML = '<p class="mb-0 nexus-text-sm text-muted">Sin archivos adjuntos.</p>';
+            else {
+              var listHtml = '<ul class="list-unstyled mb-0">';
+              evidenceState.files.forEach(function (file, idx) {
+                listHtml += '<li class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2"><span class="nexus-text-sm text-truncate me-2">' + esc(file.name || ("Archivo " + (idx + 1))) + '</span><button type="button" class="btn btn-outline-danger btn-sm feature-evidence-remove" data-evidence-index="' + idx + '">Quitar</button></li>';
+              });
+              listHtml += "</ul>";
+              listEl.innerHTML = listHtml;
+              listEl.querySelectorAll(".feature-evidence-remove").forEach(function (btn) {
+                btn.onclick = function () {
+                  var index = parseInt(btn.getAttribute("data-evidence-index"), 10);
+                  if (!isNaN(index)) evidenceState.files.splice(index, 1);
+                  renderEvidencePane();
+                };
+              });
+            }
+          }
+          if (previewEl) {
+            var preview = "";
+            var notesText = (document.getElementById("feature-detail-evidence-notes") && document.getElementById("feature-detail-evidence-notes").value || "").trim();
+            preview += '<div class="border rounded p-2 mb-2"><div class="nexus-text-sm text-muted mb-1">Notas</div>' + (notesText ? ('<div style="white-space:pre-wrap">' + esc(notesText) + '</div>') : '<div class="nexus-text-sm text-muted">Sin notas.</div>') + "</div>";
+            if (!evidenceState.files.length) preview += '<p class="mb-0 nexus-text-sm text-muted">Sin previsualizaciones.</p>';
+            else {
+              evidenceState.files.forEach(function (file) {
+                if (String(file.type || "").indexOf("image/") === 0) {
+                  preview += '<img src="' + file.data_url + '" alt="' + esc(file.name || "evidencia") + '" class="img-fluid rounded border mb-2">';
+                } else if (String(file.type || "").indexOf("video/") === 0) {
+                  preview += '<video src="' + file.data_url + '" controls class="w-100 rounded border mb-2" style="max-height:240px"></video>';
+                } else {
+                  preview += '<div class="border rounded p-2 mb-2"><span class="nexus-text-sm">' + esc(file.name || "Archivo") + "</span></div>";
+                }
+              });
+            }
+            previewEl.innerHTML = preview;
+          }
+        }
+        function bindEvidenceEvents() {
+          var notesEl = document.getElementById("feature-detail-evidence-notes");
+          var filesEl = document.getElementById("feature-detail-evidence-files");
+          if (notesEl) notesEl.oninput = function () { renderEvidencePane(); };
+          if (filesEl) filesEl.onchange = function () {
+            var selected = filesEl.files;
+            if (!selected || !selected.length) return;
+            readFilesAsDataUrl(selected).then(function (rows) {
+              evidenceState.files = evidenceState.files.concat(rows);
+              filesEl.value = "";
+              renderEvidencePane();
+            });
+          };
+        }
+        function saveCriteriaOnly() {
+          var a = getLines(".feature-detail-criteria-input");
+          var i = getLines(".feature-detail-impl-input");
+          saveFeatureCriteria(f.id, a, i);
+          acceptanceBase = a.slice();
+          implementationBase = i.slice();
+          refreshViewFromEdit();
+        }
+        function doSaveAll() {
+          var titleEl = document.getElementById("feature-detail-title-edit");
+          var descEl = document.getElementById("feature-detail-desc-edit");
+          var nextTitle = (titleEl && titleEl.value || "").trim();
+          var nextDescription = (descEl && descEl.value || "").trim();
+          var statusSel = document.getElementById("feature-detail-status-edit");
+          var prioritySel = document.getElementById("feature-detail-priority-edit");
+          var nextStatus = statusSel ? (statusSel.value || "DRAFT") : "DRAFT";
+          var nextPriority = prioritySel ? (prioritySel.value || "MEDIUM") : "MEDIUM";
+          if (!nextTitle || !nextDescription) {
+            window.openNexusAlertModal({ title: "Validación", message: "Título y descripción son obligatorios." });
+            return Promise.resolve(false);
+          }
+          var detailsTask = (nextTitle !== titleBase || nextDescription !== descriptionBase || nextPriority !== priorityBase)
+            ? window.fetchApi("/features/" + f.id, {
+              method: "PATCH",
+              body: JSON.stringify({ title: nextTitle, description: nextDescription, priority: nextPriority })
+            }).then(function (r) {
+              if (r && r.success) {
+                titleBase = nextTitle;
+                descriptionBase = nextDescription;
+                priorityBase = nextPriority;
+                f.title = nextTitle;
+                f.description = nextDescription;
+                f.priority = nextPriority;
+                return true;
+              }
+              window.openNexusAlertModal({ title: "Error", message: (r && r.error && r.error.message) || "No se pudo actualizar título y descripción de la feature." });
+              return false;
+            })
+            : Promise.resolve(true);
+          var statusTask = (nextStatus !== statusBase)
+            ? window.fetchApi("/features/" + f.id + "/status", { method: "PATCH", body: JSON.stringify({ status: nextStatus }) }).then(function (r) {
+              if (r && r.success) { statusBase = nextStatus; return true; }
+              window.openNexusAlertModal({ title: "Error", message: (r && r.error && r.error.message) || "No se pudo actualizar el estado de la feature." });
+              return false;
+            })
+            : Promise.resolve(true);
+          return detailsTask.then(function (detailsOk) {
+            if (!detailsOk) return false;
+            return statusTask;
+          }).then(function (ok) {
+            if (!ok) return false;
+            saveCriteriaOnly();
+            var evidenceSnapshot = getCurrentEvidenceData();
+            saveFeatureEvidence(f.id, evidenceSnapshot);
+            evidenceState = normalizeEvidencePayload(evidenceSnapshot);
+            evidenceBaselineJson = JSON.stringify(evidenceState);
+            refreshViewFromEdit();
+            if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Feature actualizada correctamente.");
+            loadFeatures();
+            return true;
+          });
+        }
+        function getDirtyState() {
+          var titleEl = document.getElementById("feature-detail-title-edit");
+          var descEl = document.getElementById("feature-detail-desc-edit");
+          var currTitle = (titleEl && titleEl.value || "").trim();
+          var currDescription = (descEl && descEl.value || "").trim();
+          if (currTitle !== titleBase || currDescription !== descriptionBase) return true;
+          var prioritySel = document.getElementById("feature-detail-priority-edit");
+          if (prioritySel && (prioritySel.value || "MEDIUM") !== priorityBase) return true;
+          var currEvidenceJson = JSON.stringify(getCurrentEvidenceData());
+          if (currEvidenceJson !== evidenceBaselineJson) return true;
+          var statusSel = document.getElementById("feature-detail-status-edit");
+          if (statusSel && (statusSel.value || "DRAFT") !== statusBase) return true;
+          var a = getLines(".feature-detail-criteria-input");
+          var i = getLines(".feature-detail-impl-input");
+          if (a.length !== acceptanceBase.length || i.length !== implementationBase.length) return true;
+          for (var x = 0; x < acceptanceBase.length; x++) if (a[x] !== acceptanceBase[x]) return true;
+          for (var y = 0; y < implementationBase.length; y++) if (i[y] !== implementationBase[y]) return true;
+          return false;
+        }
+
+        var featStatuses = ["DRAFT", "APPROVED", "IN_PROGRESS", "DONE", "ARCHIVED"];
+        var featPriorities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+        var statusSelectHtml = '<span class="nexus-text-sm text-muted">Estado</span><select id="feature-detail-status-edit" class="form-select form-select-sm mt-1" style="max-width:100%">';
+        featStatuses.forEach(function (s) { statusSelectHtml += '<option value="' + esc(s) + '"' + (statusBase === s ? ' selected' : '') + '>' + esc(s) + '</option>'; });
+        statusSelectHtml += "</select>";
+        var prioritySelectHtml = '<span class="nexus-text-sm text-muted">Prioridad</span><select id="feature-detail-priority-edit" class="form-select form-select-sm mt-1" style="max-width:100%">';
+        featPriorities.forEach(function (p) { prioritySelectHtml += '<option value="' + esc(p) + '"' + (priorityBase === p ? ' selected' : '') + '>' + esc(p) + '</option>'; });
+        prioritySelectHtml += "</select>";
+
+        var bodyHtml = window.renderBreadcrumbs([
+          { label: "Panel", href: "#/dashboard" },
+          { label: "Proyectos", href: "#/projects" },
+          { label: getProjectName(state.projectId), href: state.projectId ? ("#/projects/" + state.projectId) : "#/projects" },
+          { label: "Features", href: state.projectId ? ("#/features?project=" + state.projectId) : "#/features" }
+        ]);
+        bodyHtml += '<h1 class="nexus-page-title" id="feature-detail-page-title">' + esc(f.title || "Feature") + "</h1>";
+        bodyHtml += '<div class="nexus-card p-4" style="max-width:100%">';
+        bodyHtml += '<ul class="nav nav-tabs mb-3" role="tablist"><li class="nav-item"><button type="button" class="nav-link active" id="feature-detail-tab-vista" data-bs-toggle="tab" data-bs-target="#feature-detail-panel-vista" aria-selected="true">Vista</button></li><li class="nav-item"><button type="button" class="nav-link" id="feature-detail-tab-edicion" data-bs-toggle="tab" data-bs-target="#feature-detail-panel-edicion" aria-selected="false">Edición</button></li><li class="nav-item"><button type="button" class="nav-link" id="feature-detail-tab-evidencia" data-bs-toggle="tab" data-bs-target="#feature-detail-panel-evidencia" aria-selected="false">Evidencia</button></li></ul>';
+        bodyHtml += '<div class="tab-content">';
+        bodyHtml += '<div class="tab-pane fade show active" id="feature-detail-panel-vista" role="tabpanel"><div class="row g-3">';
+        bodyHtml += '<div class="col-md-3"><span class="nexus-text-sm text-muted">ID</span><p class="nexus-font-semibold mb-0">' + esc(featureDisplayId) + '</p></div>';
+        bodyHtml += '<div class="col-md-3"><span class="nexus-text-sm text-muted">Estado</span><p class="mb-0" id="feature-detail-status-vista">' + esc(statusBase) + '</p></div>';
+        bodyHtml += '<div class="col-md-3"><span class="nexus-text-sm text-muted">Prioridad</span><p class="mb-0" id="feature-detail-priority-vista">' + esc(f.priority || "—") + '</p></div>';
+        bodyHtml += '<div class="col-md-3"><span class="nexus-text-sm text-muted">Creado</span><p class="mb-0 nexus-text-sm">' + esc((f.created_at && f.created_at.slice) ? f.created_at.slice(0, 10) : (f.created_at || "—")) + '</p></div>';
+        bodyHtml += '<div class="col-12"><span class="nexus-text-sm text-muted">Título</span><p class="mb-0" id="feature-detail-title-vista">' + esc(f.title || "—") + '</p></div>';
+        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Descripción</span><div id="feature-detail-description-vista">' + ((f.description && String(f.description).trim()) ? ('<p class="mb-0" style="white-space:pre-wrap">' + esc(f.description) + '</p>') : '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>') + '</div></div>';
+        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de aceptación</span><div id="feature-detail-criteria-vista">' + renderCriteriaListHtml(acceptanceBase) + '</div></div>';
+        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de implementación</span><div id="feature-detail-impl-vista">' + renderCriteriaListHtml(implementationBase) + '</div></div>';
+        bodyHtml += '</div></div>';
+
+        bodyHtml += '<div class="tab-pane fade" id="feature-detail-panel-edicion" role="tabpanel"><div class="row g-3">';
+        bodyHtml += '<div class="col-md-3"><span class="nexus-text-sm text-muted">ID</span><p class="nexus-font-semibold mb-0">' + esc(featureDisplayId) + '</p></div>';
+        bodyHtml += '<div class="col-md-3">' + statusSelectHtml + '</div>';
+        bodyHtml += '<div class="col-md-3">' + prioritySelectHtml + '</div>';
+        bodyHtml += '<div class="col-md-3"><span class="nexus-text-sm text-muted">Actualizado</span><p class="mb-0 nexus-text-sm">' + esc((f.updated_at && f.updated_at.slice) ? f.updated_at.slice(0, 10) : (f.updated_at || "—")) + '</p></div>';
+        bodyHtml += '<div class="col-12"><span class="nexus-text-sm text-muted">Título</span><input type="text" id="feature-detail-title-edit" class="form-control form-control-sm mt-1" value="' + esc(f.title || "") + '"></div>';
+        bodyHtml += '<div class="col-12"><span class="nexus-text-sm text-muted">Descripción</span><textarea id="feature-detail-desc-edit" class="form-control form-control-sm mt-1" rows="3">' + esc(f.description || "") + '</textarea></div>';
+        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de aceptación</span><div id="feature-detail-criteria-list">';
+        var nA = acceptanceBase.length || 1;
+        for (var i = 0; i < nA; i++) bodyHtml += '<div class="feature-criterion-row d-flex gap-2 align-items-center mb-2"><input type="text" class="form-control form-control-sm feature-detail-criteria-input" value="' + esc(acceptanceBase[i] || "") + '" placeholder="Criterio ' + (i + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-criterion-remove">&times;</button></div>';
+        bodyHtml += '</div><div class="d-flex flex-wrap gap-2 mt-2"><button type="button" id="feature-detail-criteria-add" class="btn btn-outline-secondary btn-sm">+ Añadir criterio</button><button type="button" id="feature-detail-criteria-save" class="btn btn-nexus-primary btn-sm">Guardar criterios</button><span id="feature-detail-criteria-msg" class="nexus-text-sm text-muted"></span></div></div>';
+        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de implementación</span><div id="feature-detail-impl-list">';
+        var nI = implementationBase.length || 1;
+        for (var j = 0; j < nI; j++) bodyHtml += '<div class="feature-impl-row d-flex gap-2 align-items-center mb-2"><input type="text" class="form-control form-control-sm feature-detail-impl-input" value="' + esc(implementationBase[j] || "") + '" placeholder="Criterio ' + (j + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-impl-remove">&times;</button></div>';
+        bodyHtml += '</div><div class="d-flex flex-wrap gap-2 mt-2"><button type="button" id="feature-detail-impl-add" class="btn btn-outline-secondary btn-sm">+ Añadir criterio</button><button type="button" id="feature-detail-impl-save" class="btn btn-nexus-primary btn-sm">Guardar criterios</button><span id="feature-detail-impl-msg" class="nexus-text-sm text-muted"></span></div></div>';
+        bodyHtml += '</div></div>';
+        bodyHtml += '<div class="tab-pane fade" id="feature-detail-panel-evidencia" role="tabpanel"><div class="row g-3">';
+        bodyHtml += '<div class="col-md-6"><span class="nexus-text-sm text-muted d-block mb-2">Edición</span><textarea id="feature-detail-evidence-notes" class="form-control form-control-sm mb-2" rows="5" placeholder="Notas de evidencia...">' + esc(evidenceState.notes || "") + '</textarea><input type="file" id="feature-detail-evidence-files" class="form-control form-control-sm mb-2" accept="image/*,video/*,.pdf,.doc,.docx,.txt" multiple><div id="feature-detail-evidence-list"></div></div>';
+        bodyHtml += '<div class="col-md-6"><span class="nexus-text-sm text-muted d-block mb-2">Previsualización</span><div id="feature-detail-evidence-preview"></div></div>';
+        bodyHtml += "</div></div>";
+        bodyHtml += '<div class="mt-3 d-flex flex-wrap justify-content-start align-items-center gap-2">';
+        bodyHtml += '<button type="button" id="feature-detail-export" class="btn btn-outline-secondary btn-sm">Exportar</button>';
+        bodyHtml += '<input type="file" id="feature-detail-import-input" class="d-none" accept=".json,application/json">';
+        bodyHtml += '<button type="button" id="feature-detail-import" class="btn btn-outline-secondary btn-sm">Importar</button>';
+        bodyHtml += "</div></div>";
+
+        window.openNexusFormModal({
+          id: "featureDetailModal",
+          title: "Detalle de la feature",
+          bodyHtml: bodyHtml,
+          mode: "edit",
+          primaryButtonId: "feature-detail-save-all",
+          primaryLabel: "Guardar",
+          cancelButtonId: "feature-detail-cancel",
+          modalDialogClass: "nexus-modal-story-detail",
+          getDirtyState: getDirtyState,
+          onSaveBeforeClose: doSaveAll
+        }, function () { doSaveAll(); });
+
+        bindRemoveButtons();
+        var btnAddA = document.getElementById("feature-detail-criteria-add");
+        if (btnAddA) btnAddA.onclick = function () {
+          var list = document.getElementById("feature-detail-criteria-list");
+          var n = list.querySelectorAll(".feature-criterion-row").length + 1;
+          var row = document.createElement("div");
+          row.className = "feature-criterion-row d-flex gap-2 align-items-center mb-2";
+          row.innerHTML = '<input type="text" class="form-control form-control-sm feature-detail-criteria-input" placeholder="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-criterion-remove">&times;</button>';
+          list.appendChild(row);
+          bindRemoveButtons();
+        };
+        var btnAddI = document.getElementById("feature-detail-impl-add");
+        if (btnAddI) btnAddI.onclick = function () {
+          var list = document.getElementById("feature-detail-impl-list");
+          var n = list.querySelectorAll(".feature-impl-row").length + 1;
+          var row = document.createElement("div");
+          row.className = "feature-impl-row d-flex gap-2 align-items-center mb-2";
+          row.innerHTML = '<input type="text" class="form-control form-control-sm feature-detail-impl-input" placeholder="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-impl-remove">&times;</button>';
+          list.appendChild(row);
+          bindRemoveButtons();
+        };
+        var btnSaveA = document.getElementById("feature-detail-criteria-save");
+        if (btnSaveA) btnSaveA.onclick = function () { saveCriteriaOnly(); var m = document.getElementById("feature-detail-criteria-msg"); if (m) m.textContent = "Guardado"; };
+        var btnSaveI = document.getElementById("feature-detail-impl-save");
+        if (btnSaveI) btnSaveI.onclick = function () { saveCriteriaOnly(); var m = document.getElementById("feature-detail-impl-msg"); if (m) m.textContent = "Guardado"; };
+        var btnExport = document.getElementById("feature-detail-export");
+        if (btnExport) btnExport.onclick = function () {
+          var payload = {
+            feature: {
+              id: f.id,
+              title: (document.getElementById("feature-detail-title-edit") && document.getElementById("feature-detail-title-edit").value) || "",
+              description: (document.getElementById("feature-detail-desc-edit") && document.getElementById("feature-detail-desc-edit").value) || "",
+              status: (document.getElementById("feature-detail-status-edit") && document.getElementById("feature-detail-status-edit").value) || statusBase,
+              priority: (document.getElementById("feature-detail-priority-edit") && document.getElementById("feature-detail-priority-edit").value) || priorityBase,
+              evidence: getCurrentEvidenceData(),
+              acceptance_criteria: getLines(".feature-detail-criteria-input"),
+              implementation_criteria: getLines(".feature-detail-impl-input")
+            },
+            exported_at: new Date().toISOString()
+          };
+          var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "feature-" + featureDisplayId + "-config.json";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        };
+        var importInput = document.getElementById("feature-detail-import-input");
+        var btnImport = document.getElementById("feature-detail-import");
+        if (btnImport && importInput) btnImport.onclick = function () { importInput.click(); };
+        if (importInput) importInput.onchange = function () {
+          var file = importInput.files && importInput.files[0];
+          if (!file) return;
+          var reader = new FileReader();
+          reader.onload = function () {
+            try {
+              var data = JSON.parse(reader.result);
+              var featureData = (data && data.feature && typeof data.feature === "object") ? data.feature : data;
+              var stEl = document.getElementById("feature-detail-status-edit");
+              var priorityEl = document.getElementById("feature-detail-priority-edit");
+              var titleEl = document.getElementById("feature-detail-title-edit");
+              var descEl = document.getElementById("feature-detail-desc-edit");
+              if (featureData.evidence) evidenceState = normalizeEvidencePayload(featureData.evidence);
+              if (stEl && featureData.status) stEl.value = featureData.status;
+              if (priorityEl && featureData.priority) priorityEl.value = featureData.priority;
+              if (titleEl && featureData.title !== undefined) titleEl.value = featureData.title || "";
+              if (descEl && featureData.description !== undefined) descEl.value = featureData.description || "";
+              var notesEl = document.getElementById("feature-detail-evidence-notes");
+              if (notesEl) notesEl.value = evidenceState.notes || "";
+              var listA = document.getElementById("feature-detail-criteria-list");
+              if (listA && Array.isArray(featureData.acceptance_criteria)) {
+                listA.innerHTML = "";
+                (featureData.acceptance_criteria.length ? featureData.acceptance_criteria : [""]).forEach(function (val, idx) {
+                  var row = document.createElement("div");
+                  row.className = "feature-criterion-row d-flex gap-2 align-items-center mb-2";
+                  row.innerHTML = '<input type="text" class="form-control form-control-sm feature-detail-criteria-input" value="' + esc(String(val || "")) + '" placeholder="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-criterion-remove">&times;</button>';
+                  listA.appendChild(row);
+                });
+              }
+              var listI = document.getElementById("feature-detail-impl-list");
+              if (listI && Array.isArray(featureData.implementation_criteria)) {
+                listI.innerHTML = "";
+                (featureData.implementation_criteria.length ? featureData.implementation_criteria : [""]).forEach(function (val, idx) {
+                  var row = document.createElement("div");
+                  row.className = "feature-impl-row d-flex gap-2 align-items-center mb-2";
+                  row.innerHTML = '<input type="text" class="form-control form-control-sm feature-detail-impl-input" value="' + esc(String(val || "")) + '" placeholder="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-impl-remove">&times;</button>';
+                  listI.appendChild(row);
+                });
+              }
+              bindRemoveButtons();
+              bindEvidenceEvents();
+              refreshViewFromEdit();
+              renderEvidencePane();
+              if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Configuración de la feature importada correctamente.");
+            } catch (e) {
+              window.openNexusAlertModal({ title: "Error", message: "El archivo no es un JSON válido." });
+            }
+            importInput.value = "";
+          };
+          reader.readAsText(file);
+        };
+        bindEvidenceEvents();
+        renderEvidencePane();
+      });
+    }
+
     function bindFeatures() {
       var perPageEl = document.getElementById("feat-per-page");
       if (perPageEl) perPageEl.onchange = function () { state.limit = parseInt(perPageEl.value, 10) || 10; state.page = 1; loadFeatures(); };
-      var sel = document.getElementById("sel-project");
-      if (sel) {
-        sel.value = state.projectId;
-        sel.onchange = function () { state.projectId = sel.value; state.page = 1; currentItems = []; loadFeatures(); };
+      var projectSearchInput = document.getElementById("feat-search-project");
+      if (projectSearchInput) {
+        projectSearchInput.value = state.projectSearch || "";
+        projectSearchInput.onclick = function (e) { e.stopPropagation(); };
+        projectSearchInput.oninput = function () {
+          state.projectSearch = (projectSearchInput.value || "").trim();
+          var term = state.projectSearch.toLowerCase();
+          document.querySelectorAll("#content .feat-project-match").forEach(function (el) {
+            if ((el.getAttribute("data-project-id") || "") === "") { el.style.display = ""; return; }
+            var name = (el.getAttribute("data-project-name") || "").toLowerCase();
+            el.style.display = !term || name.indexOf(term) !== -1 ? "" : "none";
+          });
+        };
       }
+      document.querySelectorAll("#content .feat-project-match").forEach(function (el) {
+        el.onclick = function (e) {
+          e.preventDefault();
+          state.projectId = el.getAttribute("data-project-id") || "";
+          if (projectSearchInput) projectSearchInput.value = "";
+          state.projectSearch = "";
+          document.querySelectorAll("#content .feat-project-match").forEach(function (x) { x.classList.remove("active"); });
+          el.classList.add("active");
+          var projectBtn = document.getElementById("feat-project-filter-btn");
+          if (projectBtn && window.bootstrap && window.bootstrap.Dropdown) {
+            var inst = window.bootstrap.Dropdown.getInstance(projectBtn);
+            if (inst) inst.hide();
+          }
+          state.page = 1;
+          currentItems = [];
+          if (syncProjectHashWithState()) return;
+          loadFeatures();
+        };
+      });
       var clearFiltersBtn = document.getElementById("feat-clear-filters-btn");
       if (clearFiltersBtn) clearFiltersBtn.onclick = function () { state.search = ""; state.statusFilter = []; state.page = 1; refreshFromCurrent(); };
       var sortAsc = document.getElementById("feat-status-sort-asc");
@@ -272,8 +855,10 @@
       });
       if (window.bootstrap && window.bootstrap.Dropdown) {
         var popperFixed = function (c) { return Object.assign({}, c || {}, { strategy: "fixed" }); };
+        var projectBtn = document.getElementById("feat-project-filter-btn");
         var tituloBtn = document.getElementById("feat-titulo-filter-btn");
         var statusBtn = document.getElementById("feat-status-filter-btn");
+        if (projectBtn) { try { var pi = window.bootstrap.Dropdown.getInstance(projectBtn); if (pi) pi.dispose(); new window.bootstrap.Dropdown(projectBtn, { popperConfig: popperFixed }); } catch (err) {} }
         if (tituloBtn) { try { var ti = window.bootstrap.Dropdown.getInstance(tituloBtn); if (ti) ti.dispose(); new window.bootstrap.Dropdown(tituloBtn, { popperConfig: popperFixed }); } catch (err) {} }
         if (statusBtn) { try { var si = window.bootstrap.Dropdown.getInstance(statusBtn); if (si) si.dispose(); new window.bootstrap.Dropdown(statusBtn, { popperConfig: popperFixed }); } catch (err) {} }
       }
@@ -286,6 +871,14 @@
       }
       document.querySelectorAll("#content [data-sort]").forEach(function (a) {
         a.onclick = function (e) { e.preventDefault(); setSort(a.getAttribute("data-sort")); };
+      });
+      document.querySelectorAll("#content .feat-view-link").forEach(function (a) {
+        a.onclick = function (e) {
+          e.preventDefault();
+          var featureId = a.getAttribute("data-feature-id");
+          if (!featureId) return;
+          openFeatureDetailModal(featureId);
+        };
       });
       document.querySelectorAll("#content .feat-status-select").forEach(function (sel) {
         sel.onchange = function () {
@@ -305,6 +898,113 @@
         };
       });
       var btnNew = document.getElementById("feat-btn-new");
+      var btnExport = document.getElementById("feat-btn-export");
+      var btnImport = document.getElementById("feat-btn-import");
+      var importInput = document.getElementById("feat-import-input");
+      if (btnExport) btnExport.onclick = function () {
+        if (!state.projectId) {
+          window.openNexusAlertModal({ title: "Exportar features", message: "Seleccione un proyecto." });
+          return;
+        }
+        fetchAllProjectFeatures(state.projectId).then(function (features) {
+          var payload = {
+            project_id: state.projectId,
+            project_name: getProjectName(state.projectId),
+            exported_at: new Date().toISOString(),
+            features: (features || []).map(function (f) {
+              var crit = loadFeatureCriteria(f.id);
+              return {
+                title: f.title || "",
+                description: f.description || "",
+                priority: f.priority || "MEDIUM",
+                status: f.status || "DRAFT",
+                acceptance_criteria: crit.acceptance || [],
+                implementation_criteria: crit.implementation || []
+              };
+            })
+          };
+          var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "features-" + (state.projectId || "project") + ".json";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        });
+      };
+      if (btnImport && importInput) btnImport.onclick = function () {
+        if (!state.projectId) {
+          window.openNexusAlertModal({ title: "Importar features", message: "Seleccione un proyecto." });
+          return;
+        }
+        importInput.click();
+      };
+      if (importInput) importInput.onchange = function () {
+        var file = importInput.files && importInput.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+          var parsed;
+          try {
+            parsed = JSON.parse(reader.result);
+          } catch (e) {
+            window.openNexusAlertModal({ title: "Importar features", message: "El archivo no es un JSON válido." });
+            importInput.value = "";
+            return;
+          }
+          var list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.features) ? parsed.features : null);
+          if (!list) {
+            window.openNexusAlertModal({ title: "Importar features", message: "Formato inválido. Debe contener un array de features." });
+            importInput.value = "";
+            return;
+          }
+          if (list.length === 0) {
+            window.openNexusAlertModal({ title: "Importar features", message: "El archivo no contiene features para importar." });
+            importInput.value = "";
+            return;
+          }
+          var created = 0;
+          var failed = 0;
+          var chain = Promise.resolve();
+          list.forEach(function (item) {
+            chain = chain.then(function () {
+              var title = (item && item.title ? String(item.title) : "").trim();
+              var description = (item && item.description ? String(item.description) : "").trim();
+              var priority = (item && item.priority ? String(item.priority) : "MEDIUM").toUpperCase();
+              var status = (item && item.status ? String(item.status) : "DRAFT").toUpperCase();
+              if (!title || !description) { failed += 1; return; }
+              return window.fetchApi("/projects/" + state.projectId + "/features", {
+                method: "POST",
+                body: JSON.stringify({ title: title, description: description, priority: priority })
+              }).then(function (r) {
+                if (!(r && r.success && r.data && r.data.id)) { failed += 1; return; }
+                created += 1;
+                var acceptance = item && Array.isArray(item.acceptance_criteria) ? item.acceptance_criteria : [];
+                var implementation = item && Array.isArray(item.implementation_criteria) ? item.implementation_criteria : [];
+                if (acceptance.length || implementation.length) {
+                  saveFeatureCriteria(r.data.id, acceptance, implementation);
+                }
+                if (status && status !== "DRAFT") {
+                  return window.fetchApi("/features/" + r.data.id + "/status", {
+                    method: "PATCH",
+                    body: JSON.stringify({ status: status })
+                  });
+                }
+              }).catch(function () { failed += 1; });
+            });
+          });
+          chain.then(function () {
+            if (created > 0 && typeof window.showSuccessMessage === "function") {
+              window.showSuccessMessage("Importación completada: " + created + " feature(s) creadas.");
+            }
+            if (failed > 0) {
+              window.openNexusAlertModal({ title: "Importar features", message: "Algunas features no se pudieron importar (" + failed + ")." });
+            }
+            loadFeatures();
+          });
+          importInput.value = "";
+        };
+        reader.readAsText(file);
+      };
       if (btnNew) btnNew.onclick = function (e) {
         e.preventDefault();
         if (!state.projectId) {
@@ -315,20 +1015,26 @@
         bodyHtml += '<div class="mb-3"><label class="form-label">Descripción</label><textarea id="feat-form-desc" class="form-control" rows="3" placeholder="Descripción de la feature" required></textarea></div>';
         bodyHtml += '<div class="mb-3"><label class="form-label">Prioridad</label><select id="feat-form-priority" class="form-select" aria-label="Prioridad"><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option><option value="HIGH">HIGH</option><option value="CRITICAL">CRITICAL</option></select></div>';
         bodyHtml += '<div id="feat-form-error" class="alert alert-danger d-none"></div>';
-        window.openNexusFormModal({ id: "featNewModal", title: "Nueva feature", bodyHtml: bodyHtml, primaryButtonId: "feat-form-submit", primaryLabel: "Crear" }, function (bsModal) {
+        function doCreate() {
           var title = (document.getElementById("feat-form-title").value || "").trim();
           var desc = (document.getElementById("feat-form-desc").value || "").trim();
           var priorityEl = document.getElementById("feat-form-priority");
           var priority = (priorityEl && priorityEl.value) ? priorityEl.value : "MEDIUM";
           var errEl = document.getElementById("feat-form-error");
           errEl.classList.add("d-none");
-          if (!title) { errEl.textContent = "El título es obligatorio."; errEl.classList.remove("d-none"); return; }
-          if (!desc) { errEl.textContent = "La descripción es obligatoria."; errEl.classList.remove("d-none"); return; }
-          window.fetchApi("/projects/" + state.projectId + "/features", { method: "POST", body: JSON.stringify({ title: title, description: desc, priority: priority }) }).then(function (r) {
-            if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Feature creada correctamente."); bsModal.hide(); loadFeatures(); }
-            else { errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); }
+          if (!title) { errEl.textContent = "El título es obligatorio."; errEl.classList.remove("d-none"); return Promise.resolve(false); }
+          if (!desc) { errEl.textContent = "La descripción es obligatoria."; errEl.classList.remove("d-none"); return Promise.resolve(false); }
+          return window.fetchApi("/projects/" + state.projectId + "/features", { method: "POST", body: JSON.stringify({ title: title, description: desc, priority: priority }) }).then(function (r) {
+            if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Feature creada correctamente."); loadFeatures(); return true; }
+            errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); return false;
           });
-        });
+        }
+        window.openNexusFormModal({
+          id: "featNewModal", title: "Nueva feature", bodyHtml: bodyHtml, mode: "create",
+          primaryButtonId: "feat-form-submit", primaryLabel: "Crear",
+          getDirtyState: function () { var t = (document.getElementById("feat-form-title").value || "").trim(); var d = (document.getElementById("feat-form-desc").value || "").trim(); return t.length > 0 || d.length > 0; },
+          onSaveBeforeClose: doCreate
+        }, function (bsModal) { doCreate().then(function (ok) { if (ok) bsModal.hide(); }); });
       };
     }
 

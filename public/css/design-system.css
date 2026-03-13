@@ -853,6 +853,13 @@ body.nexus-manage-user-modal-open .modal-backdrop {
   opacity: 0.75;
   background-color: #000;
 }
+/* Capa base de targets/modales por encima de sidebar/topbar */
+body.nexus-manage-user-modal-open .modal-backdrop {
+  z-index: 2050;
+}
+.modal.nexus-modal-manage-user {
+  z-index: 2055;
+}
 /* Modal detalle story: 75% ancho centrado para aprovechar espacio */
 .nexus-modal-story-detail {
   max-width: 75%;

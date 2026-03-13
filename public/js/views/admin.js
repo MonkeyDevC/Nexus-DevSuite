@@ -26,8 +26,10 @@
       id: "adminManageUserModal",
       title: "Edición de usuario",
       bodyHtml: bodyHtml,
+      mode: "edit",
       primaryButtonId: "admin-manage-user-save",
-      primaryLabel: "Guardar"
+      primaryLabel: "Guardar",
+      cancelButtonId: "admin-manage-user-cancel"
     });
     var wrap = document.createElement("div");
     wrap.innerHTML = modalHtml;
@@ -41,6 +43,9 @@
       var me = results[1];
       if (!body || !body.success || !body.data) return;
       var d = body.data;
+      var initialName = (d.name || "").trim();
+      var initialEmail = (d.email || "").trim();
+      var initialRoleId = (d.role_id || "").toString();
       document.getElementById("admin-manage-user-email").value = d.email || "";
       document.getElementById("admin-manage-user-name").value = d.name || "";
       var roleName = (d.role && d.role.name) ? d.role.name : "—";
@@ -63,6 +68,32 @@
       } else {
         roleInput.value = roleName;
       }
+      function getAdminDirtyState() {
+        var name = (document.getElementById("admin-manage-user-name").value || "").trim();
+        var email = (document.getElementById("admin-manage-user-email").value || "").trim();
+        var roleSel = document.getElementById("admin-manage-user-role-select");
+        var roleId = (roleSel && !roleSel.classList.contains("d-none") && roleSel.value) ? roleSel.value : "";
+        return name !== initialName || email !== initialEmail || roleId !== initialRoleId;
+      }
+      function doSaveAdminBeforeClose() {
+        var errEl = document.getElementById("admin-manage-user-error");
+        var email = (document.getElementById("admin-manage-user-email").value || "").trim();
+        var name = (document.getElementById("admin-manage-user-name").value || "").trim();
+        var roleSelectEl = document.getElementById("admin-manage-user-role-select");
+        if (!email) return Promise.resolve(false);
+        var payload = { email: email };
+        if (name) payload.name = name;
+        if (roleSelectEl && !roleSelectEl.classList.contains("d-none") && roleSelectEl.value) payload.role_id = roleSelectEl.value;
+        return window.fetchApi("/users/" + userId, { method: "PUT", body: JSON.stringify(payload) }).then(function (r) {
+          if (r && r.success) { if (typeof onSaved === "function") onSaved(); return true; }
+          if (errEl) { errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); }
+          return false;
+        });
+      }
+      var cancelBtn = document.getElementById("admin-manage-user-cancel");
+      var closeBtn = modalEl.querySelector(".nexus-form-modal-close-btn");
+      if (cancelBtn) cancelBtn.onclick = function () { window.nexusFormModalCloseAttempt({ modalEl: modalEl, getDirtyState: getAdminDirtyState, onSaveBeforeClose: doSaveAdminBeforeClose }, function () { bsModalManage.hide(); }); };
+      if (closeBtn) closeBtn.onclick = function () { window.nexusFormModalCloseAttempt({ modalEl: modalEl, getDirtyState: getAdminDirtyState, onSaveBeforeClose: doSaveAdminBeforeClose }, function () { bsModalManage.hide(); }); };
       var name = (d.name || "").trim() || (d.email || "").trim();
       var initial = name ? name.charAt(0).toUpperCase() : "?";
       document.getElementById("admin-manage-user-initials").textContent = initial;

@@ -6,6 +6,7 @@
 const express = require("express");
 const {
   createProjectController,
+  importProjectsController,
   getProjectController,
   listProjectsController,
   archiveProjectController,
@@ -48,6 +49,7 @@ const { authorizeMiddleware } = require("../../middlewares/authorize.middleware"
 const router = express.Router();
 
 router.post("/", authenticateMiddleware, authorizeMiddleware("MASTER"), createProjectValidator, createProjectController);
+router.post("/import", authenticateMiddleware, authorizeMiddleware("MASTER"), importProjectsController);
 router.get("/", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), listQueryValidator, listProjectsController);
 router.get("/:projectId/features", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), projectIdAsParamValidator, listQueryValidator, listFeaturesController);
 router.get("/:projectId/sprints", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), sprintProjectIdParamValidator, listSprintsQueryValidator, listSprintsController);

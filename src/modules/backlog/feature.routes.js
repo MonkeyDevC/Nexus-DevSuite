@@ -1,11 +1,12 @@
 /**
  * Módulo Backlog - Rutas Features
- * GET /features/:id, PATCH /features/:id/status, POST /features/:featureId/stories
+ * GET /features/:id, PATCH /features/:id, PATCH /features/:id/status, POST /features/:featureId/stories
  */
 
 const express = require("express");
 const {
   getFeatureController,
+  patchFeatureController,
   patchFeatureStatusController,
   createStoryController,
   listStoriesController
@@ -13,6 +14,7 @@ const {
 const {
   featureIdParamValidator,
   featureIdAsParamValidator,
+  patchFeatureValidator,
   patchFeatureStatusValidator,
   createStoryValidator,
   listQueryValidator
@@ -24,6 +26,13 @@ const router = express.Router();
 
 router.get("/:id", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), featureIdParamValidator, getFeatureController);
 router.get("/:featureId/stories", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), featureIdAsParamValidator, listQueryValidator, listStoriesController);
+router.patch(
+  "/:id",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  patchFeatureValidator,
+  patchFeatureController
+);
 router.patch(
   "/:id/status",
   authenticateMiddleware,

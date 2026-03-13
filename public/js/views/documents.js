@@ -88,21 +88,26 @@
             }
             var primaryLabel = canEdit ? "Guardar" : "Cerrar";
             var primaryId = canEdit ? "doc-version-content-save" : "doc-version-content-close";
-            window.openNexusFormModal({ id: "docVersionContentModal", title: "Contenido de la versión", bodyHtml: bodyHtml, primaryButtonId: primaryId, primaryLabel: primaryLabel }, function (bsModal) {
-              if (canEdit) {
-                var errEl = document.getElementById("doc-version-content-error");
-                var textarea = document.getElementById("doc-version-content-field");
-                var newContent = textarea ? textarea.value : "";
-                if (errEl) errEl.classList.add("d-none");
-                window.fetchApi("/documents/" + docId + "/versions/" + vid, { method: "PATCH", body: JSON.stringify({ content: newContent }) }).then(function (res) {
-                  if (res && res.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Contenido guardado correctamente."); bsModal.hide(); reloadDetail(); }
-                  else {
-                    if (errEl) { errEl.textContent = (res && res.error && res.error.message) || "Error al guardar."; errEl.classList.remove("d-none"); }
-                  }
-                });
-              } else {
-                bsModal.hide();
-              }
+            var initialContent = (content || "").toString();
+            function doSave() {
+              var textarea = document.getElementById("doc-version-content-field");
+              var newContent = textarea ? textarea.value : "";
+              var errEl = document.getElementById("doc-version-content-error");
+              if (errEl) errEl.classList.add("d-none");
+              return window.fetchApi("/documents/" + docId + "/versions/" + vid, { method: "PATCH", body: JSON.stringify({ content: newContent }) }).then(function (res) {
+                if (res && res.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Contenido guardado correctamente."); reloadDetail(); return true; }
+                if (errEl) { errEl.textContent = (res && res.error && res.error.message) || "Error al guardar."; errEl.classList.remove("d-none"); }
+                return false;
+              });
+            }
+            window.openNexusFormModal({
+              id: "docVersionContentModal", title: "Contenido de la versión", bodyHtml: bodyHtml, mode: canEdit ? "edit" : "view",
+              primaryButtonId: primaryId, primaryLabel: primaryLabel,
+              getDirtyState: canEdit ? function () { var ta = document.getElementById("doc-version-content-field"); return ta && ta.value !== initialContent; } : undefined,
+              onSaveBeforeClose: canEdit ? doSave : undefined
+            }, function (bsModal) {
+              if (canEdit) doSave().then(function (ok) { if (ok) bsModal.hide(); });
+              else bsModal.hide();
             });
           }).catch(function () {
             window.openNexusAlertModal({ title: "Error", message: "No se pudo cargar la versión." });
@@ -113,16 +118,22 @@
       if (btnNewVer) btnNewVer.onclick = function () {
         var bodyHtml = '<div class="mb-3"><label class="form-label">Motivo del cambio (opcional)</label><input type="text" id="doc-ver-change-reason" class="form-control" placeholder="Motivo del cambio" aria-label="Motivo"></div>';
         bodyHtml += '<div class="mb-3"><label class="form-label">Contenido (opcional)</label><textarea id="doc-ver-content" class="form-control" rows="4" placeholder="Contenido" aria-label="Contenido"></textarea></div><div id="doc-ver-error" class="alert alert-danger d-none"></div>';
-        window.openNexusFormModal({ id: "docNewVersionModal", title: "Nueva versión", bodyHtml: bodyHtml, primaryButtonId: "doc-ver-submit", primaryLabel: "Crear" }, function (bsModal) {
+        function doCreate() {
           var errEl = document.getElementById("doc-ver-error");
           errEl.classList.add("d-none");
           var changeReason = (document.getElementById("doc-ver-change-reason") && document.getElementById("doc-ver-change-reason").value || "").trim();
           var content = (document.getElementById("doc-ver-content") && document.getElementById("doc-ver-content").value || "").trim();
-          window.fetchApi("/documents/" + docId + "/versions", { method: "POST", body: JSON.stringify({ change_reason: changeReason || undefined, content: content || undefined }) }).then(function (r) {
-            if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Versión creada correctamente."); bsModal.hide(); reloadDetail(); }
-            else { errEl.textContent = (r && r.error && r.error.message) || "Error al crear versión."; errEl.classList.remove("d-none"); }
+          return window.fetchApi("/documents/" + docId + "/versions", { method: "POST", body: JSON.stringify({ change_reason: changeReason || undefined, content: content || undefined }) }).then(function (r) {
+            if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Versión creada correctamente."); reloadDetail(); return true; }
+            errEl.textContent = (r && r.error && r.error.message) || "Error al crear versión."; errEl.classList.remove("d-none"); return false;
           });
-        });
+        }
+        window.openNexusFormModal({
+          id: "docNewVersionModal", title: "Nueva versión", bodyHtml: bodyHtml, mode: "create",
+          primaryButtonId: "doc-ver-submit", primaryLabel: "Crear",
+          getDirtyState: function () { var r = (document.getElementById("doc-ver-change-reason") && document.getElementById("doc-ver-change-reason").value || "").trim(); var c = (document.getElementById("doc-ver-content") && document.getElementById("doc-ver-content").value || "").trim(); return r.length > 0 || c.length > 0; },
+          onSaveBeforeClose: doCreate
+        }, function (bsModal) { doCreate().then(function (ok) { if (ok) bsModal.hide(); }); });
       };
       return;
     }
@@ -266,13 +277,19 @@
         e.preventDefault();
         window.fetchApi("/projects").then(function (projRes) {
           var projects = (projRes && projRes.success && projRes.data && projRes.data.items) ? projRes.data.items : [];
+          function formatProjectListLabel(project) {
+            if (!project) return "—";
+            var pid = (project.number != null && project.number !== "") ? ("P" + String(project.number)) : ((project.id || "").slice(0, 8) || "—");
+            var name = (project.name && String(project.name).trim()) ? String(project.name).trim() : (project.id || "—");
+            return pid + " - " + name;
+          }
           var bodyHtml = '<div class="mb-3"><label class="form-label">Código</label><input type="text" id="doc-form-code" class="form-control" placeholder="Código" required></div>';
           bodyHtml += '<div class="mb-3"><label class="form-label">Título</label><input type="text" id="doc-form-title" class="form-control" placeholder="Título" required></div>';
           bodyHtml += '<div class="mb-3"><label class="form-label">Descripción</label><textarea id="doc-form-desc" class="form-control" rows="2" placeholder="Descripción (opcional)" aria-label="Descripción"></textarea></div>';
           bodyHtml += '<div class="mb-3"><label class="form-label">Proyecto (opcional)</label><select id="doc-form-project" class="form-select" aria-label="Proyecto"><option value="">Sin proyecto</option>';
-          projects.forEach(function (p) { bodyHtml += '<option value="' + (p.id || "") + '">' + (typeof window.esc === "function" ? window.esc(p.name || p.id || "") : String(p.name || p.id || "").replace(/</g, "&lt;")) + "</option>"; });
+          projects.forEach(function (p) { bodyHtml += '<option value="' + (p.id || "") + '">' + (typeof window.esc === "function" ? window.esc(formatProjectListLabel(p)) : String(formatProjectListLabel(p)).replace(/</g, "&lt;")) + "</option>"; });
           bodyHtml += "</select></div><div id=\"doc-form-error\" class=\"alert alert-danger d-none\"></div>";
-          window.openNexusFormModal({ id: "docNewModal", title: "Nuevo documento", bodyHtml: bodyHtml, primaryButtonId: "doc-form-submit", primaryLabel: "Crear" }, function (bsModal) {
+          function doCreate() {
             var code = (document.getElementById("doc-form-code").value || "").trim();
             var title = (document.getElementById("doc-form-title").value || "").trim();
             var descEl = document.getElementById("doc-form-desc");
@@ -281,14 +298,20 @@
             var projectId = (projEl && projEl.value) ? projEl.value : "";
             var errEl = document.getElementById("doc-form-error");
             errEl.classList.add("d-none");
-            if (!code || !title) { errEl.textContent = "Código y título son obligatorios."; errEl.classList.remove("d-none"); return; }
+            if (!code || !title) { errEl.textContent = "Código y título son obligatorios."; errEl.classList.remove("d-none"); return Promise.resolve(false); }
             var payload = { code: code, title: title, description: description };
             if (projectId) payload.project_id = projectId;
-            window.fetchApi("/documents", { method: "POST", body: JSON.stringify(payload) }).then(function (r) {
-              if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Documento creado correctamente."); bsModal.hide(); load(); }
-              else { errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); }
+            return window.fetchApi("/documents", { method: "POST", body: JSON.stringify(payload) }).then(function (r) {
+              if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Documento creado correctamente."); load(); return true; }
+              errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); return false;
             });
-          });
+          }
+          window.openNexusFormModal({
+            id: "docNewModal", title: "Nuevo documento", bodyHtml: bodyHtml, mode: "create",
+            primaryButtonId: "doc-form-submit", primaryLabel: "Crear",
+            getDirtyState: function () { var c = (document.getElementById("doc-form-code").value || "").trim(); var t = (document.getElementById("doc-form-title").value || "").trim(); var d = document.getElementById("doc-form-desc"); return c.length > 0 || t.length > 0 || (d && d.value && d.value.trim().length > 0); },
+            onSaveBeforeClose: doCreate
+          }, function (bsModal) { doCreate().then(function (ok) { if (ok) bsModal.hide(); }); });
         });
       };
     }

@@ -69,7 +69,16 @@
           window.setTokens(body.data.access_token, body.data.refresh_token);
           window.location.hash = "#/dashboard";
         } else {
-          showLoginError((body && body.error && body.error.message) || "Credenciales inválidas.");
+          const msg = (body && body.error && body.error.message) || "Credenciales inválidas.";
+          if (body && body.error && body.error.code === "AUTH_RATE_LIMIT_EXCEEDED") {
+            if (typeof window.openNexusAlertModal === "function") {
+              window.openNexusAlertModal({ title: "Límite de solicitudes", message: msg + " Espere unos minutos antes de intentar de nuevo." });
+            } else {
+              showLoginError(msg);
+            }
+          } else {
+            showLoginError(msg);
+          }
         }
       };
     }
