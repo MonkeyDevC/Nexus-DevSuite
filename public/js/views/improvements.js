@@ -129,17 +129,23 @@
         var bodyHtml = '<div class="mb-3"><label class="form-label">Título</label><input type="text" id="imp-form-title" class="form-control" placeholder="Título" required></div>';
         bodyHtml += '<div class="mb-3"><label class="form-label">Descripción</label><textarea id="imp-form-desc" class="form-control" rows="2" placeholder="Descripción"></textarea></div>';
         bodyHtml += '<div id="imp-form-error" class="alert alert-danger d-none"></div>';
-        window.openNexusFormModal({ id: "impNewModal", title: "Nueva mejora", bodyHtml: bodyHtml, primaryButtonId: "imp-form-submit", primaryLabel: "Crear" }, function (bsModal) {
+        function doCreate() {
           var title = (document.getElementById("imp-form-title") && document.getElementById("imp-form-title").value || "").trim();
           var desc = (document.getElementById("imp-form-desc") && document.getElementById("imp-form-desc").value || "").trim();
           var errEl = document.getElementById("imp-form-error");
           errEl.classList.add("d-none");
-          if (!title) { errEl.textContent = "El título es obligatorio."; errEl.classList.remove("d-none"); return; }
-          window.fetchApi("/improvements", { method: "POST", body: JSON.stringify({ title: title, description: desc || null }) }).then(function (r) {
-            if (r && r.success && r.data && r.data.id) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Mejora creada correctamente."); bsModal.hide(); window.location.hash = "#/improvements/" + r.data.id; }
-            else { errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); }
+          if (!title) { errEl.textContent = "El título es obligatorio."; errEl.classList.remove("d-none"); return Promise.resolve(false); }
+          return window.fetchApi("/improvements", { method: "POST", body: JSON.stringify({ title: title, description: desc || null }) }).then(function (r) {
+            if (r && r.success && r.data && r.data.id) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Mejora creada correctamente."); window.location.hash = "#/improvements/" + r.data.id; return true; }
+            errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); return false;
           });
-        });
+        }
+        window.openNexusFormModal({
+          id: "impNewModal", title: "Nueva mejora", bodyHtml: bodyHtml, mode: "create",
+          primaryButtonId: "imp-form-submit", primaryLabel: "Crear",
+          getDirtyState: function () { var t = (document.getElementById("imp-form-title") && document.getElementById("imp-form-title").value || "").trim(); var d = (document.getElementById("imp-form-desc") && document.getElementById("imp-form-desc").value || "").trim(); return t.length > 0 || d.length > 0; },
+          onSaveBeforeClose: doCreate
+        }, function (bsModal) { doCreate().then(function (ok) { if (ok) bsModal.hide(); }); });
       };
     }
 

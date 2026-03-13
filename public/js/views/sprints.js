@@ -204,6 +204,12 @@
       var p = projects.find(function (x) { return x.id === id; });
       return (p && p.name) || id;
     }
+    function formatProjectListLabel(project) {
+      if (!project) return "—";
+      var pid = (project.number != null && project.number !== "") ? ("P" + String(project.number)) : ((project.id || "").slice(0, 8) || "—");
+      var name = (project.name && String(project.name).trim()) ? String(project.name).trim() : (project.id || "—");
+      return pid + " - " + name;
+    }
     function renderList(items, meta) {
       var breadcrumbs = state.projectId
         ? [{ label: "Panel", href: "#/dashboard" }, { label: "Proyectos", href: "#/projects" }, { label: getProjectName(state.projectId), href: "#/projects/" + state.projectId }, { label: "Sprints", href: "" }]
@@ -214,7 +220,7 @@
       html += '<div class="d-flex flex-wrap gap-2 align-items-end mb-2">';
       html += '<label class="mb-0 nexus-text-sm">Proyecto</label>';
       html += '<select id="sprints-sel-project" class="form-select form-select-sm nexus-input" style="max-width:320px" aria-label="Proyecto"><option value="">Seleccionar proyecto</option>';
-      projects.forEach(function (p) { html += "<option value=\"" + p.id + "\">" + esc(p.name || p.id) + "</option>"; });
+      projects.forEach(function (p) { html += "<option value=\"" + p.id + "\">" + esc(formatProjectListLabel(p)) + "</option>"; });
       html += "</select>";
       html += window.renderClearFiltersButton({ show: hasFilter, id: "sprints-clear-filters-btn" });
       if (isMaster) html += '<a href="#" id="sprints-btn-new" class="btn btn-nexus-primary btn-sm ms-auto">+ Nuevo sprint</a>';
@@ -454,7 +460,7 @@
         bodyHtml += '<div class="mb-3"><label class="form-label">Fecha de inicio</label><input type="date" id="sprint-form-start" class="form-control" aria-label="Fecha de inicio"></div>';
         bodyHtml += '<div class="mb-3"><label class="form-label">Fecha fin</label><input type="date" id="sprint-form-end" class="form-control" aria-label="Fecha fin"></div>';
         bodyHtml += '<div id="sprint-form-error" class="alert alert-danger d-none"></div>';
-        window.openNexusFormModal({ id: "sprintNewModal", title: "Nuevo sprint", bodyHtml: bodyHtml, primaryButtonId: "sprint-form-submit", primaryLabel: "Crear" }, function (bsModal) {
+        function doCreate() {
           var name = (document.getElementById("sprint-form-name").value || "").trim();
           var startInput = document.getElementById("sprint-form-start");
           var endInput = document.getElementById("sprint-form-end");
@@ -462,16 +468,22 @@
           var endDate = endInput && endInput.value ? endInput.value : null;
           var errEl = document.getElementById("sprint-form-error");
           errEl.classList.add("d-none");
-          if (!name) { errEl.textContent = "El nombre es obligatorio."; errEl.classList.remove("d-none"); return; }
-          if (startDate && endDate && endDate < startDate) { errEl.textContent = "La fecha fin no puede ser anterior a la fecha de inicio."; errEl.classList.remove("d-none"); return; }
+          if (!name) { errEl.textContent = "El nombre es obligatorio."; errEl.classList.remove("d-none"); return Promise.resolve(false); }
+          if (startDate && endDate && endDate < startDate) { errEl.textContent = "La fecha fin no puede ser anterior a la fecha de inicio."; errEl.classList.remove("d-none"); return Promise.resolve(false); }
           var payload = { name: name, goal: "" };
           if (startDate) payload.start_date = startDate;
           if (endDate) payload.end_date = endDate;
-          window.fetchApi("/projects/" + state.projectId + "/sprints", { method: "POST", body: JSON.stringify(payload) }).then(function (r) {
-            if (r && r.success) { bsModal.hide(); load(); }
-            else { errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); }
+          return window.fetchApi("/projects/" + state.projectId + "/sprints", { method: "POST", body: JSON.stringify(payload) }).then(function (r) {
+            if (r && r.success) { load(); return true; }
+            errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); return false;
           });
-        });
+        }
+        window.openNexusFormModal({
+          id: "sprintNewModal", title: "Nuevo sprint", bodyHtml: bodyHtml, mode: "create",
+          primaryButtonId: "sprint-form-submit", primaryLabel: "Crear",
+          getDirtyState: function () { var n = (document.getElementById("sprint-form-name").value || "").trim(); var s = document.getElementById("sprint-form-start"); var e = document.getElementById("sprint-form-end"); return n.length > 0 || (s && s.value) || (e && e.value); },
+          onSaveBeforeClose: doCreate
+        }, function (bsModal) { doCreate().then(function (ok) { if (ok) bsModal.hide(); }); });
       };
     }
 

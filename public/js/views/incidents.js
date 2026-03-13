@@ -109,6 +109,12 @@
       var p = projects.find(function (x) { return x.id === id; });
       return (p && p.name) || id;
     }
+    function formatProjectListLabel(project) {
+      if (!project) return "—";
+      var pid = (project.number != null && project.number !== "") ? ("P" + String(project.number)) : ((project.id || "").slice(0, 8) || "—");
+      var name = (project.name && String(project.name).trim()) ? String(project.name).trim() : (project.id || "—");
+      return pid + " - " + name;
+    }
     function renderList(items, meta) {
       var breadcrumbs = state.projectId
         ? [{ label: "Panel", href: "#/dashboard" }, { label: "Proyectos", href: "#/projects" }, { label: getProjectName(state.projectId), href: "#/projects/" + state.projectId }, { label: "Incidentes", href: "" }]
@@ -116,7 +122,7 @@
       var html = window.renderBreadcrumbs(breadcrumbs);
       html += '<h1 class="nexus-page-title">Incidentes</h1><div class="nexus-panel nexus-section-spacing">';
       html += '<label class="form-label nexus-text-sm">Proyecto</label><select id="incsel" class="form-select form-select-sm mb-3 nexus-input" style="max-width:320px" aria-label="Proyecto"><option value="">Seleccionar proyecto</option>';
-      projects.forEach(function (p) { html += "<option value=\"" + p.id + "\">" + esc(p.name || p.id) + "</option>"; });
+      projects.forEach(function (p) { html += "<option value=\"" + p.id + "\">" + esc(formatProjectListLabel(p)) + "</option>"; });
       html += "</select>";
       if (!state.projectId) {
         html += '<div class="nexus-empty-state"><p class="nexus-empty-state-title">Seleccione un proyecto</p><p class="nexus-text-secondary">Elija un proyecto para ver los incidentes.</p></div>';
@@ -235,7 +241,7 @@
         bodyHtml += '<div class="mb-3"><label class="form-label">Descripción</label><textarea id="inc-form-desc" class="form-control" rows="3" placeholder="Descripción del incidente (opcional)" aria-label="Descripción"></textarea></div>';
         bodyHtml += '<div class="mb-3"><label class="form-label">Severidad</label><select id="inc-form-severity" class="form-select" aria-label="Severidad"><option value="LOW">LOW</option><option value="MEDIUM" selected>MEDIUM</option><option value="HIGH">HIGH</option><option value="CRITICAL">CRITICAL</option></select></div>';
         bodyHtml += '<div id="inc-form-error" class="alert alert-danger d-none"></div>';
-        window.openNexusFormModal({ id: "incNewModal", title: "Nuevo incidente", bodyHtml: bodyHtml, primaryButtonId: "inc-form-submit", primaryLabel: "Crear" }, function (bsModal) {
+        function doCreate() {
           var t = (document.getElementById("inc-form-title").value || "").trim();
           var descEl = document.getElementById("inc-form-desc");
           var description = (descEl && descEl.value) ? descEl.value.trim() : "";
@@ -243,12 +249,18 @@
           var severity = (sevEl && sevEl.value) ? sevEl.value : "MEDIUM";
           var errEl = document.getElementById("inc-form-error");
           errEl.classList.add("d-none");
-          if (!t) { errEl.textContent = "El título es obligatorio."; errEl.classList.remove("d-none"); return; }
-          window.fetchApi("/projects/" + state.projectId + "/incidents", { method: "POST", body: JSON.stringify({ title: t, description: description, severity: severity }) }).then(function (b) {
-            if (b && b.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Incidente creado correctamente."); bsModal.hide(); load(); }
-            else { errEl.textContent = (b && b.error && b.error.message) || "Error."; errEl.classList.remove("d-none"); }
+          if (!t) { errEl.textContent = "El título es obligatorio."; errEl.classList.remove("d-none"); return Promise.resolve(false); }
+          return window.fetchApi("/projects/" + state.projectId + "/incidents", { method: "POST", body: JSON.stringify({ title: t, description: description, severity: severity }) }).then(function (b) {
+            if (b && b.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Incidente creado correctamente."); load(); return true; }
+            errEl.textContent = (b && b.error && b.error.message) || "Error."; errEl.classList.remove("d-none"); return false;
           });
-        });
+        }
+        window.openNexusFormModal({
+          id: "incNewModal", title: "Nuevo incidente", bodyHtml: bodyHtml, mode: "create",
+          primaryButtonId: "inc-form-submit", primaryLabel: "Crear",
+          getDirtyState: function () { var t = (document.getElementById("inc-form-title").value || "").trim(); var d = document.getElementById("inc-form-desc"); return t.length > 0 || (d && d.value && d.value.trim().length > 0); },
+          onSaveBeforeClose: doCreate
+        }, function (bsModal) { doCreate().then(function (ok) { if (ok) bsModal.hide(); }); });
       };
     }
 

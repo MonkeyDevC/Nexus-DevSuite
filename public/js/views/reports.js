@@ -30,8 +30,15 @@
     var projectsRes = await window.fetchApi("/projects");
     var projects = (projectsRes && projectsRes.success && projectsRes.data && projectsRes.data.items) ? projectsRes.data.items : [];
     var selProject = document.getElementById("rep-sel-project");
+    function esc(s) { if (s == null) return ""; var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+    function formatProjectListLabel(project) {
+      if (!project) return "—";
+      var pid = (project.number != null && project.number !== "") ? ("P" + String(project.number)) : ((project.id || "").slice(0, 8) || "—");
+      var name = (project.name && String(project.name).trim()) ? String(project.name).trim() : (project.id || "—");
+      return pid + " - " + name;
+    }
     projects.forEach(function (p) {
-      selProject.innerHTML += "<option value=\"" + p.id + "\">" + (p.name || p.id) + "</option>";
+      selProject.innerHTML += "<option value=\"" + p.id + "\">" + esc(formatProjectListLabel(p)) + "</option>";
     });
 
     var usersRes = await window.fetchApi("/users?limit=100");

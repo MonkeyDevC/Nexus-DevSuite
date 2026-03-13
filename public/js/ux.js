@@ -186,8 +186,24 @@
   };
 
   /**
-   * Punto único: modal tipo form card (tarjeta centrada, mismo estilo que Editar usuario / Crear proyecto).
-   * opts: { id?, title, bodyHtml, primaryButtonId?, primaryLabel? }
+   * Mensaje estándar para confirmar salida con cambios sin guardar.
+   */
+  var CONFIRM_UNSAVED_MESSAGE = "Ha realizado cambios. ¿Desea guardar los cambios antes de salir?";
+
+  function applyModalLayer(modalEl, modalZ, backdropZ) {
+    if (!modalEl) return;
+    modalEl.style.zIndex = String(modalZ);
+    var backdrops = document.querySelectorAll(".modal-backdrop");
+    if (backdrops && backdrops.length) {
+      var last = backdrops[backdrops.length - 1];
+      if (last) last.style.zIndex = String(backdropZ);
+    }
+  }
+
+  /**
+   * Punto único: modal tipo form card (tarjeta centrada).
+   * opts: { id?, title, bodyHtml, primaryButtonId?, primaryLabel?, mode?, cancelButtonId? }
+   * mode: "view" = solo Cerrar | "edit" = Cancelar + Guardar | "create" = Cancelar + Crear (o primaryLabel)
    */
   window.buildNexusFormCardModal = function (opts) {
     var id = opts.id || "nexusFormCardModal";
@@ -195,40 +211,158 @@
     var bodyHtml = opts.bodyHtml || "";
     var primaryId = opts.primaryButtonId || "nexus-form-card-submit";
     var primaryLabel = opts.primaryLabel || "Guardar";
+    var cancelId = opts.cancelButtonId || "nexus-form-card-cancel";
+    var mode = opts.mode || "edit";
     var dialogClass = opts.modalDialogClass ? (" " + opts.modalDialogClass) : "";
-    var html = '<div class="modal fade nexus-modal-manage-user" id="' + id + '" tabindex="-1" aria-labelledby="' + id + 'Label" aria-hidden="true">';
+    var backdrop = (mode === "edit" || mode === "create") ? " data-bs-backdrop=\"static\" data-bs-keyboard=\"false\"" : "";
+    var html = '<div class="modal fade nexus-modal-manage-user" id="' + id + '" tabindex="-1" aria-labelledby="' + id + 'Label" aria-hidden="true"' + backdrop + '>';
     html += '<div class="modal-dialog modal-dialog-centered' + dialogClass + '"><div class="nexus-manage-user-card modal-content">';
-    html += '<div class="modal-header border-0 pb-0"><h5 class="modal-title nexus-manage-user-title" id="' + id + 'Label">' + title + '</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>';
+    html += '<div class="modal-header border-0 pb-0"><h5 class="modal-title nexus-manage-user-title" id="' + id + 'Label">' + title + '</h5><button type="button" class="btn-close nexus-form-modal-close-btn" aria-label="Cerrar" data-nexus-modal-id="' + id + '"></button></div>';
     html += '<div class="modal-body pt-2">' + bodyHtml + '</div>';
-    html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-nexus-primary" id="' + primaryId + '">' + primaryLabel + '</button></div>';
-    html += "</div></div></div>";
+    html += '<div class="modal-footer border-0">';
+    if (mode === "view") {
+      html += '<button type="button" class="btn btn-nexus-primary" id="' + primaryId + '">Cerrar</button>';
+    } else {
+      html += '<button type="button" class="btn btn-secondary nexus-form-modal-cancel-btn" id="' + cancelId + '" data-nexus-modal-id="' + id + '">Cancelar</button>';
+      html += '<button type="button" class="btn btn-nexus-primary" id="' + primaryId + '">' + primaryLabel + '</button>';
+    }
+    html += "</div></div></div></div>";
     return html;
   };
 
   /**
-   * Punto único: abre un modal de formulario (form card), lo muestra y enlaza el botón principal.
-   * opts: mismo que buildNexusFormCardModal. onPrimaryClick(bsModal) se llama al pulsar el botón; el cierre y limpieza del DOM se hace en hidden.bs.modal.
+   * Intenta cerrar un modal; si hay cambios sin guardar, muestra confirmación.
+   * @param {Object} ctx - { modalEl, getDirtyState, onSaveBeforeClose }
+   * @param {Function} doClose - función que cierra el modal
+   */
+  window.nexusFormModalCloseAttempt = function (ctx, doClose) {
+    var dirty = ctx.getDirtyState && typeof ctx.getDirtyState === "function" && ctx.getDirtyState(ctx.modalEl);
+    if (!dirty) {
+      doClose();
+      return;
+    }
+    var html = '<div class="modal fade" id="nexusConfirmUnsaveModal" tabindex="-1">';
+    html += '<div class="modal-dialog modal-dialog-centered"><div class="nexus-manage-user-card modal-content">';
+    html += '<div class="modal-header border-0 pb-0"><h5 class="modal-title">Cambios sin guardar</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>';
+    html += '<div class="modal-body pt-2"><p class="nexus-text-secondary mb-0">' + CONFIRM_UNSAVED_MESSAGE + '</p></div>';
+    html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary" id="nexus-confirm-unsave-no">No, salir sin guardar</button><button type="button" class="btn btn-nexus-primary" id="nexus-confirm-unsave-yes">Sí, guardar</button></div>';
+    html += "</div></div></div>";
+    var wrap = document.createElement("div");
+    wrap.innerHTML = html;
+    document.body.appendChild(wrap.firstElementChild);
+    var confirmEl = document.getElementById("nexusConfirmUnsaveModal");
+    var bsConfirm = new bootstrap.Modal(confirmEl);
+    function normalizeBackdrops() {
+      var shownModals = document.querySelectorAll(".modal.show").length;
+      var backdrops = document.querySelectorAll(".modal-backdrop");
+      var expected = shownModals > 0 ? 1 : 0;
+      if (backdrops.length > expected) {
+        for (var i = 0; i < backdrops.length - expected; i++) {
+          if (backdrops[i] && backdrops[i].parentNode) backdrops[i].parentNode.removeChild(backdrops[i]);
+        }
+      }
+      if (shownModals > 0) document.body.classList.add("modal-open");
+      else document.body.classList.remove("modal-open");
+    }
+    confirmEl.addEventListener("hidden.bs.modal", function () {
+      try { var i = bootstrap.Modal.getInstance(confirmEl); if (i) i.dispose(); } catch (e) {}
+      if (confirmEl.parentNode) confirmEl.parentNode.removeChild(confirmEl);
+      normalizeBackdrops();
+    });
+    confirmEl.addEventListener("shown.bs.modal", function () {
+      applyModalLayer(confirmEl, 2100, 2090);
+    });
+    document.getElementById("nexus-confirm-unsave-no").onclick = function () {
+      bsConfirm.hide();
+      setTimeout(doClose, 150);
+    };
+    document.getElementById("nexus-confirm-unsave-yes").onclick = function () {
+      if (ctx.onSaveBeforeClose && typeof ctx.onSaveBeforeClose === "function") {
+        var result = ctx.onSaveBeforeClose(ctx.modalEl);
+        if (result && typeof result.then === "function") {
+          result.then(function (ok) {
+            if (ok !== false) { bsConfirm.hide(); setTimeout(doClose, 150); }
+          }).catch(function () {});
+        } else if (result !== false) {
+          bsConfirm.hide();
+          setTimeout(doClose, 150);
+        }
+      } else {
+        bsConfirm.hide();
+        setTimeout(doClose, 150);
+      }
+    };
+    bsConfirm.show();
+  };
+
+  /**
+   * Punto único: abre un modal de formulario (form card).
+   * opts: { id?, title, bodyHtml, primaryButtonId?, primaryLabel?, mode?, getDirtyState?, onSaveBeforeClose? }
+   * mode: "view" = solo Cerrar | "edit" = Cancelar + Guardar | "create" = Cancelar + Crear
+   * getDirtyState(modalEl): opcional, retorna true si hay cambios sin guardar.
+   * onSaveBeforeClose(modalEl): opcional, guarda antes de cerrar (para confirmación). Retorna Promise o void.
+   * onPrimaryClick(bsModal): para view=cierra; para edit=guarda (no cierra); para create=envía formulario.
    */
   window.openNexusFormModal = function (opts, onPrimaryClick) {
     var id = opts.id || "nexusFormCardModal";
+    var mode = opts.mode || "edit";
+    var existingModal = document.getElementById(id);
+    if (existingModal) existingModal.remove();
     var modalHtml = window.buildNexusFormCardModal(opts);
     var wrap = document.createElement("div");
     wrap.innerHTML = modalHtml;
     document.body.appendChild(wrap.firstElementChild);
     var modalEl = document.getElementById(id);
+    var cancelId = opts.cancelButtonId || "nexus-form-card-cancel";
+    var primaryId = opts.primaryButtonId || "nexus-form-card-submit";
     function cleanupBackdrop() {
       document.body.classList.remove("nexus-manage-user-modal-open", "modal-open");
       document.querySelectorAll(".modal-backdrop").forEach(function (el) { el.remove(); });
     }
-    modalEl.addEventListener("shown.bs.modal", function () { document.body.classList.add("nexus-manage-user-modal-open"); });
+    function doClose() {
+      bsModal.hide();
+    }
+    var ctx = {
+      modalEl: modalEl,
+      getDirtyState: opts.getDirtyState,
+      onSaveBeforeClose: opts.onSaveBeforeClose
+    };
+    modalEl.addEventListener("shown.bs.modal", function () {
+      document.body.classList.add("nexus-manage-user-modal-open");
+      ctx.modalEl = modalEl;
+      ctx.bsModal = bsModal;
+      applyModalLayer(modalEl, 2055, 2050);
+    });
     modalEl.addEventListener("hidden.bs.modal", function () {
       cleanupBackdrop();
       try { var inst = bootstrap.Modal.getInstance(modalEl); if (inst) inst.dispose(); } catch (e) {}
       if (modalEl.parentNode) modalEl.remove();
     });
     var bsModal = new bootstrap.Modal(modalEl);
-    var primaryId = opts.primaryButtonId || "nexus-form-card-submit";
-    document.getElementById(primaryId).onclick = function () { onPrimaryClick(bsModal); };
+    ctx.bsModal = bsModal;
+    document.getElementById(primaryId).onclick = function () {
+      if (mode === "view") {
+        doClose();
+      } else {
+        onPrimaryClick(bsModal);
+      }
+    };
+    if (mode === "view") {
+      var closeBtnView = modalEl.querySelector(".nexus-form-modal-close-btn");
+      if (closeBtnView) closeBtnView.onclick = function () { doClose(); };
+    } else {
+      var cancelBtn = document.getElementById(cancelId);
+      if (cancelBtn) cancelBtn.onclick = function () { window.nexusFormModalCloseAttempt(ctx, doClose); };
+      var closeBtn = modalEl.querySelector(".nexus-form-modal-close-btn");
+      if (closeBtn) closeBtn.onclick = function () { window.nexusFormModalCloseAttempt(ctx, doClose); };
+      modalEl.addEventListener("hidePrevented.bs.modal", function () {
+        // Ejecutar en el siguiente tick evita que Bootstrap ignore el hide()
+        // cuando el intento de cierre viene del backdrop estatico.
+        setTimeout(function () {
+          window.nexusFormModalCloseAttempt(ctx, doClose);
+        }, 0);
+      });
+    }
     bsModal.show();
   };
 
@@ -259,6 +393,7 @@
       document.querySelectorAll(".modal-backdrop").forEach(function (el) { el.remove(); });
     }
     modalEl.addEventListener("shown.bs.modal", function () { document.body.classList.add("nexus-manage-user-modal-open"); });
+    modalEl.addEventListener("shown.bs.modal", function () { applyModalLayer(modalEl, 2100, 2090); });
     modalEl.addEventListener("hidden.bs.modal", function () {
       cleanupBackdropConfirm();
       try { var inst = bootstrap.Modal.getInstance(modalEl); if (inst) inst.dispose(); } catch (e) {}
@@ -293,6 +428,7 @@
       document.querySelectorAll(".modal-backdrop").forEach(function (el) { el.remove(); });
     }
     modalEl.addEventListener("shown.bs.modal", function () { document.body.classList.add("nexus-manage-user-modal-open"); });
+    modalEl.addEventListener("shown.bs.modal", function () { applyModalLayer(modalEl, 2100, 2090); });
     modalEl.addEventListener("hidden.bs.modal", function () {
       cleanupBackdropAlert();
       try { var inst = bootstrap.Modal.getInstance(modalEl); if (inst) inst.dispose(); } catch (e) {}
@@ -337,8 +473,12 @@
       if (e.href) html += '<a href="' + escAttr(e.href) + '" class="' + cls + '">' + label + "</a>";
       else html += '<a href="#" class="' + cls + '" data-id="' + escAttr(e.id) + '">' + label + "</a>";
     }
-    if (opts.archive && opts.archive.href) {
-      html += '<a href="' + escAttr(opts.archive.href) + '" class="nexus-action-archive">' + escAttr(opts.archive.label || "Archivar") + "</a>";
+    if (opts.archive) {
+      var a = opts.archive;
+      var archiveClass = "nexus-action-archive" + (a.className ? " " + a.className : "");
+      var archiveLabel = escAttr(a.label || "Archivar");
+      if (a.href) html += '<a href="' + escAttr(a.href) + '" class="' + archiveClass + '">' + archiveLabel + "</a>";
+      else if (a.id != null) html += '<a href="#" class="' + archiveClass + '" data-id="' + escAttr(a.id) + '">' + archiveLabel + "</a>";
     }
     if (opts.delete && opts.delete.id != null) {
       var d = opts.delete;

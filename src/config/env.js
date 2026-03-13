@@ -92,7 +92,11 @@ const env = {
   CORS_ALLOWED_ORIGINS: getRequiredNoDevelopment("CORS_ALLOWED_ORIGINS", "*"),
   CORS_ALLOW_CREDENTIALS: asBoolean(process.env.CORS_ALLOW_CREDENTIALS, false),
   RATE_LIMIT_WINDOW_MS: asNumber(process.env.RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
-  RATE_LIMIT_MAX: asNumber(process.env.RATE_LIMIT_MAX, isDevelopment ? 10000 : 200),
+  RATE_LIMIT_MAX: (() => {
+    const raw = asNumber(process.env.RATE_LIMIT_MAX, isDevelopment ? 10000 : 200);
+    // En desarrollo: mínimo 1000 para evitar bloqueos durante pruebas locales
+    return isDevelopment && raw < 1000 ? 1000 : raw;
+  })(),
   SHUTDOWN_TIMEOUT_MS: asNumber(process.env.SHUTDOWN_TIMEOUT_MS, 10000),
   SUBDOMAIN_BASE: getEnvValue("SUBDOMAIN_BASE") || ""
 };

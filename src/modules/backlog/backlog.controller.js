@@ -29,6 +29,17 @@ async function createProjectController(req, res, next) {
   }
 }
 
+async function importProjectsController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await projectsService.importProjects(req.body, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 async function getProjectController(req, res, next) {
   try {
     assertRequestValid(req);
@@ -123,6 +134,17 @@ async function listFeaturesController(req, res, next) {
     const status = req.query.status || undefined;
     const result = await featureService.listFeaturesByProject(projectId, { page, limit, status }, req.organizationId);
     res.status(200).json(buildSuccess({ items: result.data, ...result.meta }, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function patchFeatureController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await featureService.updateFeature(req.params.id, req.body, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
   } catch (e) {
     next(e);
   }
@@ -225,6 +247,7 @@ async function patchStoryController(req, res, next) {
 
 module.exports = {
   createProjectController,
+  importProjectsController,
   getProjectController,
   listProjectsController,
   archiveProjectController,
@@ -234,6 +257,7 @@ module.exports = {
   createFeatureController,
   getFeatureController,
   listFeaturesController,
+  patchFeatureController,
   patchFeatureStatusController,
   createStoryController,
   getStoryController,
