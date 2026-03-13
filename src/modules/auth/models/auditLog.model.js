@@ -22,7 +22,7 @@ function defineAuditLogModel(sequelize) {
         allowNull: false
       },
       entity_id: {
-        type: DataTypes.STRING(100),
+        type: DataTypes.STRING(255),
         allowNull: true
       },
       metadata: {

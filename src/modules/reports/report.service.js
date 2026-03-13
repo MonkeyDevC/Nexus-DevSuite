@@ -122,24 +122,24 @@ async function getUserActivity(userId, requestingUser, filters = {}, pagination 
       code: ERROR_CODES.NOT_FOUND
     });
   }
-  if (organizationId != null && targetUser.organization_id !== organizationId) {
-    throw new AppError("No tiene acceso a la actividad de este usuario", {
-      statusCode: 403,
-      code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
-    });
-  }
   if (requestingUser.role !== "MASTER" && requestingUser.id !== userId) {
     throw new AppError("No autorizado para ver la actividad de otro usuario", {
       statusCode: 403,
       code: ERROR_CODES.AUTH_FORBIDDEN
     });
   }
+  if (organizationId != null && targetUser.organization_id !== organizationId) {
+    throw new AppError("No tiene acceso a la actividad de este usuario", {
+      statusCode: 403,
+      code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
+    });
+  }
   const { items, total } = await reportRepository.getAuditLogs(
     { user_id: userId, ...filters },
     pagination
   );
-  const page = Math.max(1, parseInt(pagination.page, 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(pagination.limit, 10) || 20));
+  const page = Math.max(1, Number.parseInt(pagination.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, Number.parseInt(pagination.limit, 10) || 20));
   const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
   return {
     user: toPlainUserSafe(targetUser),
@@ -155,12 +155,12 @@ async function getAuditLogs(requestingUser, filters, pagination, context) {
       code: ERROR_CODES.AUTH_FORBIDDEN
     });
   }
-  const page = Math.max(1, parseInt(pagination.page, 10) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(pagination.limit, 10) || 20));
+  const page = Math.max(1, Number.parseInt(pagination.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, Number.parseInt(pagination.limit, 10) || 20));
   const { items, total } = await reportRepository.getAuditLogs(filters, { page, limit });
   const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
 
-  if (context && context.user && context.requestId) {
+  if (context?.user && context.requestId) {
     await authRepository.createAuditLog({
       user_id: context.user.id,
       request_id: context.requestId,
