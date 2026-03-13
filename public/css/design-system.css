@@ -471,8 +471,36 @@ body { font-family: var(--nexus-font-sans); }
 @media (max-width: 575px) {
   .nexus-topbar-logo-text { display: none; }
 }
+/* Toggle sidebar móvil: aspecto de botón con bordes redondeados e icono hamburger estilizado */
 .nexus-topbar-mobile-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--nexus-border);
+  border-radius: 10px;
+  background: #fff;
   color: var(--nexus-text-primary);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.nexus-topbar-mobile-toggle:hover {
+  background: #f8fafc;
+  border-color: var(--nexus-border-focus, #94a3b8);
+  color: var(--nexus-text-primary);
+}
+.nexus-topbar-mobile-toggle:focus-visible {
+  outline: 2px solid var(--nexus-accent);
+  outline-offset: 2px;
+}
+.nexus-hamburger-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nexus-hamburger-icon svg {
+  display: block;
 }
 /* Centro: búsqueda centrada */
 .nexus-topbar-center {
@@ -521,6 +549,19 @@ body { font-family: var(--nexus-font-sans); }
   border-color: var(--nexus-border-focus);
   outline: 0;
   box-shadow: 0 0 0 2px var(--nexus-accent-light);
+}
+/* Dropdown de búsqueda del topbar: anclado al contenedor del input */
+#nexus-topbar-search-wrap {
+  position: relative;
+}
+#nexus-topbar-search-dropdown {
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  min-width: 100%;
+  box-sizing: border-box;
+  z-index: 1060;
 }
 #dropdownApps.dropdown-toggle::after {
   display: none;

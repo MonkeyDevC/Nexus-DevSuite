@@ -425,3 +425,49 @@
 **Cambios funcionales realizados:** Se confirmó que el enlace "Reportes" en el sidebar (nav-reports) se muestra solo para rol MASTER (layout.js). Se añadió un comentario en código (NEXUS-AUD-031) documentando la decisión: si el PO decide que Reportes (resumen proyecto/sprint, actividad por usuario) sea visible para todos, cambiar la condición; la sección "Auditoría" sigue restringida a MASTER.
 ---
 
+---
+**Ticket ID:** NEXUS-CONS-007  
+**Fecha cierre:** 2026-03-03  
+**Archivos modificados:**
+- src/modules/sprints/sprint.validator.js  
+- src/modules/sprints/sprint.service.js  
+**Endpoints utilizados:** PATCH /api/v1/sprints/:id (body: name?, goal?, start_date?, end_date?)  
+**Cambios funcionales realizados:** El validador PATCH de sprint acepta el campo opcional `goal`; el servicio updateSprint incluye goal en updatePayload y lo persiste. Permite al frontend editar el objetivo del sprint (NEXUS-CONS-004).  
+---
+
+---
+**Ticket ID:** NEXUS-CONS-001  
+**Fecha cierre:** 2026-03-03  
+**Archivos modificados:**
+- public/js/views/features.js  
+**Endpoints utilizados:** POST /api/v1/projects/:projectId/features (body: title, description, priority)  
+**Cambios funcionales realizados:** Modal "Nueva feature" incluye select de prioridad (LOW, MEDIUM, HIGH, CRITICAL); el POST envía `priority` en el body. Valor por defecto MEDIUM.  
+---
+
+---
+**Ticket ID:** NEXUS-CONS-002  
+**Fecha cierre:** 2026-03-03  
+**Archivos modificados:**
+- public/js/views/documents.js  
+**Endpoints utilizados:** GET /api/v1/projects (para selector), POST /api/v1/documents (body: code, title, description?, project_id?)  
+**Cambios funcionales realizados:** Modal "Nuevo documento" incluye campo descripción (textarea) y selector de proyecto (opcional). Se cargan proyectos con GET /projects al abrir el modal. El POST envía description y project_id cuando corresponda.  
+---
+
+---
+**Ticket ID:** NEXUS-CONS-003  
+**Fecha cierre:** 2026-03-03  
+**Archivos modificados:**
+- public/js/views/incidents.js  
+**Endpoints utilizados:** POST /api/v1/projects/:projectId/incidents (body: title, description, severity)  
+**Cambios funcionales realizados:** Modal "Nuevo incidente" incluye textarea descripción y select de severidad (LOW, MEDIUM, HIGH, CRITICAL). El POST envía description y severity con los valores elegidos por el usuario (MEDIUM por defecto).  
+---
+
+---
+**Ticket ID:** NEXUS-CONS-004  
+**Fecha cierre:** 2026-03-03  
+**Archivos modificados:**
+- public/js/views/sprints.js  
+**Endpoints utilizados:** GET /api/v1/sprints/:id, PATCH /api/v1/sprints/:id (body: name, goal?, start_date?, end_date?)  
+**Cambios funcionales realizados:** En detalle de sprint se muestra "Objetivo" cuando existe. En el formulario de edición se añadió el campo "Objetivo" (textarea); al guardar el PATCH incluye goal. Depende de NEXUS-CONS-007 (backend ya acepta goal).  
+---
+

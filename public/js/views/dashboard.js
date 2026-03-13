@@ -134,7 +134,7 @@
     html += '<h2 class="nexus-font-semibold nexus-text-primary mb-3">Mis asignaciones</h2>';
     html += '<input type="search" class="form-control form-control-sm mb-3 nexus-input dashboard-assignments-search" placeholder="Buscar por título o ID..." style="max-width:280px" aria-label="Buscar asignaciones">';
     html += '<div class="table-responsive"><table class="table table-sm nexus-table">';
-    html += "<thead><tr><th>ID</th><th>Tipo</th><th>Título</th><th>Prioridad</th><th>Estado</th><th></th></tr></thead><tbody>";
+    html += "<thead><tr><th>ID</th><th>Tipo</th><th>Título</th><th>Prioridad</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>";
     if (!assignments || assignments.length === 0) {
       html += "<tr><td colspan=\"6\" class=\"text-muted text-center py-4\">No hay asignaciones.</td></tr>";
     } else {

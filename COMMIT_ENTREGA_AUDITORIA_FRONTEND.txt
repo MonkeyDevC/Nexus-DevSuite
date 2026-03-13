@@ -1,0 +1,39 @@
+Entrega: mejoras derivadas de auditoría funcional frontend (NEXUS DevSuite)
+
+Cierre del ciclo de auditoría funcional del frontend e incorporación de
+documentación, planes y mejoras de backend asociadas.
+
+--- Frontend (auditoría) ---
+• NEXUS-AUD-015: Documents — búsqueda por código, redirección a detalle.
+• NEXUS-AUD-016: Documents — ver/editar contenido de versión (modal).
+• NEXUS-AUD-017: Selector "Ver por página" reutilizable en Improvements,
+  Documents, Features, Incidents (componente pageSizeSelector.js).
+• NEXUS-AUD-018: Change Requests — validación UUID, enlace a entidad tras crear.
+• NEXUS-AUD-019: Dashboard — enlace "Ver" a detalle de story desde asignaciones.
+• NEXUS-AUD-020: Reports — límite/paginación en tabla Actividad por usuario.
+• NEXUS-AUD-021: Incidents — breadcrumb y Volver (verificado/cubierto).
+• NEXUS-AUD-022: Cerrado (cubierto por 017 en Improvements).
+• NEXUS-AUD-023: Mensajes de éxito tras CRUD — componente notifications.js,
+  showSuccessMessage() en Documents, Features, Stories, Improvements,
+  Incidents, Change Requests, Releases, Admin Organización.
+• NEXUS-AUD-024: Admin Organización — validación y PATCH completo.
+• NEXUS-AUD-025: Permisos MASTER — componente permissions.js, ocultar
+  acciones reservadas para EMPLOYEE (Admin, Releases, Documents, CR, etc.).
+• NEXUS-AUD-026: Enlaces cruzados — Story→Feature, Sprint→Story,
+  #/features/:id resuelto, Incident→Story, Document→Feature/Story.
+
+Componentes nuevos: public/js/components/pageSizeSelector.js,
+permissions.js, notifications.js. Registro en TICKETS_IMPLEMENTADOS.md.
+
+--- Documentación y planes ---
+• Auditorías funcionales 2026-03/04, estado actual, propuesta sprint.
+• Planes de implementación y pruebas (etapas 18–22).
+• ENDPOINTS_API_Y_USO_FRONTEND.md actualizado.
+• docs/architecture, docs/process, docs/plans, docs/project-logs.
+
+--- Backend y otros ---
+• Ajustes en auth, backlog, releases, sprints (rutas, validadores, modelos).
+• Migraciones: project number, user story number.
+• Dashboard module, scripts de limpieza de datos dummy.
+
+Ref: docs/AUDITORIA_FUNCIONAL_FRONTEND_2026-04.md, docs/project-logs/TICKETS_IMPLEMENTADOS.md

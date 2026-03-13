@@ -231,13 +231,20 @@
           window.openNexusAlertModal({ title: "Nuevo incidente", message: "Seleccione un proyecto." });
           return;
         }
-        var bodyHtml = '<div class="mb-3"><label class="form-label">Título</label><input type="text" id="inc-form-title" class="form-control" placeholder="Título" required></div><div id="inc-form-error" class="alert alert-danger d-none"></div>';
+        var bodyHtml = '<div class="mb-3"><label class="form-label">Título</label><input type="text" id="inc-form-title" class="form-control" placeholder="Título" required></div>';
+        bodyHtml += '<div class="mb-3"><label class="form-label">Descripción</label><textarea id="inc-form-desc" class="form-control" rows="3" placeholder="Descripción del incidente (opcional)" aria-label="Descripción"></textarea></div>';
+        bodyHtml += '<div class="mb-3"><label class="form-label">Severidad</label><select id="inc-form-severity" class="form-select" aria-label="Severidad"><option value="LOW">LOW</option><option value="MEDIUM" selected>MEDIUM</option><option value="HIGH">HIGH</option><option value="CRITICAL">CRITICAL</option></select></div>';
+        bodyHtml += '<div id="inc-form-error" class="alert alert-danger d-none"></div>';
         window.openNexusFormModal({ id: "incNewModal", title: "Nuevo incidente", bodyHtml: bodyHtml, primaryButtonId: "inc-form-submit", primaryLabel: "Crear" }, function (bsModal) {
           var t = (document.getElementById("inc-form-title").value || "").trim();
+          var descEl = document.getElementById("inc-form-desc");
+          var description = (descEl && descEl.value) ? descEl.value.trim() : "";
+          var sevEl = document.getElementById("inc-form-severity");
+          var severity = (sevEl && sevEl.value) ? sevEl.value : "MEDIUM";
           var errEl = document.getElementById("inc-form-error");
           errEl.classList.add("d-none");
           if (!t) { errEl.textContent = "El título es obligatorio."; errEl.classList.remove("d-none"); return; }
-          window.fetchApi("/projects/" + state.projectId + "/incidents", { method: "POST", body: JSON.stringify({ title: t, description: "", severity: "MEDIUM" }) }).then(function (b) {
+          window.fetchApi("/projects/" + state.projectId + "/incidents", { method: "POST", body: JSON.stringify({ title: t, description: description, severity: severity }) }).then(function (b) {
             if (b && b.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Incidente creado correctamente."); bsModal.hide(); load(); }
             else { errEl.textContent = (b && b.error && b.error.message) || "Error."; errEl.classList.remove("d-none"); }
           });

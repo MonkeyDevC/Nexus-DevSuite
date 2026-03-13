@@ -264,17 +264,30 @@
       var btn = document.getElementById("doc-new");
       if (btn) btn.onclick = function (e) {
         e.preventDefault();
-        var bodyHtml = '<div class="mb-3"><label class="form-label">Código</label><input type="text" id="doc-form-code" class="form-control" placeholder="Código" required></div>';
-        bodyHtml += '<div class="mb-3"><label class="form-label">Título</label><input type="text" id="doc-form-title" class="form-control" placeholder="Título" required></div><div id="doc-form-error" class="alert alert-danger d-none"></div>';
-        window.openNexusFormModal({ id: "docNewModal", title: "Nuevo documento", bodyHtml: bodyHtml, primaryButtonId: "doc-form-submit", primaryLabel: "Crear" }, function (bsModal) {
-          var code = (document.getElementById("doc-form-code").value || "").trim();
-          var title = (document.getElementById("doc-form-title").value || "").trim();
-          var errEl = document.getElementById("doc-form-error");
-          errEl.classList.add("d-none");
-          if (!code || !title) { errEl.textContent = "Código y título son obligatorios."; errEl.classList.remove("d-none"); return; }
-          window.fetchApi("/documents", { method: "POST", body: JSON.stringify({ code: code, title: title }) }).then(function (r) {
-            if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Documento creado correctamente."); bsModal.hide(); load(); }
-            else { errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); }
+        window.fetchApi("/projects").then(function (projRes) {
+          var projects = (projRes && projRes.success && projRes.data && projRes.data.items) ? projRes.data.items : [];
+          var bodyHtml = '<div class="mb-3"><label class="form-label">Código</label><input type="text" id="doc-form-code" class="form-control" placeholder="Código" required></div>';
+          bodyHtml += '<div class="mb-3"><label class="form-label">Título</label><input type="text" id="doc-form-title" class="form-control" placeholder="Título" required></div>';
+          bodyHtml += '<div class="mb-3"><label class="form-label">Descripción</label><textarea id="doc-form-desc" class="form-control" rows="2" placeholder="Descripción (opcional)" aria-label="Descripción"></textarea></div>';
+          bodyHtml += '<div class="mb-3"><label class="form-label">Proyecto (opcional)</label><select id="doc-form-project" class="form-select" aria-label="Proyecto"><option value="">Sin proyecto</option>';
+          projects.forEach(function (p) { bodyHtml += '<option value="' + (p.id || "") + '">' + (typeof window.esc === "function" ? window.esc(p.name || p.id || "") : String(p.name || p.id || "").replace(/</g, "&lt;")) + "</option>"; });
+          bodyHtml += "</select></div><div id=\"doc-form-error\" class=\"alert alert-danger d-none\"></div>";
+          window.openNexusFormModal({ id: "docNewModal", title: "Nuevo documento", bodyHtml: bodyHtml, primaryButtonId: "doc-form-submit", primaryLabel: "Crear" }, function (bsModal) {
+            var code = (document.getElementById("doc-form-code").value || "").trim();
+            var title = (document.getElementById("doc-form-title").value || "").trim();
+            var descEl = document.getElementById("doc-form-desc");
+            var description = (descEl && descEl.value) ? descEl.value.trim() : "";
+            var projEl = document.getElementById("doc-form-project");
+            var projectId = (projEl && projEl.value) ? projEl.value : "";
+            var errEl = document.getElementById("doc-form-error");
+            errEl.classList.add("d-none");
+            if (!code || !title) { errEl.textContent = "Código y título son obligatorios."; errEl.classList.remove("d-none"); return; }
+            var payload = { code: code, title: title, description: description };
+            if (projectId) payload.project_id = projectId;
+            window.fetchApi("/documents", { method: "POST", body: JSON.stringify(payload) }).then(function (r) {
+              if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Documento creado correctamente."); bsModal.hide(); load(); }
+              else { errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); }
+            });
           });
         });
       };

@@ -159,6 +159,7 @@
       }
 
       input.addEventListener("focus", function () { show(); });
+      input.addEventListener("click", function () { show(); });
       input.addEventListener("input", function () { show(); });
       input.addEventListener("blur", function () {
         setTimeout(function () {

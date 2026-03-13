@@ -23,6 +23,7 @@ const patchSprintStatusValidator = [
 const patchSprintValidator = [
   param("id").isUUID(),
   body("name").optional({ values: "falsy" }).trim().isLength({ max: 255 }),
+  body("goal").optional({ nullable: true }).trim(),
   body("start_date").optional({ nullable: true }).isDate(),
   body("end_date").optional({ nullable: true }).isDate()
 ];

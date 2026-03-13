@@ -40,15 +40,25 @@
     window.setContent(html);
     const form = document.getElementById("login-form");
     const errEl = document.getElementById("login-error");
+    var loginErrorHideTimer = null;
+    function showLoginError(message) {
+      if (loginErrorHideTimer) clearTimeout(loginErrorHideTimer);
+      errEl.textContent = message || "Credenciales inválidas.";
+      errEl.classList.remove("d-none");
+      loginErrorHideTimer = setTimeout(function () {
+        errEl.classList.add("d-none");
+        loginErrorHideTimer = null;
+      }, 2000);
+    }
     if (form) {
       form.onsubmit = async function (e) {
         e.preventDefault();
+        if (loginErrorHideTimer) clearTimeout(loginErrorHideTimer);
         errEl.classList.add("d-none");
         const email = form.email.value.trim();
         const password = form.password.value;
         if (!password) {
-          errEl.textContent = "Contraseña obligatoria.";
-          errEl.classList.remove("d-none");
+          showLoginError("Contraseña obligatoria.");
           return;
         }
         const body = await window.fetchApi("/auth/login", {
@@ -59,8 +69,7 @@
           window.setTokens(body.data.access_token, body.data.refresh_token);
           window.location.hash = "#/dashboard";
         } else {
-          errEl.textContent = (body && body.error && body.error.message) || "Credenciales incorrectas.";
-          errEl.classList.remove("d-none");
+          showLoginError((body && body.error && body.error.message) || "Credenciales inválidas.");
         }
       };
     }

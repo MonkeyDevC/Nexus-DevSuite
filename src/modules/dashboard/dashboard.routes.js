@@ -10,11 +10,13 @@ const { authorizeMiddleware } = require("../../middlewares/authorize.middleware"
 
 const router = express.Router();
 
-router.get(
-  "/summary",
+const summaryHandlers = [
   authenticateMiddleware,
   authorizeMiddleware("MASTER", "EMPLOYEE"),
   getDashboardSummaryController
-);
+];
+
+router.get("/summary", ...summaryHandlers);
+router.get("/", ...summaryHandlers);
 
 module.exports = router;

@@ -181,6 +181,7 @@ async function updateSprint(sprintId, payload, context) {
   if (payload.name !== undefined && payload.name !== null && String(payload.name).trim() !== "") {
     updatePayload.name = String(payload.name).trim();
   }
+  if (payload.goal !== undefined) updatePayload.goal = payload.goal === null || payload.goal === "" ? null : String(payload.goal).trim();
   if (payload.start_date !== undefined) updatePayload.start_date = payload.start_date || null;
   if (payload.end_date !== undefined) updatePayload.end_date = payload.end_date || null;
   const startDate = updatePayload.start_date !== undefined ? updatePayload.start_date : sprint.start_date;

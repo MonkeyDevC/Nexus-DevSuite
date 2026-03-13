@@ -11,16 +11,19 @@ function errorHandlerMiddleware(error, req, res, next) {
   const statusCode = Number.isInteger(error.statusCode) ? error.statusCode : 500;
   const requestId = req.requestId || "no-request-id";
 
-  logger.error(
-    {
-      request_id: requestId,
-      status_code: statusCode,
-      path: req.originalUrl,
-      method: req.method,
-      err: error
-    },
-    "Error controlado por middleware global"
-  );
+  const logPayload = {
+    request_id: requestId,
+    status_code: statusCode,
+    path: req.originalUrl,
+    method: req.method,
+    err: error
+  };
+  const isOperationalClientError = statusCode >= 400 && statusCode < 500;
+  if (isOperationalClientError) {
+    logger.warn(logPayload, "Error controlado por middleware global");
+  } else {
+    logger.error(logPayload, "Error controlado por middleware global");
+  }
 
   const isUnexpectedServerError = !isAppError && statusCode >= 500;
   const message =

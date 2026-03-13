@@ -26,11 +26,11 @@
 
 | # | Caso | Pasos / qué verificar | ☑ |
 |---|------|------------------------|---|
-| A1 | Login con credenciales válidas | Introducir email y contraseña correctos → redirección a #/dashboard; nombre/usuario visible en topbar; GET /auth/me ejecutado. | |
-| A2 | Login con credenciales inválidas | Email o contraseña incorrectos → mensaje de error claro; no redirección. | |
-| A3 | Logout | Clic en cerrar sesión → redirección a login; no se puede acceder a #/dashboard sin volver a loguearse. | |
-| A4 | Ruta protegida sin login | Con sesión cerrada, intentar acceder a #/projects o #/dashboard (escribiendo URL o hash) → redirección a login o mensaje de no autorizado. | |
-| A5 | Refresh de token | Dejar la app abierta hasta que caduque el access token (si aplica); siguiente petición → refresh automático sin sacar al usuario (o redirección a login si falla refresh). | |
+| A1 | Login con credenciales válidas | Introducir email y contraseña correctos → redirección a #/dashboard; nombre/usuario visible en topbar; GET /auth/me ejecutado. | | OK ☑
+| A2 | Login con credenciales inválidas | Email o contraseña incorrectos → mensaje de error claro; no redirección. | | OK ☑
+| A3 | Logout | Clic en cerrar sesión → redirección a login; no se puede acceder a #/dashboard sin volver a loguearse. | | OK ☑
+| A4 | Ruta protegida sin login | Con sesión cerrada, intentar acceder a #/projects o #/dashboard (escribiendo URL o hash) → redirección a login o mensaje de no autorizado. | |OK ☑
+| A5 | Refresh de token | Dejar la app abierta hasta que caduque el access token (si aplica); siguiente petición → refresh automático sin sacar al usuario (o redirección a login si falla refresh). | |OK ☑
 
 ---
 
@@ -38,12 +38,12 @@
 
 | # | Caso | Pasos / qué verificar | ☑ |
 |---|------|------------------------|---|
-| L1 | Sidebar visible | Tras login, sidebar con enlaces: Panel, Proyectos, Features, Stories, Sprints, Lanzamientos, Incidentes, Mejoras, Documentos, Change Requests, Reportes (si MASTER). | |
-| L2 | Enlace activo en sidebar | Al estar en #/projects, el enlace "Proyectos" se muestra como activo; igual en otras vistas. | |
-| L3 | Menú de aplicaciones (grid) | Clic en icono de aplicaciones en topbar → dropdown con Ajustes, Reportes, Proyectos; si MASTER: Usuarios, Auditoría, Métricas, Organización. | |
-| L4 | Búsqueda global (topbar) | Clic o foco en el campo "Buscar" del topbar → aparece dropdown con "Ir a": Proyectos, Releases, Documentos, Features. Clic en uno → navega al hash correcto y dropdown se cierra. | |
-| L5 | Indicador de salud API (footer) | En cualquier vista con nav cargada, footer muestra "API: OK" (verde) o "API: Error" (rojo). Si se apaga el backend, debe pasar a Error sin bloquear la app. | |
-| L6 | Toggle sidebar móvil | En viewport estrecho (o modo responsive), botón de menú (☰) muestra/oculta sidebar; overlay cierra sidebar al clic. | |
+| L1 | Sidebar visible | Tras login, sidebar con enlaces: Panel, Proyectos, Features, Stories, Sprints, Lanzamientos, Incidentes, Mejoras, Documentos, Change Requests, Reportes (si MASTER). | | OK ☑
+| L2 | Enlace activo en sidebar | Al estar en #/projects, el enlace "Proyectos" se muestra como activo; igual en otras vistas. | |  OK ☑
+| L3 | Menú de aplicaciones (grid) | Clic en icono de aplicaciones en topbar → dropdown con Ajustes, Reportes, Proyectos; si MASTER: Usuarios, Auditoría, Métricas, Organización. | |  OK ☑
+| L4 | Búsqueda global (topbar) | Clic o foco en el campo "Buscar" del topbar → aparece dropdown con "Ir a": Proyectos, Releases, Documentos, Features. Clic en uno → navega al hash correcto y dropdown se cierra. | |   OK ☑
+| L5 | Indicador de salud API (footer) | En cualquier vista con nav cargada, footer muestra "API: OK" (verde) o "API: Error" (rojo). Si se apaga el backend, debe pasar a Error sin bloquear la app. | | OK ☑ 
+| L6 | Toggle sidebar móvil | En viewport estrecho (o modo responsive), botón de menú (☰) muestra/oculta sidebar; overlay cierra sidebar al clic. | | OK ☑
 
 ---
 

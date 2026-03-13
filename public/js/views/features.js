@@ -312,15 +312,19 @@
           return;
         }
         var bodyHtml = '<div class="mb-3"><label class="form-label">Título de la feature</label><input type="text" id="feat-form-title" class="form-control" placeholder="Título de la feature" required></div>';
-        bodyHtml += '<div class="mb-3"><label class="form-label">Descripción</label><textarea id="feat-form-desc" class="form-control" rows="3" placeholder="Descripción de la feature" required></textarea></div><div id="feat-form-error" class="alert alert-danger d-none"></div>';
+        bodyHtml += '<div class="mb-3"><label class="form-label">Descripción</label><textarea id="feat-form-desc" class="form-control" rows="3" placeholder="Descripción de la feature" required></textarea></div>';
+        bodyHtml += '<div class="mb-3"><label class="form-label">Prioridad</label><select id="feat-form-priority" class="form-select" aria-label="Prioridad"><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option><option value="HIGH">HIGH</option><option value="CRITICAL">CRITICAL</option></select></div>';
+        bodyHtml += '<div id="feat-form-error" class="alert alert-danger d-none"></div>';
         window.openNexusFormModal({ id: "featNewModal", title: "Nueva feature", bodyHtml: bodyHtml, primaryButtonId: "feat-form-submit", primaryLabel: "Crear" }, function (bsModal) {
           var title = (document.getElementById("feat-form-title").value || "").trim();
           var desc = (document.getElementById("feat-form-desc").value || "").trim();
+          var priorityEl = document.getElementById("feat-form-priority");
+          var priority = (priorityEl && priorityEl.value) ? priorityEl.value : "MEDIUM";
           var errEl = document.getElementById("feat-form-error");
           errEl.classList.add("d-none");
           if (!title) { errEl.textContent = "El título es obligatorio."; errEl.classList.remove("d-none"); return; }
           if (!desc) { errEl.textContent = "La descripción es obligatoria."; errEl.classList.remove("d-none"); return; }
-          window.fetchApi("/projects/" + state.projectId + "/features", { method: "POST", body: JSON.stringify({ title: title, description: desc }) }).then(function (r) {
+          window.fetchApi("/projects/" + state.projectId + "/features", { method: "POST", body: JSON.stringify({ title: title, description: desc, priority: priority }) }).then(function (r) {
             if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Feature creada correctamente."); bsModal.hide(); loadFeatures(); }
             else { errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); }
           });

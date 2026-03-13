@@ -91,6 +91,8 @@ app.use(metricsMiddleware);
 app.use(auditLoggerMiddleware);
 app.use(globalRateLimitMiddleware);
 app.use(express.static("public"));
+app.get("/favicon.ico", (req, res) => res.status(204).end());
+app.use("/.well-known", (req, res) => res.status(204).end());
 app.use(routes);
 app.use(notFoundMiddleware);
 app.use(errorHandlerMiddleware);

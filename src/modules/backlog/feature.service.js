@@ -117,7 +117,7 @@ async function listFeaturesByProject(projectId, { page = 1, limit = 10, status }
   };
 }
 
-async function updateFeatureStatus(id, nextStatus, context) {
+async function updateFeatureStatus(id, nextStatus, context, changeRequestId = null) {
   const feature = await featureRepository.findById(id);
   if (!feature) {
     throw new AppError("Feature no encontrada", {
@@ -156,7 +156,9 @@ async function updateFeatureStatus(id, nextStatus, context) {
     entity_id: id,
     metadata: { from: currentStatus, to: nextStatus }
   });
-  await changeRequestService.markAsImplemented(changeRequestId, context);
+  if (changeRequestId) {
+    await changeRequestService.markAsImplemented(changeRequestId, context);
+  }
   return toPlain(updated);
 }
 

@@ -104,6 +104,7 @@
         } catch (_) {}
       }
       window.clearTokens();
+      if (typeof window.clearUser === "function") window.clearUser();
       if (window.redirectToLogin) window.redirectToLogin();
     }
 

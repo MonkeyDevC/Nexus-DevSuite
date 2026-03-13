@@ -46,6 +46,7 @@
         html += '<div id="sprint-detail-view">';
         html += '<h1 class="nexus-page-title">' + esc(s.name || "Sprint") + "</h1>";
         html += "<p class=\"nexus-text-secondary\">Estado: <span class=\"" + window.nexusBadgeClass(s.status) + "\">" + esc(s.status || "") + "</span></p>";
+        if (s.goal) html += "<p class=\"nexus-text-sm\">Objetivo: " + esc(s.goal) + "</p>";
         html += "<p class=\"nexus-text-sm\">Inicio: " + (s.start_date || "—") + " · Fin: " + (s.end_date || "—") + "</p>";
         if (isMaster && s.status !== "CLOSED") html += '<button class="btn btn-nexus-primary btn-sm me-2" id="sprint-close-btn">Cerrar sprint</button>';
         if (isMaster && s.status !== "CLOSED") html += '<button class="btn btn-nexus-secondary btn-sm me-2" id="sprint-edit-btn">Editar</button>';
@@ -54,6 +55,7 @@
         html += '<div id="sprint-detail-edit" class="d-none">';
         html += '<h2 class="nexus-font-semibold nexus-text-primary mb-3">Editar sprint</h2>';
         html += '<div class="mb-3"><label class="form-label">Nombre</label><input type="text" id="sprint-edit-name" class="form-control" value="' + esc(s.name || "") + '" placeholder="Nombre del sprint"></div>';
+        html += '<div class="mb-3"><label class="form-label">Objetivo</label><textarea id="sprint-edit-goal" class="form-control" rows="2" placeholder="Objetivo del sprint (opcional)" aria-label="Objetivo">' + esc(s.goal || "") + '</textarea></div>';
         html += '<div class="mb-3"><label class="form-label">Fecha de inicio</label><input type="date" id="sprint-edit-start" class="form-control" value="' + esc(s.start_date || "") + '" aria-label="Fecha de inicio"></div>';
         html += '<div class="mb-3"><label class="form-label">Fecha fin</label><input type="date" id="sprint-edit-end" class="form-control" value="' + esc(s.end_date || "") + '" aria-label="Fecha fin"></div>';
         html += '<div id="sprint-edit-error" class="alert alert-danger d-none mb-3"></div>';
@@ -138,9 +140,11 @@
           document.getElementById("sprint-detail-view").classList.add("d-none");
           document.getElementById("sprint-detail-edit").classList.remove("d-none");
           var nameEl = document.getElementById("sprint-edit-name");
+          var goalEl = document.getElementById("sprint-edit-goal");
           var startEl = document.getElementById("sprint-edit-start");
           var endEl = document.getElementById("sprint-edit-end");
           if (nameEl) nameEl.value = s.name || "";
+          if (goalEl) goalEl.value = s.goal || "";
           if (startEl) startEl.value = s.start_date || "";
           if (endEl) endEl.value = s.end_date || "";
         };
@@ -152,16 +156,18 @@
         var editSubmit = document.getElementById("sprint-edit-submit");
         if (editSubmit) editSubmit.onclick = function () {
           var nameEl = document.getElementById("sprint-edit-name");
+          var goalEl = document.getElementById("sprint-edit-goal");
           var startEl = document.getElementById("sprint-edit-start");
           var endEl = document.getElementById("sprint-edit-end");
           var errEl = document.getElementById("sprint-edit-error");
           var name = (nameEl && nameEl.value || "").trim();
+          var goal = (goalEl && goalEl.value) ? goalEl.value.trim() : "";
           var startDate = startEl && startEl.value ? startEl.value : null;
           var endDate = endEl && endEl.value ? endEl.value : null;
           errEl.classList.add("d-none");
           if (!name) { errEl.textContent = "El nombre es obligatorio."; errEl.classList.remove("d-none"); return; }
           if (startDate && endDate && endDate < startDate) { errEl.textContent = "La fecha fin no puede ser anterior a la fecha de inicio."; errEl.classList.remove("d-none"); return; }
-          var payload = { name: name };
+          var payload = { name: name, goal: goal || null };
           if (startDate !== undefined) payload.start_date = startDate || null;
           if (endDate !== undefined) payload.end_date = endDate || null;
           window.fetchApi("/sprints/" + s.id, { method: "PATCH", body: JSON.stringify(payload) }).then(function (r) {
