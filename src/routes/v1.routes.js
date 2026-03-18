@@ -16,6 +16,8 @@ const documentRoutes = require("../modules/documents/document.routes");
 const reportRoutes = require("../modules/reports/report.routes");
 const organizationRoutes = require("../modules/organizations/organization.routes");
 const dashboardRoutes = require("../modules/dashboard/dashboard.routes");
+const aiReviewRoutes = require("../modules/ai-review/ai-review.routes");
+const docsExportRoutes = require("../modules/docs-export/docsExport.routes");
 
 const router = express.Router();
 
@@ -36,5 +38,7 @@ router.use("/improvements", improvementRoutes);
 router.use("/documents", documentRoutes);
 router.use("/reports", reportRoutes);
 router.use("/dashboard", dashboardRoutes);
+router.use("/ai/review", aiReviewRoutes);
+router.use("/docs", docsExportRoutes);
 
 module.exports = router;

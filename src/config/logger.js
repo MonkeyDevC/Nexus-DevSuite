@@ -1,8 +1,9 @@
 const pino = require("pino");
 const { env } = require("./env");
 
+const logLevel = process.env.LOG_LEVEL || (env.NODE_ENV === "production" ? "info" : "info");
 const logger = pino({
-  level: env.NODE_ENV === "production" ? "info" : "debug",
+  level: logLevel,
   redact: {
     paths: ["req.headers.authorization", "password", "token"],
     censor: "[REDACTED]"

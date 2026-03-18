@@ -12,8 +12,16 @@
     const hash = window.location.hash.slice(1) || "/";
     const pathOnly = hash.split("?")[0];
     const path = pathOnly.startsWith("/") ? pathOnly : "/" + pathOnly;
-    const segment = path.split("/")[1] || "dashboard";
-    return segment === "login" ? "login" : segment;
+    const segments = path.split("/").filter(Boolean);
+    const first = segments[0] || "dashboard";
+    if (first === "login") return "login";
+    if (first === "projects" && segments[1] && segments[2] === "backlog") return "backlog";
+    if (first === "projects" && segments[1] && segments[2] === "work-orders") return "work-orders";
+    if (first === "projects" && segments[1] && segments[2] === "repository") return "repository";
+    if (first === "projects" && segments[1] && segments[2] === "releases") return "project-releases";
+    if (first === "projects" && segments[1] && segments[2] === "deliveries" && segments[3] && segments[4] === "workspace") return "delivery-workspace";
+    if (first === "documentation") return "documentation";
+    return first;
   }
   window.getViewName = getViewName;
 

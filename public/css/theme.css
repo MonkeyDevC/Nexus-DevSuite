@@ -1,0 +1,59 @@
+/* Diff viewer (GitHub-like) */
+.diff-added {
+  background-color: #b7f7cc;
+  color: #116329;
+  border-left: 4px solid rgba(17, 99, 41, 0.85) !important;
+}
+
+.diff-deleted {
+  background-color: #ffb3b9;
+  color: #7f1d1d;
+  border-left: 4px solid rgba(127, 29, 29, 0.85) !important;
+}
+
+.diff-context {
+  background-color: #f6f8fa;
+  color: #24292e;
+}
+
+.diff-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  white-space: pre-wrap;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* Diff viewer: nombre de archivo largo con desplazamiento al hover */
+.dw-diff-filename-wrap {
+  overflow: hidden; /* asegura recorte */
+  flex: 1 1 auto;
+  min-width: 0; /* evita que flexbox expanda y no recorte */
+  text-overflow: clip;
+  display: block;
+}
+
+.dw-diff-filename-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+@keyframes dwDiffMarquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.dw-diff-filename-wrap:hover .dw-diff-filename-marquee {
+  animation: dwDiffMarquee 2.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dw-diff-filename-wrap:hover .dw-diff-filename-marquee {
+    animation: none !important;
+  }
+}
+

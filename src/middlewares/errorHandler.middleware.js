@@ -11,12 +11,19 @@ function errorHandlerMiddleware(error, req, res, next) {
   const statusCode = Number.isInteger(error.statusCode) ? error.statusCode : 500;
   const requestId = req.requestId || "no-request-id";
 
+  const errSummary = {
+    message: error.message,
+    code: error.code || null
+  };
+  if (statusCode >= 500 && error.stack) {
+    errSummary.stack = error.stack.split("\n").slice(0, 4).join("\n");
+  }
   const logPayload = {
     request_id: requestId,
     status_code: statusCode,
-    path: req.originalUrl,
+    path: req.path || req.originalUrl,
     method: req.method,
-    err: error
+    err: errSummary
   };
   const isOperationalClientError = statusCode >= 400 && statusCode < 500;
   if (isOperationalClientError) {
@@ -27,7 +34,7 @@ function errorHandlerMiddleware(error, req, res, next) {
 
   const isUnexpectedServerError = !isAppError && statusCode >= 500;
   const message =
-    isUnexpectedServerError ? "Error interno del servidor" : error.message;
+    isUnexpectedServerError && env.NODE_ENV !== "production" ? error.message || "Error interno del servidor" : "Error interno del servidor";
   const code = error.code || ERROR_CODES.INTERNAL_SERVER_ERROR;
 
   const { body } = buildError({

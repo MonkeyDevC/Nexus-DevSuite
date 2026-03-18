@@ -6,6 +6,10 @@
   <title>NEXUS DevSuite</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="css/design-system.css" rel="stylesheet">
+  <link href="css/nexus-ui-kit.css" rel="stylesheet">
+  <link href="css/theme.css" rel="stylesheet">
+  <link href="css/editor.css" rel="stylesheet">
+  <link href="css/viewer.css" rel="stylesheet">
   <link href="css/login.css" rel="stylesheet">
 </head>
 <body class="layout-login">
@@ -19,17 +23,18 @@
         </a>
       </div>
       <nav class="nexus-sidebar-nav">
-        <a class="nexus-sidebar-link" href="#/dashboard" data-view="dashboard">Panel</a>
-        <a class="nexus-sidebar-link" href="#/projects" data-view="projects">Proyectos</a>
-        <a class="nexus-sidebar-link" href="#/features" data-view="features">Features</a>
-        <a class="nexus-sidebar-link" href="#/stories" data-view="stories">Stories</a>
-        <a class="nexus-sidebar-link" href="#/sprints" data-view="sprints">Sprints</a>
-        <a class="nexus-sidebar-link" href="#/releases" data-view="releases">Lanzamientos</a>
-        <a class="nexus-sidebar-link" href="#/incidents" data-view="incidents">Incidentes</a>
-        <a class="nexus-sidebar-link" href="#/improvements" data-view="improvements">Mejoras</a>
-        <a class="nexus-sidebar-link" href="#/documents" data-view="documents">Documentos</a>
-        <a class="nexus-sidebar-link" href="#/change-requests" data-view="change-requests">Change Requests</a>
-        <a class="nexus-sidebar-link" id="nav-reports" href="#/reports" data-view="reports" style="display: none;">Reportes</a>
+        <a class="nexus-sidebar-link tooltip" href="#/dashboard" data-view="dashboard" data-tooltip="Panel de control"><i data-lucide="layout-dashboard"></i><span class="nexus-sidebar-link-label">Panel</span></a>
+        <a class="nexus-sidebar-link tooltip" href="#/projects" data-view="projects" data-tooltip="Proyectos"><i data-lucide="folder"></i><span class="nexus-sidebar-link-label">Proyectos</span></a>
+        <a class="nexus-sidebar-link tooltip" href="#/features" data-view="features" data-tooltip="Features"><i data-lucide="layers"></i><span class="nexus-sidebar-link-label">Features</span></a>
+        <a class="nexus-sidebar-link tooltip" href="#/stories" data-view="stories" data-tooltip="Stories"><i data-lucide="file-text"></i><span class="nexus-sidebar-link-label">Stories</span></a>
+        <a class="nexus-sidebar-link tooltip" href="#/backlog" data-view="backlog" data-tooltip="Product Backlog"><i data-lucide="list-checks"></i><span class="nexus-sidebar-link-label">Product Backlog</span></a>
+        <a class="nexus-sidebar-link tooltip" href="#/sprints" data-view="sprints" data-tooltip="Sprints"><i data-lucide="calendar"></i><span class="nexus-sidebar-link-label">Sprints</span></a>
+        <a class="nexus-sidebar-link tooltip" href="#/releases" data-view="releases" data-tooltip="Lanzamientos"><i data-lucide="package"></i><span class="nexus-sidebar-link-label">Lanzamientos</span></a>
+        <a class="nexus-sidebar-link tooltip" href="#/incidents" data-view="incidents" data-tooltip="Incidentes"><i data-lucide="alert-circle"></i><span class="nexus-sidebar-link-label">Incidentes</span></a>
+        <a class="nexus-sidebar-link tooltip" href="#/improvements" data-view="improvements" data-tooltip="Mejoras"><i data-lucide="sparkles"></i><span class="nexus-sidebar-link-label">Mejoras</span></a>
+        <a class="nexus-sidebar-link tooltip" href="#/documentation" data-view="documentation" data-tooltip="Documentación"><i data-lucide="book"></i><span class="nexus-sidebar-link-label">Documentación</span></a>
+        <a class="nexus-sidebar-link tooltip" href="#/change-requests" data-view="change-requests" data-tooltip="Change Requests"><i data-lucide="git-branch"></i><span class="nexus-sidebar-link-label">Change Requests</span></a>
+        <a class="nexus-sidebar-link tooltip" id="nav-reports" href="#/reports" data-view="reports" data-tooltip="Reportes" style="display: none;"><i data-lucide="bar-chart"></i><span class="nexus-sidebar-link-label">Reportes</span></a>
       </nav>
     </aside>
     <div id="app-main">
@@ -49,7 +54,7 @@
               <div class="px-3 py-2 nexus-text-sm text-muted border-bottom">Ir a</div>
               <a class="dropdown-item" href="#/projects" role="menuitem">Proyectos</a>
               <a class="dropdown-item" href="#/releases" role="menuitem">Releases</a>
-              <a class="dropdown-item" href="#/documents" role="menuitem">Documentos</a>
+              <a class="dropdown-item" href="#/documentation" role="menuitem">Documentación</a>
               <a class="dropdown-item" href="#/features" role="menuitem">Features</a>
             </div>
           </div>
@@ -112,27 +117,56 @@
       </footer>
     </div>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="js/icons-init.js"></script>
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/layout.js"></script>
+  <script src="js/targetStackManager.js"></script>
+  <script src="js/ui-kit.js"></script>
   <script src="js/ux.js"></script>
   <script src="js/router.js"></script>
   <script src="js/components/pageSizeSelector.js"></script>
   <script src="js/components/permissions.js"></script>
   <script src="js/components/notifications.js"></script>
+  <script src="js/components/evidence-layout.js"></script>
   <script src="js/components/story-view-modal.js"></script>
+  <script src="js/modules/work-orders/workOrders.api.js"></script>
+  <script src="js/modules/work-orders/workOrders.service.js"></script>
+  <script src="js/modules/work-orders/workOrders.ui.js"></script>
+  <script src="js/modules/implementation-steps/steps.api.js"></script>
+  <script src="js/modules/implementation-steps/steps.ui.js"></script>
+  <script src="js/modules/code-deliveries/deliveries.api.js"></script>
+  <script src="js/modules/code-deliveries/deliveries.ui.js"></script>
+  <script src="js/modules/delivery-workspace/delivery-workspace.api.js"></script>
+  <script src="js/utils/diffParser.js"></script>
+  <script src="js/modules/repository/repository.api.js"></script>
+  <script src="js/modules/repository/repository.service.js"></script>
+  <script src="js/modules/repository/repository.ui.js"></script>
+  <script src="js/modules/repository/repository.insights.ui.js"></script>
+  <script src="js/modules/releases/releases.api.js"></script>
+  <script src="js/modules/releases/releases.service.js"></script>
+  <script src="js/modules/releases/releases.ui.js"></script>
   <script src="js/views/login.js"></script>
   <script src="js/views/dashboard.js"></script>
   <script src="js/views/projects.js"></script>
   <script src="js/views/features.js"></script>
   <script src="js/views/stories.js"></script>
+  <script src="js/views/backlog.js"></script>
   <script src="js/views/sprints.js"></script>
   <script src="js/views/releases.js"></script>
+  <script src="js/views/project-releases.js"></script>
   <script src="js/views/incidents.js"></script>
   <script src="js/views/improvements.js"></script>
+  <script src="js/documentation/functional-content.js"></script>
+  <script src="js/documentation/technical-content.js"></script>
+  <script src="js/views/documentation.js"></script>
   <script src="js/views/documents.js"></script>
   <script src="js/views/change-requests.js"></script>
+  <script src="js/views/work-orders.js"></script>
+  <script src="js/views/repository.js"></script>
+  <script src="js/views/delivery-workspace.js"></script>
   <script src="js/views/reports.js"></script>
   <script src="js/views/admin.js"></script>
   <script src="js/views/settings.js"></script>
