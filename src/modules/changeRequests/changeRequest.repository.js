@@ -51,9 +51,62 @@ async function getNextCodeForYear(year) {
   return `${prefix}${String(next).padStart(4, "0")}`;
 }
 
+async function listByFilters(filters = {}, pagination = {}) {
+  const ChangeRequest = getChangeRequestModel();
+  const page = Math.max(1, Number.parseInt(pagination.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, Number.parseInt(pagination.limit, 10) || 20));
+  const offset = (page - 1) * limit;
+  const where = {};
+
+  if (filters.status) where.status = filters.status;
+  if (filters.entity_type) where.entity_type = filters.entity_type;
+  if (Array.isArray(filters.entity_ids) && filters.entity_ids.length > 0) where.entity_id = { [Op.in]: filters.entity_ids };
+
+  const { rows, count } = await ChangeRequest.findAndCountAll({
+    where,
+    limit,
+    offset,
+    order: [["created_at", "DESC"]]
+  });
+  return { items: rows, total: count, page, limit };
+}
+
+async function findLatestApprovedByEntity(entityType, entityId) {
+  const ChangeRequest = getChangeRequestModel();
+  return ChangeRequest.findOne({
+    where: {
+      entity_type: entityType,
+      entity_id: entityId,
+      status: "APPROVED"
+    },
+    order: [
+      ["approved_at", "DESC"],
+      ["created_at", "DESC"]
+    ]
+  });
+}
+
+async function findLatestImplementedByEntity(entityType, entityId) {
+  const ChangeRequest = getChangeRequestModel();
+  return ChangeRequest.findOne({
+    where: {
+      entity_type: entityType,
+      entity_id: entityId,
+      status: "IMPLEMENTED"
+    },
+    order: [
+      ["implemented_at", "DESC"],
+      ["updated_at", "DESC"]
+    ]
+  });
+}
+
 module.exports = {
   create,
   findById,
   update,
-  getNextCodeForYear
+  getNextCodeForYear,
+  listByFilters,
+  findLatestApprovedByEntity,
+  findLatestImplementedByEntity
 };

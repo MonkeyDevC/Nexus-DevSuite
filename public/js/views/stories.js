@@ -149,6 +149,9 @@
       }
       html += '</select>';
       html += '<div class="d-flex flex-wrap gap-2 ms-auto">';
+      if (state.projectId && window.NEXUS_FEATURES && window.NEXUS_FEATURES.WORK_ORDERS) {
+        html += '<a href="#/projects/' + esc(state.projectId) + '/work-orders" id="stories-btn-work-orders" class="btn btn-outline-secondary btn-sm">Work Orders</a>';
+      }
       html += '<button type="button" id="stories-btn-export" class="btn btn-outline-secondary btn-sm">Exportar</button>';
       html += '<input type="file" id="stories-import-input" class="d-none" accept=".json,application/json">';
       html += '<button type="button" id="stories-btn-import" class="btn btn-outline-secondary btn-sm">Importar</button>';

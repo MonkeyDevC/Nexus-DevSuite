@@ -345,16 +345,26 @@ async function commitDelivery(projectId, deliveryId, payload, context) {
     }
   }
 
-  await codeDeliveryRepository.update(deliveryId, projectId, updatePayload);
+  const { getModels } = require("../../infrastructure/db/loadModels");
+  const { CodeDelivery } = getModels();
+  const sequelize = CodeDelivery.sequelize;
+
   const author = context.user?.email || context.user?.name || "Nexus User";
-  await deliveryCommitRepository.create({
-    project_id: projectId,
-    delivery_id: deliveryId,
-    commit_sha: result.sha,
-    commit_message: commitMessage,
-    author
+  const deletedCount = await sequelize.transaction(async (t) => {
+    await codeDeliveryRepository.update(deliveryId, projectId, updatePayload, { transaction: t });
+    await deliveryCommitRepository.create(
+      {
+        project_id: projectId,
+        delivery_id: deliveryId,
+        work_order_id: plain.work_order_id ?? null,
+        commit_sha: result.sha,
+        commit_message: commitMessage,
+        author
+      },
+      { transaction: t }
+    );
+    return deliveryFileRepository.removeAllByDelivery(deliveryId, projectId, { transaction: t });
   });
-  const deletedCount = await deliveryFileRepository.removeAllByDelivery(deliveryId, projectId);
   logger.info(
     { event: "DELIVERY_WORKSPACE_AUTO_CLEARED", project_id: projectId, delivery_id: deliveryId, deleted_count: deletedCount },
     "Delivery workspace auto-cleared after commit"
@@ -805,10 +815,21 @@ async function compareFileWithGitHub(fileId, projectId, deliveryId, context) {
   const f = file.toJSON ? file.toJSON() : file;
   const isBinary = gitService.isBinaryPath(f.file_path);
   if (isBinary) {
+    let baseBranchForBinary = "main";
+    try {
+      baseBranchForBinary = await githubService.getDefaultBranch(projectId, userId);
+    } catch (err) {
+      // Si GitHub falla, el Diff Viewer ya no puede computar diff real; registramos el motivo.
+      logger.warn(
+        { event: "GITHUB_DEFAULT_BRANCH_FAILED_FOR_BINARY", project_id: projectId, delivery_id: deliveryId, file_id: fileId, file_path: f.file_path, err: err && err.message ? err.message : String(err) },
+        "GitHub falló al obtener default branch (binario)"
+      );
+      baseBranchForBinary = "unavailable";
+    }
     return {
       file_path: f.file_path,
       branch,
-      base_branch: (await githubService.getDefaultBranch(projectId, userId).catch(() => "main")),
+      base_branch: baseBranchForBinary,
       workspace_content: "",
       github_content: "",
       github_sha: null,
@@ -825,8 +846,23 @@ async function compareFileWithGitHub(fileId, projectId, deliveryId, context) {
         ? Buffer.from(String(f.content_base64), "base64").toString("utf8")
         : "";
 
-  const baseBranch = await githubService.getDefaultBranch(projectId, userId).catch(() => "main");
-  const gh = await githubService.getFileContentByPath(f.file_path, baseBranch, projectId, userId);
+  let baseBranch = "main";
+  let gh = null;
+  let githubUnavailable = false;
+  try {
+    baseBranch = await githubService.getDefaultBranch(projectId, userId);
+    gh = await githubService.getFileContentByPath(f.file_path, baseBranch, projectId, userId);
+  } catch (error) {
+    // Fallback explícito: si GitHub falla (HTTP real, auth, token, red, etc),
+    // evitamos romper el Diff Viewer y marcamos github_unavailable=true.
+    githubUnavailable = true;
+    baseBranch = "unavailable";
+    gh = null;
+    logger.warn(
+      { event: "GITHUB_FILE_CONTENT_FAILED", project_id: projectId, delivery_id: deliveryId, file_id: fileId, file_path: f.file_path, err: error && error.message ? error.message : String(error) },
+      "GitHub falló al obtener contenido para diff"
+    );
+  }
   let baseContent = gh ? gh.content : null;
   let status = "ADDED";
   if (gh) {
@@ -849,7 +885,8 @@ async function compareFileWithGitHub(fileId, projectId, deliveryId, context) {
     github_content: baseContent,
     github_sha: gh ? gh.sha : null,
     github_exists: !!gh,
-    status
+    status,
+    github_unavailable: githubUnavailable
   };
 }
 

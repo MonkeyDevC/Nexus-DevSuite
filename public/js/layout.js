@@ -159,6 +159,16 @@
     return '<div class="text-center py-5"><div class="spinner-border"></div><p class="mt-2">Cargando...</p></div>';
   };
 
+  // NEXUS-AUD-CP-001: Gating de navegación basado en feature flags.
+  // Esto reemplaza un <script> inline en index.html que rompía la CSP.
+  (function initFeatureGating() {
+    try {
+      var f = window.NEXUS_FEATURES || {};
+      var navRepo = document.getElementById("nav-repository");
+      if (navRepo) navRepo.style.display = f.REPOSITORY === false ? "none" : "";
+    } catch (_) {}
+  })();
+
   (function initTopbarSearch() {
     function bind() {
       var wrap = document.getElementById("nexus-topbar-search-wrap");

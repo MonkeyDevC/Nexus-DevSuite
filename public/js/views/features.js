@@ -633,6 +633,7 @@
         bodyHtml += '<section class="viewer-header"><h2 class="viewer-title" id="feature-detail-title-vista">' + esc(f.title || "—") + '</h2></section>';
         bodyHtml += '<section class="viewer-metadata">';
         bodyHtml += '<div class="metadata-card"><div class="metadata-label">ID</div><div class="metadata-value">' + esc(featureDisplayId) + '</div></div>';
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">UUID</div><div class="metadata-value">' + esc(f.id || "") + '</div></div>';
         bodyHtml += '<div class="metadata-card"><div class="metadata-label">Estado</div><div class="metadata-value" id="feature-detail-status-vista">' + esc(statusBase) + '</div></div>';
         bodyHtml += '<div class="metadata-card"><div class="metadata-label">Prioridad</div><div class="metadata-value" id="feature-detail-priority-vista">' + esc(f.priority || "—") + '</div></div>';
         var totalSt = f.user_stories_count != null ? f.user_stories_count : 0;
@@ -650,6 +651,7 @@
         bodyHtml += '<section class="editor-section"><div class="editor-section-title">General</div><label class="editor-label" for="feature-detail-title-edit">Título</label><input type="text" id="feature-detail-title-edit" class="form-control form-control-sm form-modern-input editor-title-input" value="' + esc(f.title || "") + '"></section>';
         bodyHtml += '<section class="editor-section"><div class="editor-section-title">Metadata</div><div class="metadata-grid">';
         bodyHtml += '<div><span class="editor-label">ID</span><div class="editor-meta-value">' + esc(featureDisplayId) + "</div></div>";
+        bodyHtml += '<div><span class="editor-label">UUID</span><div class="editor-meta-value">' + esc(f.id || "") + "</div></div>";
         bodyHtml += '<div>' + statusSelectHtml + "</div>";
         bodyHtml += '<div>' + prioritySelectHtml + "</div>";
         bodyHtml += '<div><span class="editor-label">Actualizado</span><div class="editor-meta-value">' + esc((f.updated_at && f.updated_at.slice) ? f.updated_at.slice(0, 10) : (f.updated_at || "—")) + "</div></div>";

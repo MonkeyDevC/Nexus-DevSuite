@@ -1,20 +1,23 @@
 /**
  * Product Backlog — Vista profesional del backlog del proyecto.
+ * Rutas: #/backlog?project=:id  |  #/projects/:projectId/backlog
  * GET /projects/:projectId/backlog (features + stories, filtros: feature, status, sprint, labels).
+ * Nexus UI Kit: NexusUI.viewHeader(), NexusUI.card().
  */
 (function () {
+  var NexusUI = window.NexusUI;
   function esc(s) {
-    if (s == null) return "";
-    var d = document.createElement("div");
-    d.textContent = s;
-    return d.innerHTML;
+    return NexusUI && NexusUI.esc ? NexusUI.esc(s) : (s == null ? "" : String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"));
+  }
+  function joinHtml(parts) {
+    return NexusUI && NexusUI.joinHtml ? NexusUI.joinHtml(parts) : (parts || []).filter(Boolean).join("");
   }
 
   window.registerView("backlog", async function () {
     await window.showNav();
     var segs = window.getHashSegments();
     var state = {
-      projectId: (window.location.href.match(/[?&]project=([^&]+)/) || [])[1] || "",
+      projectId: "",
       page: 1,
       limit: 50,
       status: "",
@@ -23,53 +26,82 @@
       assigned_to: "",
       labels: ""
     };
+    if (segs[0] === "projects" && segs[1] && segs[2] === "backlog") {
+      state.projectId = segs[1];
+    } else {
+      state.projectId = (window.location.href.match(/[?&]project=([^&]+)/) || [])[1] || "";
+    }
     if (state.projectId) state.projectId = decodeURIComponent(state.projectId);
 
     var projectsRes = await window.fetchApi("/projects");
-    var projects = (projectsRes && projectsRes.success && projectsRes.data && projectsRes.data.items) ? projectsRes.data.items : [];
+    var projects = (projectsRes && projectsRes.success && projectsRes.data && projectsRes.data.items) ? projectsRes.data.items : (projectsRes && projectsRes.data && projectsRes.data.data ? projectsRes.data.data : []);
     function getProjectName(id) {
       var p = projects.find(function (x) { return x.id === id; });
       return (p && p.name) || id;
     }
     function setHash() {
+      var path = state.projectId && segs[0] === "projects" && segs[1] && segs[2] === "backlog"
+        ? "#/projects/" + encodeURIComponent(state.projectId) + "/backlog"
+        : "#/backlog";
       var q = [];
-      if (state.projectId) q.push("project=" + encodeURIComponent(state.projectId));
+      if (state.projectId && path === "#/backlog") q.push("project=" + encodeURIComponent(state.projectId));
       if (state.status) q.push("status=" + encodeURIComponent(state.status));
       if (state.feature_id) q.push("feature_id=" + encodeURIComponent(state.feature_id));
       if (state.sprint_id) q.push("sprint_id=" + encodeURIComponent(state.sprint_id));
       if (state.assigned_to) q.push("assigned_to=" + encodeURIComponent(state.assigned_to));
       if (state.labels) q.push("labels=" + encodeURIComponent(state.labels));
-      var h = "#/backlog" + (q.length ? "?" + q.join("&") : "");
+      var h = path + (q.length ? "?" + q.join("&") : "");
       if (window.location.hash !== h) window.history.replaceState(null, "", h);
     }
 
     function render() {
-      var html = window.renderBreadcrumbs([
+      var breadcrumbs = [
         { label: "Panel", href: "#/dashboard" },
         { label: "Product Backlog", href: "#/backlog" }
-      ]);
-      html += '<h1 class="nexus-page-title">Product Backlog</h1>';
-      html += '<div class="nexus-panel nexus-section-spacing">';
-      html += '<div class="d-flex flex-wrap gap-2 align-items-end mb-4">';
-      html += '<label class="nexus-text-sm mb-0">Proyecto</label>';
-      html += '<select id="backlog-project" class="form-select form-select-sm" style="width:auto;min-width:220px" aria-label="Proyecto">';
-      html += '<option value="">— Seleccionar proyecto —</option>';
+      ];
+      if (state.projectId) {
+        breadcrumbs.push({ label: getProjectName(state.projectId), href: "#/projects/" + encodeURIComponent(state.projectId) + "/backlog" });
+      }
+      var html = window.renderBreadcrumbs ? window.renderBreadcrumbs(breadcrumbs) : "";
+      html += NexusUI && NexusUI.viewHeader ? NexusUI.viewHeader({
+        title: "Product Backlog",
+        subtitle: state.projectId ? "Proyecto: " + getProjectName(state.projectId) : "Seleccione un proyecto para ver el backlog priorizado.",
+        actionsHtml: state.projectId ? '<a href="#/projects" class="btn btn-outline-secondary btn-sm">Ver proyectos</a>' : ""
+      }) : '<div class="nui-view-header"><h1 class="nui-view-header-title">Product Backlog</h1></div>';
+
+      var selectorHtml = '<div class="d-flex flex-wrap gap-2 align-items-end mb-4">';
+      selectorHtml += '<label class="nexus-text-sm mb-0">Proyecto</label>';
+      selectorHtml += '<select id="backlog-project" class="form-select form-select-sm" style="width:auto;min-width:220px" aria-label="Proyecto">';
+      selectorHtml += '<option value="">— Seleccionar proyecto —</option>';
       projects.forEach(function (p) {
         var name = (p.number != null ? "P" + p.number + " - " : "") + (p.name || p.id);
-        html += '<option value="' + esc(p.id) + '"' + (state.projectId === p.id ? " selected" : "") + '>' + esc(name) + '</option>';
+        selectorHtml += '<option value="' + esc(p.id) + '"' + (state.projectId === p.id ? " selected" : "") + ">" + esc(name) + "</option>";
       });
-      html += '</select>';
-      html += '<a href="#/projects" class="btn btn-outline-secondary btn-sm">Ver proyectos</a>';
-      html += '</div>';
+      selectorHtml += "</select>";
+      if (state.projectId) {
+        selectorHtml += ' <a href="#/projects/' + esc(state.projectId) + '/backlog" class="btn btn-outline-secondary btn-sm">Ver backlog de este proyecto</a>';
+        if (window.NEXUS_FEATURES && window.NEXUS_FEATURES.WORK_ORDERS === true) {
+          selectorHtml += ' <a href="#/projects/' + esc(state.projectId) + '/work-orders" class="btn btn-outline-secondary btn-sm">Órdenes de trabajo</a>';
+        }
+        selectorHtml += ' <a href="#/projects/' + esc(state.projectId) + '/repository" class="btn btn-outline-secondary btn-sm">Repository</a>';
+        selectorHtml += ' <a href="#/projects/' + esc(state.projectId) + '/releases" class="btn btn-outline-secondary btn-sm">Release Planning</a>';
+      }
+      selectorHtml += "</div>";
+      html += NexusUI && NexusUI.card ? NexusUI.card({ bodyHtml: selectorHtml }) : '<section class="nui-card"><div class="nui-card-body">' + selectorHtml + "</div></section>";
 
       if (!state.projectId) {
-        html += '<div class="nexus-empty-state"><p class="nexus-empty-state-title">Seleccione un proyecto</p><p class="nexus-text-secondary">Elija un proyecto para ver su Product Backlog (features y user stories).</p></div>';
-        html += "</div>";
+        html += '<div class="nui-card"><div class="nui-card-body">';
+        html += '<div class="nexus-empty-state"><p class="nexus-empty-state-title">Seleccione un proyecto</p><p class="nexus-text-secondary">Elija un proyecto para ver su Product Backlog (features y user stories priorizados).</p></div>';
+        html += "</div></div>";
         window.setContent(html);
         var sel = document.getElementById("backlog-project");
         if (sel) sel.onchange = function () {
           state.projectId = sel.value || "";
-          setHash();
+          if (state.projectId) {
+            window.location.hash = "#/projects/" + encodeURIComponent(state.projectId) + "/backlog";
+          } else {
+            setHash();
+          }
           render();
         };
         if (typeof window.nexusCreateIcons === "function") setTimeout(window.nexusCreateIcons, 0);
@@ -88,10 +120,9 @@
       html += '<label class="nexus-text-sm mb-0 ms-2">Etiquetas</label>';
       html += '<input type="text" id="backlog-filter-labels" class="form-control form-control-sm" style="width:160px" placeholder="ej: api, frontend" value="' + esc(state.labels) + '">';
       html += '<button type="button" class="btn btn-nexus-primary btn-sm" id="backlog-apply">Filtrar</button>';
-      html += '</div>';
+      html += "</div>";
 
       html += '<div id="backlog-content">Cargando...</div>';
-      html += "</div>";
       window.setContent(html);
 
       var q = "?page=" + state.page + "&limit=" + state.limit;
@@ -112,47 +143,70 @@
         var features = data.features || [];
         var stories = data.stories || [];
         var meta = data.meta || {};
+        var badgeClass = typeof window.nexusBadgeClass === "function" ? window.nexusBadgeClass : function () { return "badge bg-secondary"; };
+
+        var byFeature = {};
+        features.forEach(function (f) { byFeature[f.id] = []; });
+        stories.forEach(function (st) {
+          var fid = st.feature_id || (st.feature && st.feature.id);
+          if (fid && byFeature[fid]) byFeature[fid].push(st);
+        });
 
         var content = "";
-
-        content += '<section class="mb-4"><h2 class="nexus-font-semibold nexus-text-primary mb-3">Features <span class="badge bg-secondary">' + (meta.totalFeatures || features.length) + '</span></h2>';
         if (features.length === 0) {
-          content += '<p class="nexus-text-sm text-muted">No hay features o no coinciden con los filtros.</p>';
+          content += NexusUI && NexusUI.card ? NexusUI.card({
+            title: "Features",
+            bodyHtml: '<p class="nexus-text-sm text-muted mb-0">No hay features o no coinciden con los filtros.</p>'
+          }) : '<section class="nui-card"><div class="nui-card-body"><p class="nexus-text-sm text-muted">No hay features.</p></div></section>';
         } else {
-          content += '<div class="table-responsive"><table class="table table-sm nexus-table" id="backlog-features-table"><thead><tr><th style="width:28px" aria-label="Ordenar"></th><th>Título</th><th>Estado</th><th>Prioridad</th><th>Progreso</th><th></th></tr></thead><tbody>';
           features.forEach(function (f) {
+            var featureStories = byFeature[f.id] || [];
             var pct = f.progress_pct != null ? f.progress_pct : 0;
             var featureHref = "#/features?feature=" + encodeURIComponent(f.id) + "&project=" + encodeURIComponent(state.projectId);
-            content += '<tr draggable="true" data-feature-id="' + esc(f.id) + '" class="backlog-drag-row" role="button" tabindex="0"><td class="text-muted"><i data-lucide="grip-vertical" style="width:14px;height:14px"></i></td><td>' + (f.id ? '<a href="' + featureHref + '" class="backlog-feature-link">' + esc(f.title || "") + "</a>" : esc(f.title || "")) + '</td><td><span class="' + (typeof window.nexusBadgeClass === "function" ? window.nexusBadgeClass(f.status) : "") + '">' + esc(f.status || "") + '</span></td><td>' + esc(f.priority || "") + '</td><td><div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1" style="height:8px;min-width:60px"><div class="progress-bar" role="progressbar" style="width:' + pct + '%" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100"></div></div><span class="nexus-text-sm">' + (f.stories_done || 0) + '/' + (f.stories_total || 0) + ' (' + pct + '%)</span></div></td><td><a href="' + featureHref + '" class="btn btn-outline-secondary btn-sm backlog-feature-link">Ver</a></td></tr>';
+            var rightHtml = '<div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1" style="height:8px;min-width:60px"><div class="progress-bar" role="progressbar" style="width:' + pct + '%" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100"></div></div><span class="nexus-text-sm">' + (f.stories_done || 0) + "/" + (f.stories_total || 0) + " (" + pct + "%)</span></div>";
+            rightHtml += ' <span class="' + badgeClass(f.status) + '">' + esc(f.status || "") + "</span>";
+            rightHtml += ' <a href="' + featureHref + '" class="btn btn-outline-secondary btn-sm">Ver feature</a>';
+            var bodyParts = [];
+            if (featureStories.length === 0) {
+              bodyParts.push('<p class="nexus-text-sm text-muted mb-0">Sin stories en esta feature.</p>');
+            } else {
+              bodyParts.push('<ul class="list-group list-group-flush">');
+              featureStories.forEach(function (st) {
+                var displayId = "US-" + (st.number != null ? st.number : (st.id ? String(st.id).slice(0, 8) : ""));
+                var pointsStr = st.story_points != null ? st.story_points : "—";
+                var labelsArr = Array.isArray(st.labels) ? st.labels : (st.labels ? [st.labels] : []);
+                var labelsStr = labelsArr.length ? labelsArr.slice(0, 3).join(", ") + (labelsArr.length > 3 ? "…" : "") : "";
+                var storyHref = "#/stories?story=" + encodeURIComponent(st.id) + "&project=" + encodeURIComponent(state.projectId);
+                bodyParts.push('<li class="list-group-item d-flex justify-content-between align-items-start flex-wrap gap-2">');
+                bodyParts.push('<div class="flex-grow-1 min-w-0">');
+                bodyParts.push('<a href="' + storyHref + '" class="backlog-story-link">' + esc((st.title || "").slice(0, 80)) + (st.title && st.title.length > 80 ? "…" : "") + "</a>");
+                bodyParts.push(' <span class="nexus-text-sm text-muted">' + esc(displayId) + "</span>");
+                bodyParts.push("</div>");
+                bodyParts.push('<div class="d-flex align-items-center gap-2 flex-shrink-0">');
+                bodyParts.push('<span class="' + badgeClass(st.status) + '">' + esc(st.status || "") + "</span>");
+                bodyParts.push("<span class=\"nexus-text-sm\" title=\"Story points\">" + esc(pointsStr) + " pts</span>");
+                if (labelsStr) bodyParts.push("<span class=\"nexus-text-sm text-muted\">" + esc(labelsStr) + "</span>");
+                bodyParts.push('<a href="' + storyHref + '" class="btn btn-outline-secondary btn-sm">Ver</a>');
+                bodyParts.push("</div></li>");
+              });
+              bodyParts.push("</ul>");
+            }
+            var bodyHtml = joinHtml(bodyParts);
+            content += NexusUI && NexusUI.card ? NexusUI.card({
+              title: esc(f.title || "Feature sin título"),
+              rightHtml: rightHtml,
+              bodyHtml: bodyHtml
+            }) : '<section class="nui-card"><div class="nui-card-header"><h2 class="nui-card-title">' + esc(f.title || "") + "</div><div class=\"nui-card-body\">" + bodyHtml + "</div></section>";
           });
-          content += "</tbody></table></div>";
         }
-        content += "</section>";
-
-        content += '<section><h2 class="nexus-font-semibold nexus-text-primary mb-3">User Stories <span class="badge bg-secondary">' + (meta.totalStories != null ? meta.totalStories : stories.length) + '</span></h2>';
-        if (stories.length === 0) {
-          content += '<p class="nexus-text-sm text-muted">No hay user stories o no coinciden con los filtros.</p>';
-        } else {
-          content += '<div class="table-responsive"><table class="table table-sm nexus-table" id="backlog-stories-table"><thead><tr><th style="width:28px" aria-label="Ordenar"></th><th>ID</th><th>Título</th><th>Feature</th><th>Estado</th><th>Puntos</th><th>Sprint</th><th>Etiquetas</th><th></th></tr></thead><tbody>';
-          stories.forEach(function (st) {
-            var displayId = "US-" + (st.number != null ? st.number : (st.id ? String(st.id).slice(0, 8) : ""));
-            var featureTitle = (st.feature && st.feature.title) ? st.feature.title : "—";
-            var sprintName = (st.sprint && st.sprint.name) ? st.sprint.name : (st.sprint_id ? "—" : "Sin asignar");
-            var labelsArr = Array.isArray(st.labels) ? st.labels : (st.labels ? [st.labels] : []);
-            var labelsStr = labelsArr.slice(0, 3).join(", ") + (labelsArr.length > 3 ? "…" : "");
-            content += '<tr draggable="true" data-story-id="' + esc(st.id) + '" class="backlog-drag-row" role="button" tabindex="0"><td class="text-muted"><i data-lucide="grip-vertical" style="width:14px;height:14px"></i></td><td>' + esc(displayId) + '</td><td>' + (st.id ? '<a href="#/stories?story=' + encodeURIComponent(st.id) + '&project=' + encodeURIComponent(state.projectId) + '">' + esc((st.title || "").slice(0, 50)) + '</a>' : esc(st.title || "")) + '</td><td>' + esc(featureTitle) + '</td><td><span class="' + (typeof window.nexusBadgeClass === "function" ? window.nexusBadgeClass(st.status) : "") + '">' + esc(st.status || "") + '</span></td><td>' + (st.story_points != null ? st.story_points : "—") + '</td><td>' + esc(sprintName) + '</td><td class="nexus-text-sm">' + esc(labelsStr || "—") + '</td><td><a href="#/stories?story=' + encodeURIComponent(st.id) + '" class="btn btn-outline-secondary btn-sm">Ver</a></td></tr>';
-          });
-          content += "</tbody></table></div>";
-        }
-        content += "</section>";
 
         container.innerHTML = content;
 
         container.addEventListener("click", function (e) {
-          var storyLink = e.target && e.target.closest ? e.target.closest("a[href*='story=']") : null;
+          var storyLink = e.target && e.target.closest ? e.target.closest("a.backlog-story-link, a[href*='story=']") : null;
           if (storyLink) {
             var href = storyLink.getAttribute("href") || "";
-            if (href.indexOf("#/stories") === -1) return;
+            if (href.indexOf("#/stories") === -1 && href.indexOf("story=") === -1) return;
             var match = href.match(/story=([^&]+)/);
             if (!match) return;
             e.preventDefault();
@@ -167,7 +221,7 @@
             }
             return;
           }
-          var featLink = e.target && e.target.closest ? e.target.closest("a.backlog-feature-link") : null;
+          var featLink = e.target && e.target.closest ? e.target.closest("a[href*='feature=']") : null;
           if (!featLink) return;
           var fhref = featLink.getAttribute("href") || "";
           if (fhref.indexOf("feature=") === -1) return;
@@ -185,56 +239,6 @@
           }
         });
 
-        function setupDragDrop(tableId, idAttr, orderKey, currentOrder) {
-          var table = document.getElementById(tableId);
-          if (!table || !currentOrder || currentOrder.length === 0) return;
-          var rows = table.querySelectorAll("tbody tr[data-" + idAttr + "]");
-          var draggedEl = null;
-          rows.forEach(function (row) {
-            row.setAttribute("draggable", "true");
-            row.addEventListener("dragstart", function (e) {
-              draggedEl = row;
-              e.dataTransfer.setData("text/plain", row.getAttribute("data-" + idAttr));
-              e.dataTransfer.effectAllowed = "move";
-              row.classList.add("opacity-50");
-            });
-            row.addEventListener("dragend", function () {
-              row.classList.remove("opacity-50");
-              draggedEl = null;
-            });
-            row.addEventListener("dragover", function (e) {
-              e.preventDefault();
-              e.dataTransfer.dropEffect = "move";
-              if (draggedEl && draggedEl !== row) row.classList.add("table-primary");
-            });
-            row.addEventListener("dragleave", function () { row.classList.remove("table-primary"); });
-            row.addEventListener("drop", function (e) {
-              e.preventDefault();
-              row.classList.remove("table-primary");
-              if (!draggedEl || draggedEl === row) return;
-              var fromId = draggedEl.getAttribute("data-" + idAttr);
-              var toId = row.getAttribute("data-" + idAttr);
-              if (!fromId || !toId) return;
-              var ids = currentOrder.map(function (x) { return x.id; });
-              var fromIdx = ids.indexOf(fromId);
-              var toIdx = ids.indexOf(toId);
-              if (fromIdx === -1 || toIdx === -1) return;
-              var newOrder = ids.slice();
-              newOrder.splice(fromIdx, 1);
-              var insertAt = fromIdx < toIdx ? toIdx - 1 : toIdx;
-              newOrder.splice(insertAt, 0, fromId);
-              var payload = {};
-              payload[orderKey] = newOrder;
-              window.fetchApi("/projects/" + state.projectId + "/backlog/order", { method: "POST", body: JSON.stringify(payload) }).then(function (r) {
-                if (r && r.success) render();
-                else window.openNexusAlertModal({ title: "Error", message: (r && r.error && r.error.message) || "Error al reordenar." });
-              });
-            });
-          });
-        }
-        setupDragDrop("backlog-features-table", "feature-id", "feature_ids", features);
-        setupDragDrop("backlog-stories-table", "story-id", "story_ids", stories);
-
         var selProject = document.getElementById("backlog-project");
         var selFeature = document.getElementById("backlog-filter-feature");
         var selStatus = document.getElementById("backlog-filter-status");
@@ -243,7 +247,12 @@
         var inputLabels = document.getElementById("backlog-filter-labels");
         var btnApply = document.getElementById("backlog-apply");
 
-        if (selProject) selProject.onchange = function () { state.projectId = selProject.value || ""; setHash(); render(); };
+        if (selProject) selProject.onchange = function () {
+          state.projectId = selProject.value || "";
+          if (state.projectId) window.location.hash = "#/projects/" + encodeURIComponent(state.projectId) + "/backlog";
+          else { setHash(); }
+          render();
+        };
         if (selStatus) selStatus.value = state.status || "";
         if (selAssigned) selAssigned.value = state.assigned_to || "";
         if (inputLabels) inputLabels.value = state.labels || "";
@@ -259,7 +268,7 @@
           fillFeatureOptions(features);
           window.fetchApi("/projects/" + state.projectId + "/features?limit=100").then(function (r) {
             if (r && r.success && r.data) {
-              var list = r.data.items || r.data.data || r.data || [];
+              var list = r.data.data || r.data.items || r.data || [];
               fillFeatureOptions(list);
             }
             selFeature.value = state.feature_id || "";
@@ -308,8 +317,13 @@
         if (container) container.innerHTML = '<p class="nexus-text-sm text-danger">Error al cargar el backlog.</p>';
       });
 
-      var selProject = document.getElementById("backlog-project");
-      if (selProject) selProject.onchange = function () { state.projectId = selProject.value || ""; setHash(); render(); };
+      var selProject2 = document.getElementById("backlog-project");
+      if (selProject2) selProject2.onchange = function () {
+        state.projectId = selProject2.value || "";
+        if (state.projectId) window.location.hash = "#/projects/" + encodeURIComponent(state.projectId) + "/backlog";
+        else setHash();
+        render();
+      };
     }
 
     render();

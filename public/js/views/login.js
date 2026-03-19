@@ -23,7 +23,7 @@
               <label for="login-password" class="form-label">Contraseña</label>
               <input type="password" id="login-password" class="form-control" name="password" required autocomplete="current-password">
             </div>
-            <button type="submit" class="btn btn-nexus-accent">Entrar</button>
+            <button type="submit" class="btn btn-nexus-accent" data-action="login"><i data-lucide="log-in" aria-hidden="true"></i>Entrar</button>
           </form>
           <a href="#" class="login-link-secondary" tabindex="-1">¿Olvidaste tu contraseña?</a>
           <footer class="login-footer">

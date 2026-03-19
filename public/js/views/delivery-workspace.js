@@ -14,6 +14,10 @@
 
   window.registerView("delivery-workspace", async function () {
     await window.showNav();
+    if (!window.DeliveryWorkspaceAPI) {
+      console.warn("DeliveryWorkspace API no integrada aún (backend pendiente)");
+      return;
+    }
     var segs = window.getHashSegments();
     var projectId = "";
     var deliveryId = "";
@@ -793,8 +797,20 @@
             if (!tbody) return;
 
             var diffText = rawDiff || "";
+            if (!String(diffText).trim()) {
+              tbody.innerHTML = '<tr><td colspan="4" class="text-muted small diff-line">No changes</td></tr>';
+              if (statsEl) statsEl.textContent = "+ 0  - 0";
+              return;
+            }
+
             var parser = (window.DiffParser && window.DiffParser.parseUnifiedDiff) ? window.DiffParser.parseUnifiedDiff : window.parseUnifiedDiff;
-            var parsedFiles = typeof parser === "function" ? parser(diffText) : [];
+            var parsed = null;
+            try {
+              parsed = typeof parser === "function" ? parser(diffText) : null;
+            } catch (_) {
+              parsed = null;
+            }
+            var parsedFiles = Array.isArray(parsed) ? parsed : ((parsed && Array.isArray(parsed.files)) ? parsed.files : []);
 
             // Fallback: si no se pudo parsear, mostramos texto.
             if (!parsedFiles || !parsedFiles.length) {
@@ -817,7 +833,11 @@
             var html = "";
             var addedCount = 0;
             var removedCount = 0;
-            for (var h = 0; h < hunks.length; h++) {
+            var MAX_RENDER_LINES = 1000;
+            var renderedLines = 0;
+            var truncatedLines = 0;
+            var stop = false;
+            for (var h = 0; h < hunks.length && !stop; h++) {
               var hk = hunks[h];
               var oldLine = hk && hk.oldStart != null ? hk.oldStart : 1;
               var newLine = hk && hk.newStart != null ? hk.newStart : 1;
@@ -829,11 +849,22 @@
 
               var lines = (hk && hk.lines) ? hk.lines : [];
               for (var i = 0; i < lines.length; i++) {
+                if (renderedLines >= MAX_RENDER_LINES) {
+                  truncatedLines += (lines.length - i);
+                  for (var hh = h + 1; hh < hunks.length; hh++) {
+                    var extra = (hunks[hh] && hunks[hh].lines) ? hunks[hh].lines.length : 0;
+                    truncatedLines += extra;
+                  }
+                  stop = true;
+                  break;
+                }
                 var dl = lines[i];
                 var t = dl && dl.type ? dl.type : "context";
                 var content = dl && dl.content != null ? String(dl.content) : "";
-                var rowClass = t === "added" ? "diff-added" : t === "deleted" ? "diff-deleted" : "diff-context";
-                var sign = t === "added" ? "+" : t === "deleted" ? "-" : " ";
+                var isAdd = t === "add" || t === "added";
+                var isRemove = t === "remove" || t === "deleted";
+                var rowClass = isAdd ? "diff-added" : isRemove ? "diff-deleted" : "diff-context";
+                var sign = isAdd ? "+" : isRemove ? "-" : " ";
                 var baseTxt = "";
                 var wsTxt = "";
 
@@ -842,12 +873,12 @@
                   wsTxt = String(newLine);
                   oldLine++;
                   newLine++;
-                } else if (t === "deleted") {
+                } else if (isRemove) {
                   baseTxt = String(oldLine);
                   wsTxt = "";
                   oldLine++;
                   removedCount++;
-                } else if (t === "added") {
+                } else if (isAdd) {
                   baseTxt = "";
                   wsTxt = String(newLine);
                   newLine++;
@@ -872,9 +903,13 @@
                   esc(content) +
                   "</td>";
                 html += "</tr>";
+                renderedLines++;
               }
             }
 
+            if (truncatedLines > 0) {
+              html += '<tr><td colspan="4" class="text-muted small diff-line">... diff truncado (' + truncatedLines + " lineas mas)</td></tr>";
+            }
             tbody.innerHTML = html;
             if (statsEl) statsEl.textContent = "+ " + addedCount + "  - " + removedCount;
           }

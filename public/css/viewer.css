@@ -94,3 +94,27 @@
 .criteria-list-numbered {
   list-style: decimal;
 }
+
+/* Diff Viewer (Delivery Workspace): colores estilo GitHub */
+.diff-added {
+  background-color: #e6ffed;
+  color: #22863a;
+}
+
+.diff-deleted {
+  background-color: #ffeef0;
+  color: #cb2431;
+}
+
+.diff-context {
+  color: #6a737d;
+}
+
+.diff-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.45;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  vertical-align: top;
+}

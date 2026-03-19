@@ -76,6 +76,21 @@ async function assignFeatureController(req, res, next) {
   }
 }
 
+async function removeFeatureController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await releaseService.removeFeatureFromRelease(
+      req.params.id,
+      req.params.featureId,
+      context
+    );
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 async function patchReleaseController(req, res, next) {
   try {
     assertRequestValid(req);
@@ -125,6 +140,7 @@ module.exports = {
   listReleasesController,
   patchReleaseStatusController,
   assignFeatureController,
+  removeFeatureController,
   patchReleaseController,
   createHotfixController,
   deleteReleaseController,

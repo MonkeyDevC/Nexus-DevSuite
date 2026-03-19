@@ -25,6 +25,11 @@ const assignFeatureValidator = [
   body("change_request_id").optional().isUUID()
 ];
 
+const removeFeatureValidator = [
+  param("id").isUUID().withMessage("release id debe ser UUID"),
+  param("featureId").isUUID().withMessage("featureId debe ser UUID")
+];
+
 const patchReleaseValidator = [
   param("id").isUUID(),
   body("description").optional().trim(),
@@ -54,6 +59,7 @@ module.exports = {
   releaseIdParamValidator,
   patchReleaseStatusValidator,
   assignFeatureValidator,
+  removeFeatureValidator,
   patchReleaseValidator,
   listReleasesQueryValidator,
   hotfixValidator,

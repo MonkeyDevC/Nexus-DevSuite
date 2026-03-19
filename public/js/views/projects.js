@@ -25,6 +25,9 @@
     const openInEditMode = String(projectMode).toLowerCase() === "edit";
     const user = await window.getMe();
     const isMaster = typeof window.nexusCanAccessMasterActions === "function" ? window.nexusCanAccessMasterActions(user) : (user && user.role === "MASTER");
+    var ff = window.NEXUS_FEATURES || {};
+    var SHOW_REPOSITORY = ff.REPOSITORY === true;
+    var SHOW_WORK_ORDERS = ff.WORK_ORDERS === true;
 
     var state = { page: 1, limit: 10, statusFilter: [], search: "", sort: "number", dir: "desc", selectionMode: false, selectedIds: [] };
     var currentMeta = null;
@@ -652,6 +655,13 @@
       html += '</div>';
       html += '<div class="d-flex flex-wrap gap-2 ms-auto" id="project-detail-view-actions">';
       html += '<a href="#/features?project=' + esc(p.id) + '" id="project-detail-go-features" class="btn btn-nexus-secondary btn-sm tooltip" data-tooltip="Ir a Features"><i data-lucide="layers"></i> Features</a>';
+      if (SHOW_REPOSITORY) {
+        html += '<a href="#/projects/' + esc(p.id) + '/repository" id="project-detail-go-repository" class="btn btn-nexus-secondary btn-sm tooltip" data-tooltip="Ir a Repositorio"><i data-lucide="git-branch"></i> Repositorio</a>';
+      }
+      html += '<a href="#/projects/' + esc(p.id) + '/deliveries" id="project-detail-go-deliveries" class="btn btn-nexus-secondary btn-sm tooltip" data-tooltip="Ir a Deliveries"><i data-lucide="folder-git-2"></i> Deliveries</a>';
+      if (SHOW_WORK_ORDERS) {
+        html += '<a href="#/projects/' + esc(p.id) + '/work-orders" id="project-detail-go-work-orders" class="btn btn-nexus-secondary btn-sm tooltip" data-tooltip="Ir a Work Orders"><i data-lucide="clipboard-list"></i> Work Orders</a>';
+      }
       html += '<a href="#/sprints?project=' + esc(p.id) + '" id="project-detail-go-sprints" class="btn btn-nexus-secondary btn-sm tooltip" data-tooltip="Ir a Sprints"><i data-lucide="calendar"></i> Sprints</a>';
       html += '<a href="#/incidents?project=' + esc(p.id) + '" id="project-detail-go-incidents" class="btn btn-nexus-secondary btn-sm tooltip" data-tooltip="Ir a Incidentes"><i data-lucide="alert-circle"></i> Incidentes</a>';
       if (isMaster) {
@@ -722,6 +732,9 @@
           };
         }
         bindCloseThenNavigate("project-detail-go-features");
+        bindCloseThenNavigate("project-detail-go-repository");
+        bindCloseThenNavigate("project-detail-go-deliveries");
+        bindCloseThenNavigate("project-detail-go-work-orders");
         bindCloseThenNavigate("project-detail-go-sprints");
         bindCloseThenNavigate("project-detail-go-incidents");
         modalEl.addEventListener("hidden.bs.modal", function () {

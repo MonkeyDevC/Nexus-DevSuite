@@ -7,6 +7,16 @@ const defineSprintModels = require("../../modules/sprints/models");
 const defineIncidentModels = require("../../modules/incidents/models");
 const defineImprovementModels = require("../../modules/improvements/models");
 const defineDocumentModels = require("../../modules/documents/models");
+const defineDocumentationModels = require("../../modules/documentation/models");
+const defineTaskModels = require("../../modules/tasks/models");
+const defineCodeDeliveryModels = require("../../modules/code-deliveries/models");
+const defineWorkOrderModels = require("../../modules/work-orders/models");
+const defineImplementationStepModels = require("../../modules/implementation-steps/models");
+const defineGitHubConnectionModel = require("../../modules/github-integration/models/githubConnection.model");
+const defineGithubOauthStateModel = require("../../modules/github-integration/models/githubOauthState.model");
+const defineAiReviewModels = require("../../modules/ai-review/models");
+const defineAutomationRuleModel = require("../../modules/automation/automation.rule.model");
+const defineAutomationRuleExecutionModel = require("../../modules/automation/automation.ruleExecution.model");
 
 let cachedModels = null;
 
@@ -64,13 +74,19 @@ function loadModels(sequelize) {
   UserStory.belongsTo(Sprint, { foreignKey: "sprint_id", as: "sprint" });
 
   const releaseModels = defineReleaseModels(sequelize);
-  const { Release } = releaseModels;
+  const { Release, ReleaseFeature } = releaseModels;
   Organization.hasMany(Release, { foreignKey: "organization_id", as: "releases" });
   Release.belongsTo(Organization, { foreignKey: "organization_id", as: "organization" });
+  Project.hasMany(Release, { foreignKey: "project_id", as: "project_releases" });
+  Release.belongsTo(Project, { foreignKey: "project_id", as: "project" });
   User.hasMany(Release, { foreignKey: "created_by", as: "releases" });
   Release.belongsTo(User, { foreignKey: "created_by", as: "creator" });
   Release.hasMany(Feature, { foreignKey: "release_id", as: "features" });
   Feature.belongsTo(Release, { foreignKey: "release_id", as: "release" });
+  Release.hasMany(ReleaseFeature, { foreignKey: "release_id", as: "release_features" });
+  ReleaseFeature.belongsTo(Release, { foreignKey: "release_id", as: "release" });
+  Feature.hasMany(ReleaseFeature, { foreignKey: "feature_id", as: "release_features" });
+  ReleaseFeature.belongsTo(Feature, { foreignKey: "feature_id", as: "feature" });
 
   const changeRequestModels = defineChangeRequestModels(sequelize);
   const { ChangeRequest } = changeRequestModels;
@@ -113,6 +129,115 @@ function loadModels(sequelize) {
   User.hasMany(DocumentVersion, { foreignKey: "approved_by", as: "document_versions_approved" });
   DocumentVersion.belongsTo(User, { foreignKey: "approved_by", as: "approver" });
 
+  const documentationModels = defineDocumentationModels(sequelize);
+  const { DocumentationContent } = documentationModels;
+  Organization.hasMany(DocumentationContent, { foreignKey: "organization_id", as: "documentation_contents" });
+  DocumentationContent.belongsTo(Organization, { foreignKey: "organization_id", as: "organization" });
+  Project.hasMany(DocumentationContent, { foreignKey: "project_id", as: "documentation_contents" });
+  DocumentationContent.belongsTo(Project, { foreignKey: "project_id", as: "project" });
+  User.hasMany(DocumentationContent, { foreignKey: "updated_by_user_id", as: "documentation_contents_updated" });
+  DocumentationContent.belongsTo(User, { foreignKey: "updated_by_user_id", as: "updated_by_user" });
+
+  const workOrderModels = defineWorkOrderModels(sequelize);
+  const { WorkOrder } = workOrderModels;
+  Project.hasMany(WorkOrder, { foreignKey: "project_id", as: "work_orders" });
+  WorkOrder.belongsTo(Project, { foreignKey: "project_id", as: "project" });
+  UserStory.hasMany(WorkOrder, { foreignKey: "user_story_id", as: "work_orders" });
+  WorkOrder.belongsTo(UserStory, { foreignKey: "user_story_id", as: "user_story" });
+  User.hasMany(WorkOrder, { foreignKey: "created_by_user_id", as: "work_orders_created" });
+  WorkOrder.belongsTo(User, { foreignKey: "created_by_user_id", as: "creator" });
+  User.hasMany(WorkOrder, { foreignKey: "assigned_to_user_id", as: "work_orders_assigned" });
+  WorkOrder.belongsTo(User, { foreignKey: "assigned_to_user_id", as: "assignee" });
+
+  const taskModels = defineTaskModels(sequelize);
+  const { Task } = taskModels;
+  Project.hasMany(Task, { foreignKey: "project_id", as: "tasks" });
+  Task.belongsTo(Project, { foreignKey: "project_id", as: "project" });
+  UserStory.hasMany(Task, { foreignKey: "user_story_id", as: "tasks" });
+  Task.belongsTo(UserStory, { foreignKey: "user_story_id", as: "user_story" });
+  WorkOrder.hasMany(Task, { foreignKey: "work_order_id", as: "tasks" });
+  Task.belongsTo(WorkOrder, { foreignKey: "work_order_id", as: "work_order" });
+  User.hasMany(Task, { foreignKey: "created_by_user_id", as: "tasks_created" });
+  Task.belongsTo(User, { foreignKey: "created_by_user_id", as: "creator" });
+  User.hasMany(Task, { foreignKey: "assigned_to_user_id", as: "tasks_assigned" });
+  Task.belongsTo(User, { foreignKey: "assigned_to_user_id", as: "assignee" });
+
+  const implementationStepModels = defineImplementationStepModels(sequelize);
+  const { ImplementationStep } = implementationStepModels;
+  Project.hasMany(ImplementationStep, { foreignKey: "project_id", as: "implementation_steps" });
+  ImplementationStep.belongsTo(Project, { foreignKey: "project_id", as: "project" });
+  Task.hasMany(ImplementationStep, { foreignKey: "task_id", as: "implementation_steps" });
+  ImplementationStep.belongsTo(Task, { foreignKey: "task_id", as: "task" });
+  WorkOrder.hasMany(ImplementationStep, { foreignKey: "work_order_id", as: "implementation_steps" });
+  ImplementationStep.belongsTo(WorkOrder, { foreignKey: "work_order_id", as: "work_order" });
+
+  const codeDeliveryModels = defineCodeDeliveryModels(sequelize);
+  const { CodeDelivery, DeliveryFile, DeliveryCommit, DeliveryReview, ReviewComment } = codeDeliveryModels;
+  Project.hasMany(CodeDelivery, { foreignKey: "project_id", as: "code_deliveries" });
+  CodeDelivery.belongsTo(Project, { foreignKey: "project_id", as: "project" });
+  Task.hasMany(CodeDelivery, { foreignKey: "task_id", as: "code_deliveries" });
+  CodeDelivery.belongsTo(Task, { foreignKey: "task_id", as: "task" });
+  WorkOrder.hasMany(CodeDelivery, { foreignKey: "work_order_id", as: "code_deliveries" });
+  CodeDelivery.belongsTo(WorkOrder, { foreignKey: "work_order_id", as: "work_order" });
+  WorkOrder.belongsTo(CodeDelivery, { foreignKey: "delivery_id", as: "delivery" });
+  UserStory.hasMany(CodeDelivery, { foreignKey: "user_story_id", as: "code_deliveries" });
+  CodeDelivery.belongsTo(UserStory, { foreignKey: "user_story_id", as: "user_story" });
+  User.hasMany(CodeDelivery, { foreignKey: "created_by_user_id", as: "code_deliveries_created" });
+  CodeDelivery.belongsTo(User, { foreignKey: "created_by_user_id", as: "creator" });
+
+  Project.hasMany(DeliveryFile, { foreignKey: "project_id", as: "delivery_files" });
+  DeliveryFile.belongsTo(Project, { foreignKey: "project_id", as: "project" });
+  CodeDelivery.hasMany(DeliveryFile, { foreignKey: "delivery_id", as: "delivery_files" });
+  DeliveryFile.belongsTo(CodeDelivery, { foreignKey: "delivery_id", as: "code_delivery" });
+
+  Project.hasMany(DeliveryCommit, { foreignKey: "project_id", as: "delivery_commits" });
+  DeliveryCommit.belongsTo(Project, { foreignKey: "project_id", as: "project" });
+  CodeDelivery.hasMany(DeliveryCommit, { foreignKey: "delivery_id", as: "delivery_commits" });
+  DeliveryCommit.belongsTo(CodeDelivery, { foreignKey: "delivery_id", as: "code_delivery" });
+  WorkOrder.hasMany(DeliveryCommit, { foreignKey: "work_order_id", as: "delivery_commits_work_orders" });
+  DeliveryCommit.belongsTo(WorkOrder, { foreignKey: "work_order_id", as: "work_order_commit" });
+
+  Project.hasMany(DeliveryReview, { foreignKey: "project_id", as: "delivery_reviews" });
+  DeliveryReview.belongsTo(Project, { foreignKey: "project_id", as: "project" });
+  CodeDelivery.hasMany(DeliveryReview, { foreignKey: "delivery_id", as: "delivery_reviews" });
+  DeliveryReview.belongsTo(CodeDelivery, { foreignKey: "delivery_id", as: "code_delivery" });
+  User.hasMany(DeliveryReview, { foreignKey: "reviewer_id", as: "delivery_reviews_given" });
+  DeliveryReview.belongsTo(User, { foreignKey: "reviewer_id", as: "reviewer" });
+
+  Project.hasMany(ReviewComment, { foreignKey: "project_id", as: "review_comments" });
+  ReviewComment.belongsTo(Project, { foreignKey: "project_id", as: "project" });
+  CodeDelivery.hasMany(ReviewComment, { foreignKey: "delivery_id", as: "review_comments" });
+  ReviewComment.belongsTo(CodeDelivery, { foreignKey: "delivery_id", as: "code_delivery" });
+  User.hasMany(ReviewComment, { foreignKey: "author_id", as: "review_comments_authored" });
+  ReviewComment.belongsTo(User, { foreignKey: "author_id", as: "author" });
+  ReviewComment.belongsTo(ReviewComment, { foreignKey: "parent_id", as: "parent" });
+  ReviewComment.hasMany(ReviewComment, { foreignKey: "parent_id", as: "replies" });
+
+  const aiReviewModels = defineAiReviewModels(sequelize);
+  const { CodeReview } = aiReviewModels;
+  Project.hasMany(CodeReview, { foreignKey: "project_id", as: "code_reviews" });
+  CodeReview.belongsTo(Project, { foreignKey: "project_id", as: "project" });
+  CodeDelivery.hasMany(CodeReview, { foreignKey: "delivery_id", as: "code_reviews" });
+  CodeReview.belongsTo(CodeDelivery, { foreignKey: "delivery_id", as: "code_delivery" });
+
+  const GitHubConnection = defineGitHubConnectionModel(sequelize);
+  const GithubOauthState = defineGithubOauthStateModel(sequelize);
+  User.hasMany(GitHubConnection, { foreignKey: "user_id", as: "github_connections" });
+  GitHubConnection.belongsTo(User, { foreignKey: "user_id", as: "user" });
+  Project.hasMany(GitHubConnection, { foreignKey: "project_id", as: "github_connections" });
+  GitHubConnection.belongsTo(Project, { foreignKey: "project_id", as: "project" });
+  User.hasMany(GithubOauthState, { foreignKey: "user_id" });
+  GithubOauthState.belongsTo(User, { foreignKey: "user_id" });
+  Project.hasMany(GithubOauthState, { foreignKey: "project_id" });
+  GithubOauthState.belongsTo(Project, { foreignKey: "project_id" });
+
+  const AutomationRule = defineAutomationRuleModel(sequelize);
+  const AutomationRuleExecution = defineAutomationRuleExecutionModel(sequelize);
+
+  // Asociaciones mínimas para navegación y consistencia.
+  AutomationRule.hasMany(AutomationRuleExecution, { foreignKey: "rule_id", as: "executions" });
+  AutomationRuleExecution.belongsTo(AutomationRule, { foreignKey: "rule_id", as: "rule" });
+
   cachedModels = {
     ...authModels,
     Organization,
@@ -122,7 +247,17 @@ function loadModels(sequelize) {
     ...changeRequestModels,
     ...incidentModels,
     ...improvementModels,
-    ...documentModels
+    ...documentModels,
+    ...documentationModels,
+    ...workOrderModels,
+    ...taskModels,
+    ...implementationStepModels,
+    ...codeDeliveryModels,
+    ...aiReviewModels,
+    AutomationRule,
+    AutomationRuleExecution,
+    GitHubConnection,
+    GithubOauthState
   };
   return cachedModels;
 }

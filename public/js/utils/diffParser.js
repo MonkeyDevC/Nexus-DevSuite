@@ -1,9 +1,11 @@
 /**
  * Unified diff parser (GitHub-like).
  *
- * parseUnifiedDiff(diffText) => [
- *   { filePath, hunks: [ { header, lines: [ { type, content } ] } ] }
- * ]
+ * parseUnifiedDiff(diffText) => {
+ *   files: [
+ *     { filePath, hunks: [ { header, lines: [ { type, content } ] } ] }
+ *   ]
+ * }
  */
 (function () {
   "use strict";
@@ -137,8 +139,8 @@
       const ltrim = normalized.replace(/^\r/, "");
       const prefix = ltrim.charAt(0);
       const content = ltrim.slice(1);
-      if (prefix === "+") currentHunk.lines.push({ type: "added", content });
-      else if (prefix === "-") currentHunk.lines.push({ type: "deleted", content });
+      if (prefix === "+") currentHunk.lines.push({ type: "add", content });
+      else if (prefix === "-") currentHunk.lines.push({ type: "remove", content });
       else if (prefix === " ") currentHunk.lines.push({ type: "context", content });
       else {
         // Some tools can emit empty lines without a prefix; treat as context.
@@ -148,7 +150,7 @@
 
     // flush remaining
     flushFile();
-    return files;
+    return { files: files };
   }
 
   window.DiffParser = window.DiffParser || {};

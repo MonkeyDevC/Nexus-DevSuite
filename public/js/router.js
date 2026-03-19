@@ -12,6 +12,14 @@
     const hash = window.location.hash.slice(1) || "/";
     const pathOnly = hash.split("?")[0];
     const path = pathOnly.startsWith("/") ? pathOnly : "/" + pathOnly;
+    const projectScoped = path.match(/^\/projects\/[^/]+\/(.+)$/);
+    if (projectScoped) {
+      const tail = projectScoped[1] || "";
+      if (tail === "repository") return "repository";
+      if (tail === "deliveries") return "deliveries";
+      if (/^deliveries\/[^/]+\/workspace$/.test(tail)) return "delivery-workspace";
+      if (tail === "work-orders" || /^work-orders\/[^/]+$/.test(tail)) return "work-orders";
+    }
     const segment = path.split("/")[1] || "dashboard";
     return segment === "login" ? "login" : segment;
   }
@@ -41,6 +49,24 @@
         return;
       }
     }
+
+    // Feature availability guards (product stability).
+    var ff = window.NEXUS_FEATURES || {};
+    if (name === "repository" && ff.REPOSITORY === false) {
+      if (typeof window.openNexusAlertModal === "function") {
+        window.openNexusAlertModal({ title: "Módulo no disponible", message: "Repositorio no disponible en este entorno." });
+      }
+      window.location.hash = "#/dashboard";
+      return;
+    }
+    if (name === "work-orders" && ff.WORK_ORDERS === false) {
+      if (typeof window.openNexusAlertModal === "function") {
+        window.openNexusAlertModal({ title: "Módulo no disponible", message: "Work Orders no está disponible en este entorno." });
+      }
+      window.location.hash = "#/dashboard";
+      return;
+    }
+
     const fn = views[name];
     if (fn) fn();
     else if (views.dashboard) views.dashboard();

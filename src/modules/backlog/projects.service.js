@@ -14,7 +14,87 @@ const { ERROR_CODES } = require("../../shared/errors/errorCodes");
 const PROJECT_IMPORT_STATUSES = ["ACTIVE", "ARCHIVED"];
 const FEATURE_IMPORT_STATUSES = ["DRAFT", "APPROVED", "IN_PROGRESS", "DONE", "ARCHIVED"];
 const STORY_IMPORT_STATUSES = ["DRAFT", "READY", "IN_PROGRESS", "BLOCKED", "IN_REVIEW", "DONE", "ARCHIVED"];
-const IMPORT_ALLOWED_PRIORITIES = ["LOW", "MEDIUM", "HIGH"];
+const IMPORT_ALLOWED_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+
+function normalizeStatusToken(value) {
+  if (value == null) return "";
+  // Normaliza variantes como: "in progress", "IN-PROGRESS", "In.Progress" => "IN_PROGRESS"
+  return String(value)
+    .normalize("NFD")
+    // Elimina diacríticos (tildes) para que "revisión" == "revision"
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/[.]+/g, "_")
+    .replace(/__+/g, "_");
+}
+
+function normalizeFeatureStatus(status) {
+  const normalized = normalizeStatusToken(status);
+  const aliases = {
+    // Posibles estados legacy exportados (sin romper el enum real de Feature).
+    IN_REVIEW: "IN_PROGRESS",
+    INREVIEW: "IN_PROGRESS",
+    READY: "APPROVED",
+    PENDING: "DRAFT",
+    TO_DO: "DRAFT",
+    TODO: "DRAFT",
+    DOING: "IN_PROGRESS",
+    PROGRESS: "IN_PROGRESS",
+    COMPLETE: "DONE",
+    COMPLETED: "DONE"
+  };
+  return aliases[normalized] || normalized;
+}
+
+function normalizeStoryStatus(status) {
+  const normalized = normalizeStatusToken(status);
+  const aliases = {
+    // English-ish legacy
+    IN_REVIEW: "IN_REVIEW",
+    INREVIEW: "IN_REVIEW",
+    IN_REVISION: "IN_REVIEW",
+    INREVISION: "IN_REVIEW",
+    EN_REVISION: "IN_REVIEW",
+    ENREVISION: "IN_REVIEW",
+    REVIEW: "IN_REVIEW",
+    REVISION: "IN_REVIEW",
+
+    READY: "READY",
+    PENDIENTE: "DRAFT",
+    PENDING: "DRAFT",
+    POR_HACER: "DRAFT",
+    PORHACER: "DRAFT",
+    TO_DO: "DRAFT",
+    TODO: "DRAFT",
+    TODOITEM: "DRAFT",
+
+    IN_PROGRESS: "IN_PROGRESS",
+    INPROGRESS: "IN_PROGRESS",
+    EN_PROGRESO: "IN_PROGRESS",
+    ENPROGRESO: "IN_PROGRESS",
+    DOING: "IN_PROGRESS",
+    PROGRESS: "IN_PROGRESS",
+
+    BLOCKED: "BLOCKED",
+    BLOCK: "BLOCKED",
+    BLOQUEADO: "BLOCKED",
+    BLOQUEADA: "BLOCKED",
+
+    DONE: "DONE",
+    COMPLETED: "DONE",
+    COMPLETE: "DONE",
+    TERMINADO: "DONE",
+    FINALIZADO: "DONE",
+
+    ARCHIVED: "ARCHIVED",
+    ARCHIVE: "ARCHIVED",
+    ARCHIVADO: "ARCHIVED",
+    ARCHIVADA: "ARCHIVED"
+  };
+  return aliases[normalized] || normalized;
+}
 
 function toPlain(project) {
   if (!project) return null;
@@ -38,11 +118,11 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value));
 }
 
-function throwImportError(message, path, code = ERROR_CODES.IMPORT_VALIDATION_ERROR) {
+function throwImportError(message, path, code = ERROR_CODES.IMPORT_VALIDATION_ERROR, detailsExtra = {}) {
   throw new AppError(message, {
     statusCode: 400,
     code,
-    details: { path }
+    details: { path, ...detailsExtra }
   });
 }
 
@@ -68,7 +148,8 @@ function validateImportPayload(payload) {
     }
     if (!project.id) throwImportError("`project.id` es obligatorio.", `${basePath}.project.id`);
     if (!project.name || !String(project.name).trim()) throwImportError("`project.name` es obligatorio.", `${basePath}.project.name`);
-    if (!project.status || !PROJECT_IMPORT_STATUSES.includes(String(project.status).toUpperCase())) {
+    const normalizedProjectStatus = normalizeStatusToken(project.status);
+    if (!normalizedProjectStatus || !PROJECT_IMPORT_STATUSES.includes(normalizedProjectStatus)) {
       throwImportError("`project.status` inválido.", `${basePath}.project.status`);
     }
     if (project.acceptance_criteria != null && !Array.isArray(project.acceptance_criteria)) {
@@ -87,11 +168,12 @@ function validateImportPayload(payload) {
         throwImportError("Cada feature debe ser un objeto.", featPath);
       }
       if (!feature.title || !String(feature.title).trim()) throwImportError("`title` es obligatorio.", `${featPath}.title`);
-      if (!feature.status || !FEATURE_IMPORT_STATUSES.includes(String(feature.status).toUpperCase())) {
-        throwImportError("`status` de feature inválido.", `${featPath}.status`);
+      const normalizedFeatureStatusValue = normalizeFeatureStatus(feature.status);
+      if (!normalizedFeatureStatusValue || !FEATURE_IMPORT_STATUSES.includes(normalizedFeatureStatusValue)) {
+        throwImportError("`status` de feature inválido.", `${featPath}.status`, undefined, { received: feature.status });
       }
       if (!feature.priority || !IMPORT_ALLOWED_PRIORITIES.includes(String(feature.priority).toUpperCase())) {
-        throwImportError("`priority` de feature inválido. Permitido: LOW, MEDIUM, HIGH.", `${featPath}.priority`);
+        throwImportError("`priority` de feature inválido. Permitido: LOW, MEDIUM, HIGH, CRITICAL.", `${featPath}.priority`);
       }
       if (feature.stories != null && !Array.isArray(feature.stories)) {
         throwImportError("`stories` debe ser un array.", `${featPath}.stories`);
@@ -102,11 +184,12 @@ function validateImportPayload(payload) {
           throwImportError("Cada story debe ser un objeto.", storyPath);
         }
         if (!story.title || !String(story.title).trim()) throwImportError("`title` es obligatorio.", `${storyPath}.title`);
-        if (!story.status || !STORY_IMPORT_STATUSES.includes(String(story.status).toUpperCase())) {
-          throwImportError("`status` de story inválido.", `${storyPath}.status`);
+        const normalizedStoryStatusValue = normalizeStoryStatus(story.status);
+        if (!normalizedStoryStatusValue || !STORY_IMPORT_STATUSES.includes(normalizedStoryStatusValue)) {
+          throwImportError("`status` de story inválido.", `${storyPath}.status`, undefined, { received: story.status });
         }
         if (!story.priority || !IMPORT_ALLOWED_PRIORITIES.includes(String(story.priority).toUpperCase())) {
-          throwImportError("`priority` de story inválido. Permitido: LOW, MEDIUM, HIGH.", `${storyPath}.priority`);
+          throwImportError("`priority` de story inválido. Permitido: LOW, MEDIUM, HIGH, CRITICAL.", `${storyPath}.priority`);
         }
         if (story.acceptance_criteria != null && !Array.isArray(story.acceptance_criteria)) {
           throwImportError("`acceptance_criteria` debe ser un array.", `${storyPath}.acceptance_criteria`);
@@ -511,7 +594,7 @@ async function importProjects(payload, context) {
           number: maxProjectNumber,
           name: projectName,
           description: projectData.description != null ? String(projectData.description) : "",
-          status: String(projectData.status).toUpperCase(),
+          status: normalizeStatusToken(projectData.status),
           organization_id: organizationId,
           created_by: context.user && context.user.id
         },
@@ -523,13 +606,14 @@ async function importProjects(payload, context) {
       for (let fIdx = 0; fIdx < features.length; fIdx += 1) {
         const feature = features[fIdx];
         maxFeatureNumber += 1;
+          const normalizedStatus = normalizeFeatureStatus(feature.status);
         const createdFeature = await Feature.create(
           {
             project_id: createdProject.id,
             number: maxFeatureNumber,
             title: String(feature.title).trim(),
             description: feature.description != null ? String(feature.description) : "",
-            status: String(feature.status).toUpperCase(),
+              status: normalizedStatus,
             priority: String(feature.priority).toUpperCase(),
             created_by: context.user && context.user.id
           },
@@ -541,6 +625,7 @@ async function importProjects(payload, context) {
         for (let sIdx = 0; sIdx < stories.length; sIdx += 1) {
           const story = stories[sIdx];
           maxStoryNumber += 1;
+          const normalizedStoryStatus = normalizeStoryStatus(story.status);
           await UserStory.create(
             {
               feature_id: createdFeature.id,
@@ -549,7 +634,7 @@ async function importProjects(payload, context) {
               description: story.description != null ? String(story.description) : "",
               acceptance_criteria: Array.isArray(story.acceptance_criteria) ? story.acceptance_criteria : null,
               implementation_criteria: Array.isArray(story.implementation_criteria) ? story.implementation_criteria : null,
-              status: String(story.status).toUpperCase(),
+              status: normalizedStoryStatus,
               priority: String(story.priority).toUpperCase(),
               assigned_to: story.assigned_to != null ? String(story.assigned_to) : null,
               sprint_id: story.sprint_id != null ? String(story.sprint_id) : null,

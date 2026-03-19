@@ -6,6 +6,8 @@
 
 const changeRequestRepository = require("./changeRequest.repository");
 const authRepository = require("../auth/auth.repository");
+const projectsRepository = require("../backlog/projects.repository");
+const { getModels } = require("../../infrastructure/db/loadModels");
 const { validateCRTransition } = require("./changeRequest.workflow.validator");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
@@ -54,18 +56,35 @@ function ensureAuditContext(context) {
  * No consume el CR aquí; quien llama debe invocar markAsImplemented tras éxito.
  */
 async function validateAndConsumeChangeRequest(changeRequestId, entityType, entityId, context) {
-  if (!changeRequestId) {
-    throw new AppError("Se requiere un ChangeRequest aprobado para esta acción", {
-      statusCode: 400,
-      code: ERROR_CODES.CHANGE_REQUEST_REQUIRED
-    });
+  let cr = null;
+  if (changeRequestId) {
+    cr = await changeRequestRepository.findById(changeRequestId);
+  } else if (entityType && entityId) {
+    cr = await changeRequestRepository.findLatestApprovedByEntity(entityType, entityId);
   }
 
-  const cr = await changeRequestRepository.findById(changeRequestId);
-  if (!cr) {
+  if (changeRequestId && !cr) {
     throw new AppError("ChangeRequest no encontrado", {
       statusCode: 404,
       code: ERROR_CODES.CHANGE_REQUEST_NOT_FOUND
+    });
+  }
+
+  if (!cr) {
+    const implementedCr = await changeRequestRepository.findLatestImplementedByEntity(entityType, entityId);
+    if (implementedCr) {
+      const impl = toPlain(implementedCr);
+      throw new AppError(
+        "El último ChangeRequest para esta entidad ya fue implementado (" + (impl.code || impl.id) + "). Cree y apruebe uno nuevo para volver a modificar.",
+        {
+          statusCode: 400,
+          code: ERROR_CODES.CHANGE_REQUEST_ALREADY_IMPLEMENTED
+        }
+      );
+    }
+    throw new AppError("Se requiere un ChangeRequest aprobado para esta acción", {
+      statusCode: 400,
+      code: ERROR_CODES.CHANGE_REQUEST_REQUIRED
     });
   }
 
@@ -118,6 +137,52 @@ async function createChangeRequest(payload, context = {}) {
     entity_id
   });
   return toPlain(created);
+}
+
+async function updateDraftChangeRequest(id, payload, context = {}) {
+  const cr = await changeRequestRepository.findById(id);
+  if (!cr) {
+    throw new AppError("ChangeRequest no encontrado", {
+      statusCode: 404,
+      code: ERROR_CODES.CHANGE_REQUEST_NOT_FOUND
+    });
+  }
+  if (cr.status !== "DRAFT") {
+    throw new AppError("Solo se puede editar un ChangeRequest en estado DRAFT", {
+      statusCode: 400,
+      code: ERROR_CODES.CHANGE_REQUEST_INVALID_TRANSITION
+    });
+  }
+
+  const updatePayload = {};
+  if (payload.title !== undefined) updatePayload.title = payload.title === null ? null : String(payload.title).trim();
+  if (payload.description !== undefined) updatePayload.description = payload.description === null ? null : String(payload.description);
+  if (payload.type !== undefined) updatePayload.type = payload.type === null ? null : String(payload.type).trim();
+  if (payload.impact_level !== undefined) updatePayload.impact_level = payload.impact_level === null ? null : String(payload.impact_level).trim();
+  if (payload.entity_type !== undefined) updatePayload.entity_type = payload.entity_type === null ? null : String(payload.entity_type).trim();
+  if (payload.entity_id !== undefined) updatePayload.entity_id = payload.entity_id === null ? null : String(payload.entity_id).trim();
+
+  if (Object.keys(updatePayload).length === 0) {
+    return toPlain(cr);
+  }
+  if ((updatePayload.entity_type != null && updatePayload.entity_id == null && payload.entity_id !== undefined)
+    || (updatePayload.entity_id != null && updatePayload.entity_type == null && payload.entity_type !== undefined)) {
+    throw new AppError("entity_type y entity_id deben actualizarse en conjunto", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+
+  const updated = await changeRequestRepository.update(id, updatePayload);
+  const auditCtx = ensureAuditContext(context);
+  await authRepository.createAuditLog({
+    ...auditCtx,
+    action: "UPDATE",
+    entity: "CHANGE_REQUEST",
+    entity_id: id,
+    metadata: { fields: Object.keys(updatePayload) }
+  });
+  return toPlain(updated);
 }
 
 async function submitChangeRequest(id, context) {
@@ -245,12 +310,115 @@ async function markAsImplemented(id, context) {
   return toPlain(updated);
 }
 
+async function restoreChangeRequestToDraft(id, context) {
+  if (context?.user?.role !== "MASTER") {
+    throw new AppError("No tiene permisos para realizar esta accion", {
+      statusCode: 403,
+      code: ERROR_CODES.AUTH_FORBIDDEN
+    });
+  }
+  const cr = await changeRequestRepository.findById(id);
+  if (!cr) {
+    throw new AppError("ChangeRequest no encontrado", {
+      statusCode: 404,
+      code: ERROR_CODES.CHANGE_REQUEST_NOT_FOUND
+    });
+  }
+  const currentStatus = cr.status;
+  if (currentStatus === "IMPLEMENTED") {
+    throw new AppError("No se puede restaurar a DRAFT un ChangeRequest implementado", {
+      statusCode: 400,
+      code: ERROR_CODES.CHANGE_REQUEST_INVALID_TRANSITION
+    });
+  }
+  validateCRTransition(currentStatus, "DRAFT");
+  const updated = await changeRequestRepository.update(id, {
+    status: "DRAFT",
+    approved_by: null,
+    approved_at: null
+  });
+  const auditCtx = ensureAuditContext(context);
+  await authRepository.createAuditLog({
+    ...auditCtx,
+    action: "STATUS_CHANGE",
+    entity: "CHANGE_REQUEST",
+    entity_id: id,
+    metadata: { from: currentStatus, to: "DRAFT", reason: "manual_restore_to_draft" }
+  });
+  return toPlain(updated);
+}
+
+async function listChangeRequestsByProject(projectId, params = {}, context = {}) {
+  const project = await projectsRepository.findById(projectId);
+  if (!project) {
+    throw new AppError("Proyecto no encontrado", {
+      statusCode: 404,
+      code: ERROR_CODES.PROJECT_NOT_FOUND
+    });
+  }
+  if (context.organizationId != null && project.organization_id !== context.organizationId) {
+    throw new AppError("No tiene acceso a este proyecto", {
+      statusCode: 403,
+      code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
+    });
+  }
+
+  const { Feature } = getModels();
+  const features = await Feature.findAll({
+    where: { project_id: projectId },
+    attributes: ["id", "release_id"],
+    raw: true
+  });
+
+  const featureIds = [];
+  const releaseIdsSet = new Set();
+  features.forEach((f) => {
+    if (f.id) featureIds.push(f.id);
+    if (f.release_id) releaseIdsSet.add(f.release_id);
+  });
+  const releaseIds = Array.from(releaseIdsSet);
+  const entityIds = [...featureIds, ...releaseIds];
+
+  if (entityIds.length === 0) {
+    const page = Math.max(1, Number.parseInt(params.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(params.limit, 10) || 20));
+    return {
+      items: [],
+      pagination: { page, limit, total: 0, totalPages: 0 },
+      scope: { project_id: projectId }
+    };
+  }
+
+  const { items, total, page, limit } = await changeRequestRepository.listByFilters(
+    {
+      status: params.status || undefined,
+      entity_type: params.entity_type || undefined,
+      entity_ids: entityIds
+    },
+    { page: params.page, limit: params.limit }
+  );
+
+  return {
+    items: items.map(toPlain),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: total === 0 ? 0 : Math.ceil(total / limit)
+    },
+    scope: { project_id: projectId }
+  };
+}
+
 module.exports = {
   createChangeRequest,
+  updateDraftChangeRequest,
   submitChangeRequest,
   approveChangeRequest,
   rejectChangeRequest,
   markAsImplemented,
+  restoreChangeRequestToDraft,
   validateAndConsumeChangeRequest,
+  listChangeRequestsByProject,
   toPlain
 };

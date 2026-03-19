@@ -18,6 +18,17 @@ async function createChangeRequestController(req, res, next) {
   }
 }
 
+async function updateDraftChangeRequestController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await changeRequestService.updateDraftChangeRequest(req.params.id, req.body, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 async function submitChangeRequestController(req, res, next) {
   try {
     assertRequestValid(req);
@@ -62,10 +73,44 @@ async function implementChangeRequestController(req, res, next) {
   }
 }
 
+async function restoreChangeRequestToDraftController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await changeRequestService.restoreChangeRequestToDraft(req.params.id, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function listChangeRequestsByProjectController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await changeRequestService.listChangeRequestsByProject(
+      req.query.project_id,
+      {
+        page: req.query.page,
+        limit: req.query.limit,
+        status: req.query.status,
+        entity_type: req.query.entity_type
+      },
+      context
+    );
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 module.exports = {
+  listChangeRequestsByProjectController,
   createChangeRequestController,
+  updateDraftChangeRequestController,
   submitChangeRequestController,
   approveChangeRequestController,
   rejectChangeRequestController,
-  implementChangeRequestController
+  implementChangeRequestController,
+  restoreChangeRequestToDraftController
 };

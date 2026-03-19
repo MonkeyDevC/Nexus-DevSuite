@@ -37,9 +37,9 @@ async function createRefreshToken(payload) {
   return RefreshToken.create(payload);
 }
 
-async function createAuditLog(payload) {
+async function createAuditLog(payload, { transaction } = {}) {
   const { AuditLog } = getAuthModels();
-  await AuditLog.create(payload);
+  await AuditLog.create(payload, { transaction: transaction || undefined });
 }
 
 async function findAllRoles() {

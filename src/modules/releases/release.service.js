@@ -98,7 +98,17 @@ async function getReleaseById(id, organizationId) {
       code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
     });
   }
-  return toPlain(release);
+  const { getModels } = require("../../infrastructure/db/loadModels");
+  const { Feature } = getModels();
+  const features = await Feature.findAll({
+    where: { release_id: id },
+    attributes: ["id", "title", "status", "project_id", "number"],
+    order: [["created_at", "DESC"]],
+    raw: true
+  });
+  const plain = toPlain(release);
+  plain.features = features || [];
+  return plain;
 }
 
 async function listReleases(options = {}) {
@@ -122,7 +132,7 @@ async function listReleases(options = {}) {
 async function updateStatus(id, nextStatus, context) {
   await getReleaseById(id, context.organizationId);
   const changeRequestId = context.changeRequestId;
-  await changeRequestService.validateAndConsumeChangeRequest(changeRequestId, "RELEASE", id, context);
+  const validatedCr = await changeRequestService.validateAndConsumeChangeRequest(changeRequestId, "RELEASE", id, context);
 
   const release = await releaseRepository.findById(id);
   if (!release) {
@@ -177,14 +187,12 @@ async function updateStatus(id, nextStatus, context) {
     entity_id: id,
     metadata: { from: release.status, to: nextStatus }
   });
-  await changeRequestService.markAsImplemented(changeRequestId, context);
+  await changeRequestService.markAsImplemented(changeRequestId || validatedCr.id, context);
   return toPlain(updated);
 }
 
 async function assignFeatureToRelease(releaseId, featureId, context) {
   await getReleaseById(releaseId, context.organizationId);
-  const changeRequestId = context.changeRequestId;
-  await changeRequestService.validateAndConsumeChangeRequest(changeRequestId, "RELEASE", releaseId, context);
 
   const release = await releaseRepository.findById(releaseId);
   if (!release) {
@@ -217,6 +225,9 @@ async function assignFeatureToRelease(releaseId, featureId, context) {
     return toPlain(release);
   }
 
+  const changeRequestId = context.changeRequestId;
+  const validatedCr = await changeRequestService.validateAndConsumeChangeRequest(changeRequestId, "FEATURE", featureId, context);
+
   await featureRepository.update(featureId, { release_id: releaseId });
   const auditCtx = ensureAuditContext(context);
   await authRepository.createAuditLog({
@@ -226,14 +237,55 @@ async function assignFeatureToRelease(releaseId, featureId, context) {
     entity_id: featureId,
     metadata: { release_id: releaseId, feature_id: featureId }
   });
-  await changeRequestService.markAsImplemented(changeRequestId, context);
+  // Regla de negocio: asociar feature a release valida CR, pero no lo consume todavía.
+  // El CR no debe pasar a IMPLEMENTED en esta etapa previa de planificación/ensamble.
   return toPlain(await releaseRepository.findById(releaseId));
+}
+
+async function removeFeatureFromRelease(releaseId, featureId, context) {
+  await getReleaseById(releaseId, context.organizationId);
+
+  const release = await releaseRepository.findById(releaseId);
+  if (!release) {
+    throw new AppError("Release no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.RELEASE_NOT_FOUND
+    });
+  }
+  if (release.status === "ARCHIVED") {
+    throw new AppError("No se puede desasociar features de una release archivada", {
+      statusCode: 400,
+      code: ERROR_CODES.RELEASE_ARCHIVED
+    });
+  }
+
+  const feature = await featureRepository.findById(featureId);
+  if (!feature) {
+    throw new AppError("Feature no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.FEATURE_NOT_FOUND
+    });
+  }
+  if (feature.release_id !== releaseId) {
+    return await getReleaseById(releaseId, context.organizationId);
+  }
+
+  await featureRepository.update(featureId, { release_id: null });
+  const auditCtx = ensureAuditContext(context);
+  await authRepository.createAuditLog({
+    ...auditCtx,
+    action: "FEATURE_UNASSIGN_RELEASE",
+    entity: "FEATURE",
+    entity_id: featureId,
+    metadata: { release_id: releaseId, feature_id: featureId }
+  });
+  return await getReleaseById(releaseId, context.organizationId);
 }
 
 async function updateReleaseDescription(id, payload, context) {
   await getReleaseById(id, context.organizationId);
   const changeRequestId = context.changeRequestId ?? payload?.change_request_id;
-  await changeRequestService.validateAndConsumeChangeRequest(changeRequestId, "RELEASE", id, context);
+  const validatedCr = await changeRequestService.validateAndConsumeChangeRequest(changeRequestId, "RELEASE", id, context);
 
   rejectVersionInPayload(payload);
   const release = await releaseRepository.findById(id);
@@ -250,7 +302,7 @@ async function updateReleaseDescription(id, payload, context) {
     });
   }
   const updated = await releaseRepository.update(id, { description: payload?.description ?? release.description });
-  await changeRequestService.markAsImplemented(changeRequestId, context);
+  await changeRequestService.markAsImplemented(changeRequestId || validatedCr.id, context);
   return toPlain(updated);
 }
 
@@ -261,7 +313,21 @@ async function updateReleaseDescription(id, payload, context) {
 async function createHotfixFromRelease(releaseId, context) {
   await getReleaseById(releaseId, context.organizationId);
   const changeRequestId = context.changeRequestId;
-  await changeRequestService.validateAndConsumeChangeRequest(changeRequestId, "RELEASE", releaseId, context);
+  let validatedCr;
+  try {
+    validatedCr = await changeRequestService.validateAndConsumeChangeRequest(changeRequestId, "RELEASE", releaseId, context);
+  } catch (err) {
+    if (err && err.code === ERROR_CODES.CHANGE_REQUEST_REQUIRED) {
+      throw new AppError(
+        "Para crear hotfix se requiere un ChangeRequest aprobado asociado a esta RELEASE (no a sus features).",
+        {
+          statusCode: 400,
+          code: ERROR_CODES.CHANGE_REQUEST_REQUIRED
+        }
+      );
+    }
+    throw err;
+  }
 
   const release = await releaseRepository.findById(releaseId);
   if (!release) {
@@ -335,7 +401,7 @@ async function createHotfixFromRelease(releaseId, context) {
     }
   });
 
-  await changeRequestService.markAsImplemented(changeRequestId, context);
+  await changeRequestService.markAsImplemented(changeRequestId || validatedCr.id, context);
   return toPlain(created);
 }
 
@@ -398,6 +464,7 @@ module.exports = {
   listReleases,
   updateStatus,
   assignFeatureToRelease,
+  removeFeatureFromRelease,
   updateReleaseDescription,
   createHotfixFromRelease,
   deleteRelease,

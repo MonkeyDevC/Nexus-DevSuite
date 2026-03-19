@@ -11,6 +11,7 @@ const {
   listReleasesController,
   patchReleaseStatusController,
   assignFeatureController,
+  removeFeatureController,
   patchReleaseController,
   createHotfixController,
   deleteReleaseController,
@@ -21,6 +22,7 @@ const {
   releaseIdParamValidator,
   patchReleaseStatusValidator,
   assignFeatureValidator,
+  removeFeatureValidator,
   patchReleaseValidator,
   listReleasesQueryValidator,
   hotfixValidator,
@@ -56,6 +58,13 @@ router.post(
   authorizeMiddleware("MASTER"),
   assignFeatureValidator,
   assignFeatureController
+);
+router.delete(
+  "/:id/features/:featureId",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER"),
+  removeFeatureValidator,
+  removeFeatureController
 );
 router.post(
   "/:id/hotfix",

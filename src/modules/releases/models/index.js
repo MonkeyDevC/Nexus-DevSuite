@@ -1,13 +1,15 @@
 /**
  * Módulo Releases - Índice de modelos
- * Exporta definición de Release para loadModels.
+ * Exporta Release y ReleaseFeature para loadModels.
  */
 
 const defineReleaseModel = require("./release.model");
+const defineReleaseFeatureModel = require("./releaseFeature.model");
 
 function defineReleaseModels(sequelize) {
   const Release = defineReleaseModel(sequelize);
-  return { Release };
+  const ReleaseFeature = defineReleaseFeatureModel(sequelize);
+  return { Release, ReleaseFeature };
 }
 
 module.exports = defineReleaseModels;

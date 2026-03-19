@@ -16,6 +16,14 @@ const documentRoutes = require("../modules/documents/document.routes");
 const reportRoutes = require("../modules/reports/report.routes");
 const organizationRoutes = require("../modules/organizations/organization.routes");
 const dashboardRoutes = require("../modules/dashboard/dashboard.routes");
+const docsExportRoutes = require("../modules/docs-export/docsExport.routes");
+const githubRoutes = require("../modules/github-integration/github.routes");
+const codeDeliveryRoutes = require("../modules/code-deliveries/codeDelivery.routes");
+const workOrdersRoutes = require("../modules/work-orders/workOrder.routes");
+const tasksRoutes = require("../modules/tasks/task.routes");
+const implementationStepsRoutes = require("../modules/implementation-steps/implementationStep.routes");
+const aiAutomationRoutes = require("../modules/ai-automation/ai.rule.routes");
+const automationRulesRoutes = require("../modules/automation/automation.rules.routes");
 
 const router = express.Router();
 
@@ -34,7 +42,15 @@ router.use("/sprints", sprintRoutes);
 router.use("/incidents", incidentRoutes);
 router.use("/improvements", improvementRoutes);
 router.use("/documents", documentRoutes);
+router.use("/docs", docsExportRoutes);
+router.use("/projects/:projectId/repository", githubRoutes);
+router.use("/projects/:projectId/code-deliveries", codeDeliveryRoutes);
+router.use("/projects/:projectId/work-orders", workOrdersRoutes);
+router.use("/projects/:projectId/tasks", tasksRoutes);
+router.use("/projects/:projectId/work-orders/:workOrderId/implementation-steps", implementationStepsRoutes);
 router.use("/reports", reportRoutes);
 router.use("/dashboard", dashboardRoutes);
+router.use("/automation", aiAutomationRoutes);
+router.use("/automation", automationRulesRoutes);
 
 module.exports = router;

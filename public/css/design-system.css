@@ -200,6 +200,41 @@ body { font-family: var(--nexus-font-sans); }
   stroke: currentColor;
   fill: none;
 }
+
+/* Sistema global de botones con icono (enhancer central). */
+#content .btn.nexus-btn-enhanced,
+#content a.btn.nexus-btn-enhanced,
+.modal .btn.nexus-btn-enhanced,
+.modal a.btn.nexus-btn-enhanced {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#content .btn.nexus-btn-enhanced .nexus-btn-icon,
+#content a.btn.nexus-btn-enhanced .nexus-btn-icon,
+.modal .btn.nexus-btn-enhanced .nexus-btn-icon,
+.modal a.btn.nexus-btn-enhanced .nexus-btn-icon {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  flex-shrink: 0;
+  display: inline-block;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+#content .btn.nexus-btn-enhanced .nexus-btn-label,
+#content a.btn.nexus-btn-enhanced .nexus-btn-label,
+.modal .btn.nexus-btn-enhanced .nexus-btn-label,
+.modal a.btn.nexus-btn-enhanced .nexus-btn-label {
+  display: inline-block;
+}
+#content .btn.nexus-btn-enhanced:disabled .nexus-btn-icon,
+#content a.btn.nexus-btn-enhanced[disabled] .nexus-btn-icon,
+.modal .btn.nexus-btn-enhanced:disabled .nexus-btn-icon,
+.modal a.btn.nexus-btn-enhanced[disabled] .nexus-btn-icon {
+  opacity: 0.6 !important;
+}
 .nexus-sidebar-nav .nexus-sidebar-link {
   gap: 10px;
   align-self: stretch;
@@ -1524,11 +1559,31 @@ body.nexus-manage-user-modal-open .modal-backdrop {
   border-radius: var(--nexus-radius-md);
   padding: 0.44rem 0.9rem;
   font-weight: var(--nexus-font-weight-medium);
+  /* Hardening QA: prevenir clipping de texto/icono en contenedores estrictos */
+  overflow: visible;
+  max-width: 100%;
 }
 #content:not(.login-page) .btn-sm {
   min-height: 32px;
   padding: 0.3rem 0.72rem;
   border-radius: var(--nexus-radius-md);
+}
+
+/* Hardening QA: botones y enlaces tipo botón deben permanecer visibles/interactuables */
+#content .btn,
+#content a.btn,
+.modal .btn,
+.modal a.btn {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Evitar que el icono tape el click del botón */
+#content .btn i[data-lucide],
+#content .btn svg,
+.modal .btn i[data-lucide],
+.modal .btn svg {
+  pointer-events: none;
 }
 #content:not(.login-page) .btn-danger {
   background-color: var(--nexus-danger);

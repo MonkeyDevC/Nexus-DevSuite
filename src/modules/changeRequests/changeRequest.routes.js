@@ -5,17 +5,33 @@
 
 const express = require("express");
 const {
+  listChangeRequestsByProjectController,
   createChangeRequestController,
+  updateDraftChangeRequestController,
   submitChangeRequestController,
   approveChangeRequestController,
   rejectChangeRequestController,
-  implementChangeRequestController
+  implementChangeRequestController,
+  restoreChangeRequestToDraftController
 } = require("./changeRequest.controller");
-const { createChangeRequestValidator, crIdParamValidator } = require("./changeRequest.validator");
+const {
+  createChangeRequestValidator,
+  updateDraftChangeRequestValidator,
+  crIdParamValidator,
+  listChangeRequestsByProjectValidator
+} = require("./changeRequest.validator");
 const { authenticateMiddleware } = require("../../middlewares/authenticate.middleware");
 const { authorizeMiddleware } = require("../../middlewares/authorize.middleware");
 
 const router = express.Router();
+
+router.get(
+  "/",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  listChangeRequestsByProjectValidator,
+  listChangeRequestsByProjectController
+);
 
 router.post(
   "/",
@@ -23,6 +39,14 @@ router.post(
   authorizeMiddleware("MASTER", "EMPLOYEE"),
   createChangeRequestValidator,
   createChangeRequestController
+);
+router.patch(
+  "/:id",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  crIdParamValidator,
+  updateDraftChangeRequestValidator,
+  updateDraftChangeRequestController
 );
 router.patch(
   "/:id/submit",
@@ -51,6 +75,13 @@ router.patch(
   authorizeMiddleware("MASTER"),
   crIdParamValidator,
   implementChangeRequestController
+);
+router.patch(
+  "/:id/restore-draft",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER"),
+  crIdParamValidator,
+  restoreChangeRequestToDraftController
 );
 
 module.exports = router;
