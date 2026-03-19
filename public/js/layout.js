@@ -4,6 +4,7 @@
 (function () {
   window.showNav = async function () {
     document.body.classList.remove("layout-login");
+    if (typeof window.nexusCreateIcons === "function") setTimeout(window.nexusCreateIcons, 0);
     const user = await window.getMe();
     const displayName = user ? ((user.name || "").trim() || (user.email || "").trim() || "Usuario") : "Usuario";
     const initial = (displayName.charAt(0) || "U").toUpperCase();
@@ -131,6 +132,23 @@
   window.setContent = function (html) {
     const el = document.getElementById("content");
     if (el) el.innerHTML = html;
+    // Asegurar contenedor global para el stack de targets (cards apiladas).
+    var stackRoot = document.getElementById("target-stack-root");
+    if (!stackRoot) {
+      stackRoot = document.createElement("div");
+      stackRoot.id = "target-stack-root";
+      stackRoot.className = "nexus-target-stack-root";
+      var main = document.querySelector(".nexus-main-content") || document.getElementById("app-main") || document.body;
+      main.appendChild(stackRoot);
+    }
+    if (window.targetStackManager && !stackRoot._nexusStackBound) {
+      stackRoot._nexusStackBound = true;
+      window.targetStackManager.subscribe(function (stack) {
+        // Por ahora solo dejamos el contenedor limpio; el render detallado se hará en las vistas que abren targets.
+        stackRoot.innerHTML = "";
+      });
+    }
+    if (typeof window.nexusCreateIcons === "function") setTimeout(window.nexusCreateIcons, 0);
   };
 
   window.showError = function (msg) {

@@ -10,27 +10,51 @@ const reportRepository = require("../reports/report.repository");
 const featureService = require("../backlog/feature.service");
 
 async function getDashboardSummary(user, organizationId) {
+  const { Project } = getModels();
   const projectIds = await projectsRepository.findIdsByOrganization(organizationId);
-  const { list } = projectsRepository;
-  const { getProjectCounts, getSprintWithProjectAndStories } = reportRepository;
+  const { getSprintWithProjectAndStories, getStoryProgressByProjectIds } = reportRepository;
 
-  const [projectsResult, activeSprintRow, criticalIncidentsCount, myAssignments] = await Promise.all([
-    list({ organizationId, limit: 500, page: 1 }),
-    findActiveSprint(projectIds),
-    countCriticalIncidents(projectIds),
-    getMyAssignments(user.id)
+  const [projectsTotal, projectsActiveCount, projectsForHealth] = await Promise.all([
+    Project.count({ where: { organization_id: organizationId } }),
+    Project.count({ where: { organization_id: organizationId, status: "ACTIVE" } }),
+    Project.findAll({
+      where: { organization_id: organizationId },
+      attributes: ["id", "number", "name", "status", "created_at"],
+      order: [["created_at", "DESC"]],
+      limit: 10
+    })
   ]);
 
-  const projects = projectsResult.items || [];
-  const totalProjects = projectsResult.total != null ? projectsResult.total : projects.length;
-  const activeProjects = projects.filter((p) => (p.status || "").toUpperCase() === "ACTIVE");
-  const projectsActiveCount = activeProjects.length;
+  const [activeSprintRow, criticalIncidentsCount, myAssignments, projectStoryProgress] = await Promise.all([
+    findActiveSprint(projectIds),
+    countCriticalIncidents(projectIds),
+    getMyAssignments(user.id, organizationId),
+    getStoryProgressByProjectIds(projectIds)
+  ]);
 
-  let storiesTotal = 0;
-  if (projectIds.length > 0) {
-    const counts = await Promise.all(projectIds.slice(0, 100).map((pid) => getProjectCounts(pid)));
-    storiesTotal = counts.reduce((acc, c) => acc + (c.userStories || 0), 0);
-  }
+  const progressByProjectId = {};
+  projectStoryProgress.forEach((row) => {
+    progressByProjectId[row.project_id] = row;
+  });
+
+  const storiesTotal = projectStoryProgress.reduce((acc, row) => acc + (row.stories_total || 0), 0);
+  const projectHealth = (projectsForHealth || []).map((project) => {
+    const plain = typeof project.toJSON === "function" ? project.toJSON() : project;
+    const progress = progressByProjectId[plain.id] || { stories_total: 0, stories_done: 0 };
+    const storiesTotalForProject = progress.stories_total || 0;
+    const storiesDoneForProject = progress.stories_done || 0;
+    const progressPercent =
+      storiesTotalForProject > 0 ? Math.round((storiesDoneForProject / storiesTotalForProject) * 100) : 0;
+    return {
+      id: plain.id,
+      number: plain.number,
+      name: plain.name,
+      status: plain.status,
+      storiesTotal: storiesTotalForProject,
+      storiesDone: storiesDoneForProject,
+      progressPercent
+    };
+  });
 
   let activeSprint = null;
   if (activeSprintRow) {
@@ -48,11 +72,12 @@ async function getDashboardSummary(user, organizationId) {
 
   return {
     projectsActive: projectsActiveCount,
-    projectsTotal: totalProjects,
+    projectsTotal,
     storiesTotal,
     activeSprint,
     criticalIncidentsCount: criticalIncidentsCount || 0,
-    myAssignments
+    myAssignments,
+    projectHealth
   };
 }
 
@@ -72,17 +97,37 @@ async function countCriticalIncidents(projectIds) {
   const { Incident } = getModels();
   if (!Incident) return 0;
   const count = await Incident.count({
-    where: { project_id: { [Op.in]: projectIds }, severity: "CRITICAL" }
+    where: {
+      project_id: { [Op.in]: projectIds },
+      severity: "CRITICAL",
+      status: { [Op.in]: ["OPEN", "IN_PROGRESS"] }
+    }
   });
   return count;
 }
 
-async function getMyAssignments(userId) {
-  const { UserStory, Feature } = getModels();
-  if (!UserStory || !Feature) return [];
+async function getMyAssignments(userId, organizationId) {
+  const { UserStory, Feature, Project } = getModels();
+  if (!UserStory || !Feature || !Project) return [];
   const rows = await UserStory.findAll({
     where: { assigned_to: userId },
-    include: [{ model: Feature, as: "feature", attributes: ["id", "title"], required: true }],
+    include: [
+      {
+        model: Feature,
+        as: "feature",
+        attributes: ["id", "title"],
+        required: true,
+        include: [
+          {
+            model: Project,
+            as: "project",
+            attributes: [],
+            required: true,
+            where: { organization_id: organizationId }
+          }
+        ]
+      }
+    ],
     limit: 50,
     order: [["updated_at", "DESC"]]
   });

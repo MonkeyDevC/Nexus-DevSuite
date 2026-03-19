@@ -18,10 +18,12 @@ function toPlain(feature) {
   const out = {
     id: f.id,
     project_id: f.project_id,
+    number: f.number,
     title: f.title,
     description: f.description,
     status: f.status,
     priority: f.priority,
+    backlog_position: f.backlog_position != null ? f.backlog_position : null,
     created_by: f.created_by,
     approved_by: f.approved_by,
     approved_at: f.approved_at,
@@ -30,6 +32,8 @@ function toPlain(feature) {
     updated_at: f.updated_at
   };
   if (f.user_stories_count != null) out.user_stories_count = f.user_stories_count;
+  if (f.stories_done != null) out.stories_done = f.stories_done;
+  if (f.progress_pct != null) out.progress_pct = f.progress_pct;
   return out;
 }
 
@@ -73,9 +77,11 @@ async function createFeature(projectId, payload, context = {}) {
       code: ERROR_CODES.PROJECT_ARCHIVED
     });
   }
+  const nextNumber = (await featureRepository.getMaxFeatureNumberGlobal()) + 1;
   const created = await featureRepository.create({
     ...payload,
     project_id: projectId,
+    number: nextNumber,
     created_by: context.user?.id
   });
   return toPlain(created);
@@ -91,7 +97,17 @@ async function getFeatureById(id, organizationId) {
   }
   const project = await projectsRepository.findById(feature.project_id);
   if (project) ensureProjectInOrg(project, organizationId);
-  return toPlain(feature);
+  const plain = toPlain(feature);
+  const [countsMap, doneMap] = await Promise.all([
+    userStoryRepository.getStoryCountsByFeatureIds([id]),
+    userStoryRepository.getStoryDoneCountsByFeatureIds([id])
+  ]);
+  const totalStories = countsMap[id] != null ? countsMap[id] : 0;
+  const doneStories = doneMap[id] != null ? doneMap[id] : 0;
+  plain.user_stories_count = totalStories;
+  plain.stories_done = doneStories;
+  plain.progress_pct = totalStories > 0 ? Math.round((doneStories / totalStories) * 100) : 0;
+  return plain;
 }
 
 async function listFeaturesByProject(projectId, { page = 1, limit = 10, status } = {}, organizationId) {
@@ -105,10 +121,17 @@ async function listFeaturesByProject(projectId, { page = 1, limit = 10, status }
   ensureProjectInOrg(project, organizationId);
   const { items, total } = await featureRepository.listByProject(projectId, { page, limit, status });
   const featureIds = items.map(function (f) { return f.id; });
-  const storyCounts = await userStoryRepository.getStoryCountsByFeatureIds(featureIds);
+  const [storyCounts, doneCounts] = await Promise.all([
+    userStoryRepository.getStoryCountsByFeatureIds(featureIds),
+    userStoryRepository.getStoryDoneCountsByFeatureIds(featureIds)
+  ]);
   const data = items.map(function (f) {
     const plain = f.toJSON ? f.toJSON() : f;
-    plain.user_stories_count = storyCounts[f.id] != null ? storyCounts[f.id] : 0;
+    const totalStories = storyCounts[f.id] != null ? storyCounts[f.id] : 0;
+    const doneStories = doneCounts[f.id] != null ? doneCounts[f.id] : 0;
+    plain.user_stories_count = totalStories;
+    plain.stories_done = doneStories;
+    plain.progress_pct = totalStories > 0 ? Math.round((doneStories / totalStories) * 100) : 0;
     return toPlain(plain);
   });
   return {
@@ -139,6 +162,7 @@ async function updateFeature(id, payload, context = {}) {
   if (payload.title !== undefined) updatePayload.title = payload.title;
   if (payload.description !== undefined) updatePayload.description = payload.description;
   if (payload.priority !== undefined) updatePayload.priority = payload.priority;
+  if (payload.backlog_position !== undefined) updatePayload.backlog_position = payload.backlog_position === null || payload.backlog_position === "" ? null : Math.max(0, parseInt(payload.backlog_position, 10));
   if (Object.keys(updatePayload).length === 0) return toPlain(feature);
 
   const updated = await featureRepository.update(id, updatePayload);

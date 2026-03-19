@@ -3,6 +3,18 @@
  */
 (function () {
   function esc(s) { if (s == null) return ""; var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+  function createEvidenceRef() { return "img-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8); }
+  function buildEvidenceRefTag(ref) { return "<evidence://" + String(ref || "") + ">"; }
+  function insertTextAtCursor(el, text) {
+    if (!el) return;
+    var start = typeof el.selectionStart === "number" ? el.selectionStart : el.value.length;
+    var end = typeof el.selectionEnd === "number" ? el.selectionEnd : el.value.length;
+    var before = el.value.slice(0, start);
+    var after = el.value.slice(end);
+    el.value = before + text + after;
+    var nextPos = start + text.length;
+    if (typeof el.setSelectionRange === "function") el.setSelectionRange(nextPos, nextPos);
+  }
 
   window.registerView("features", async function () {
     await window.showNav();
@@ -74,6 +86,7 @@
         notes: p.notes != null ? String(p.notes) : "",
         files: Array.isArray(p.files) ? p.files.filter(function (f) { return f && f.data_url; }).map(function (f) {
           return {
+            ref: f.ref ? String(f.ref) : createEvidenceRef(),
             name: f.name ? String(f.name) : "archivo",
             type: f.type ? String(f.type) : "application/octet-stream",
             data_url: String(f.data_url)
@@ -154,7 +167,7 @@
       html += '<h1 class="nexus-page-title">Features</h1>';
       html += '<div class="nexus-panel nexus-section-spacing">';
       var hasFilter = !!(state.search || (state.statusFilter && state.statusFilter.length > 0 && state.statusFilter.length < 5));
-      html += '<div class="d-flex flex-wrap gap-2 align-items-end mb-2">';
+      html += '<div class="d-flex flex-wrap gap-2 align-items-end mb-2 feat-toolbar-row">';
       html += (typeof window.renderPageSizeSelector === "function" ? window.renderPageSizeSelector({ selectId: "feat-per-page", currentLimit: state.limit, options: [10, 25, 50] }) : "");
       var selectedProjectLabel = state.projectId ? getProjectListLabelById(state.projectId) : "Seleccionar proyecto";
       html += '<div class="d-flex flex-column">';
@@ -175,11 +188,11 @@
       html += '</ul></li>';
       html += "</ul></div></div>";
       html += window.renderClearFiltersButton({ show: hasFilter, id: "feat-clear-filters-btn" });
-      html += '<div class="d-flex flex-wrap gap-2 ms-auto">';
-      html += '<button type="button" id="feat-btn-export" class="btn btn-outline-secondary btn-sm"' + (!state.projectId ? " disabled" : "") + '>Exportar</button>';
+      html += '<div class="d-flex flex-wrap gap-2 ms-auto feat-toolbar-actions">';
+      html += '<button type="button" id="feat-btn-export" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Exportar features"><i data-lucide="download"></i> Exportar</button>';
       html += '<input type="file" id="feat-import-input" class="d-none" accept=".json,application/json">';
-      html += '<button type="button" id="feat-btn-import" class="btn btn-outline-secondary btn-sm"' + (!state.projectId ? " disabled" : "") + '>Importar</button>';
-      html += '<a href="#" id="feat-btn-new" class="btn btn-nexus-primary btn-sm">+ Nueva feature</a>';
+      html += '<button type="button" id="feat-btn-import" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Importar features"><i data-lucide="upload"></i> Importar</button>';
+      html += '<button type="button" id="feat-btn-new" class="btn btn-nexus-primary btn-sm tooltip" data-tooltip="Crear nueva feature"><i data-lucide="plus"></i> Nueva feature</button>';
       html += "</div>";
       html += "</div>";
       if (!state.projectId) {
@@ -239,13 +252,16 @@
             { label: "Descripción de la feature" },
             { label: "Prioridad", sortKey: "priority" },
             { headerHtml: estadoHeaderHtml },
-            { label: "Cant. stories" },
+            { label: "Progreso stories" },
             { label: "Acciones" }
           ],
           items: items,
           sortState: { sort: state.sort, dir: state.dir },
           rowRenderer: function (f) {
-            var count = f.user_stories_count != null ? f.user_stories_count : (f.stories_count != null ? f.stories_count : "—");
+            var total = f.user_stories_count != null ? f.user_stories_count : (f.stories_count != null ? f.stories_count : 0);
+            var done = f.stories_done != null ? f.stories_done : 0;
+            var pct = f.progress_pct != null ? f.progress_pct : (total > 0 ? Math.round((done / total) * 100) : 0);
+            var count = total === 0 && done === 0 ? "—" : (done + "/" + total + (total > 0 ? " (" + pct + "%)" : ""));
             var desc = (f.description || "").trim();
             var descShort = desc.length > 80 ? desc.slice(0, 77) + "…" : desc;
             var descCell = desc ? ('<span class="nexus-text-sm" title="' + esc(desc) + '">' + esc(descShort || "—") + "</span>") : "—";
@@ -322,6 +338,15 @@
 
     function openFeatureDetailModal(featureId) {
       if (!featureId || typeof window.openNexusFormModal !== "function") return;
+      var existingModal = document.getElementById("featureDetailModal");
+      if (existingModal) {
+        var existingInstance = typeof bootstrap !== "undefined" ? bootstrap.Modal.getInstance(existingModal) : null;
+        if (existingInstance) {
+          existingInstance.show();
+          return;
+        }
+        existingModal.remove();
+      }
       window.fetchApi("/features/" + featureId).then(function (res) {
         if (!(res && res.success && res.data)) {
           window.openNexusAlertModal({ title: "Error", message: (res && res.error && res.error.message) || "No se pudo cargar la feature." });
@@ -349,11 +374,19 @@
         }
         var featureDisplayId = "FT-" + (featureDisplayNumber || "—");
 
+        var currentHash = window.location.hash || "";
+        if (currentHash.indexOf("feature=") !== -1) {
+          var cleaned = currentHash.replace(/([?&])feature=[^&]*/, "$1").replace(/[?&]$/, "");
+          if (cleaned !== currentHash) {
+            window.history.replaceState(null, "", cleaned);
+          }
+        }
+
         function renderCriteriaListHtml(lines) {
           if (!lines || !lines.length) return '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
-          var h = '<ul class="list-unstyled mb-0">';
-          lines.forEach(function (line, idx) { h += '<li class="py-1">' + (idx + 1) + ". " + esc(line || "—") + "</li>"; });
-          h += "</ul>";
+          var h = '<ol class="criteria-list criteria-list-numbered">';
+          lines.forEach(function (line) { h += "<li>" + esc(line || "—") + "</li>"; });
+          h += "</ol>";
           return h;
         }
         function getLines(selector) {
@@ -381,7 +414,7 @@
           if (viewTitle && titleEl) viewTitle.textContent = (titleEl.value || "").trim() || "—";
           if (viewDescription && descEl) {
             var d = (descEl.value || "").trim();
-            viewDescription.innerHTML = d ? ('<p class="mb-0" style="white-space:pre-wrap">' + esc(d) + "</p>") : '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
+            viewDescription.innerHTML = d ? ('<p class="viewer-description-text">' + esc(d) + "</p>") : '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
           }
           if (pageTitle && titleEl) pageTitle.textContent = (titleEl.value || "").trim() || "Feature";
         }
@@ -408,6 +441,7 @@
               var reader = new FileReader();
               reader.onload = function () {
                 resolve({
+                  ref: createEvidenceRef(),
                   name: file.name || "archivo",
                   type: file.type || "application/octet-stream",
                   data_url: reader.result
@@ -426,58 +460,68 @@
           });
         }
         function renderEvidencePane() {
-          var listEl = document.getElementById("feature-detail-evidence-list");
           var previewEl = document.getElementById("feature-detail-evidence-preview");
-          if (listEl) {
-            if (!evidenceState.files.length) listEl.innerHTML = '<p class="mb-0 nexus-text-sm text-muted">Sin archivos adjuntos.</p>';
-            else {
-              var listHtml = '<ul class="list-unstyled mb-0">';
-              evidenceState.files.forEach(function (file, idx) {
-                listHtml += '<li class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2"><span class="nexus-text-sm text-truncate me-2">' + esc(file.name || ("Archivo " + (idx + 1))) + '</span><button type="button" class="btn btn-outline-danger btn-sm feature-evidence-remove" data-evidence-index="' + idx + '">Quitar</button></li>';
-              });
-              listHtml += "</ul>";
-              listEl.innerHTML = listHtml;
-              listEl.querySelectorAll(".feature-evidence-remove").forEach(function (btn) {
-                btn.onclick = function () {
-                  var index = parseInt(btn.getAttribute("data-evidence-index"), 10);
-                  if (!isNaN(index)) evidenceState.files.splice(index, 1);
-                  renderEvidencePane();
-                };
-              });
-            }
-          }
           if (previewEl) {
             var preview = "";
             var notesText = (document.getElementById("feature-detail-evidence-notes") && document.getElementById("feature-detail-evidence-notes").value || "").trim();
-            preview += '<div class="border rounded p-2 mb-2"><div class="nexus-text-sm text-muted mb-1">Notas</div>' + (notesText ? ('<div style="white-space:pre-wrap">' + esc(notesText) + '</div>') : '<div class="nexus-text-sm text-muted">Sin notas.</div>') + "</div>";
-            if (!evidenceState.files.length) preview += '<p class="mb-0 nexus-text-sm text-muted">Sin previsualizaciones.</p>';
-            else {
-              evidenceState.files.forEach(function (file) {
-                if (String(file.type || "").indexOf("image/") === 0) {
-                  preview += '<img src="' + file.data_url + '" alt="' + esc(file.name || "evidencia") + '" class="img-fluid rounded border mb-2">';
-                } else if (String(file.type || "").indexOf("video/") === 0) {
-                  preview += '<video src="' + file.data_url + '" controls class="w-100 rounded border mb-2" style="max-height:240px"></video>';
+            var filesByRef = {};
+            var filesByName = {};
+            evidenceState.files.forEach(function (file) {
+              if (file && file.ref) filesByRef[String(file.ref)] = file;
+              if (file && file.name) filesByName[String(file.name)] = file;
+            });
+            function renderNotesWithInlineImages(text) {
+              if (!text) return '<div class="nexus-text-sm text-muted">Sin notas.</div>';
+              var pattern = /<([^>\n]+)>/g;
+              var html = "";
+              var last = 0;
+              var m;
+              while ((m = pattern.exec(text)) !== null) {
+                var segment = text.slice(last, m.index);
+                if (segment) html += esc(segment).replace(/\n/g, "<br>");
+                var token = (m[1] || "").trim();
+                var ref = token.indexOf("evidence://") === 0 ? token.slice("evidence://".length) : token;
+                var file = filesByRef[ref] || filesByName[ref];
+                if (file && String(file.type || "").indexOf("image/") === 0) {
+                  html += '<div class="my-2"><img src="' + file.data_url + '" alt="' + esc(file.name || "evidencia") + '" class="img-fluid rounded border"></div>';
                 } else {
-                  preview += '<div class="border rounded p-2 mb-2"><span class="nexus-text-sm">' + esc(file.name || "Archivo") + "</span></div>";
+                  html += esc(m[0]);
                 }
-              });
+                last = pattern.lastIndex;
+              }
+              var tail = text.slice(last);
+              if (tail) html += esc(tail).replace(/\n/g, "<br>");
+              return html || '<div class="nexus-text-sm text-muted">Sin notas.</div>';
             }
+            preview += '<div style="white-space:normal">' + renderNotesWithInlineImages(notesText) + "</div>";
             previewEl.innerHTML = preview;
           }
         }
         function bindEvidenceEvents() {
           var notesEl = document.getElementById("feature-detail-evidence-notes");
-          var filesEl = document.getElementById("feature-detail-evidence-files");
           if (notesEl) notesEl.oninput = function () { renderEvidencePane(); };
-          if (filesEl) filesEl.onchange = function () {
-            var selected = filesEl.files;
-            if (!selected || !selected.length) return;
-            readFilesAsDataUrl(selected).then(function (rows) {
+          if (notesEl) notesEl.onpaste = function (ev) {
+            var items = (ev.clipboardData && ev.clipboardData.items) ? Array.prototype.slice.call(ev.clipboardData.items) : [];
+            var imageFiles = items
+              .filter(function (it) { return it && it.kind === "file" && String(it.type || "").indexOf("image/") === 0; })
+              .map(function (it) { return it.getAsFile(); })
+              .filter(Boolean);
+            if (!imageFiles.length) return;
+            ev.preventDefault();
+            readFilesAsDataUrl(imageFiles).then(function (rows) {
+              if (!rows.length) return;
               evidenceState.files = evidenceState.files.concat(rows);
-              filesEl.value = "";
+              var tags = rows.map(function (row) { return buildEvidenceRefTag(row.ref); }).join("\n");
+              var prefix = notesEl.value && !/\n$/.test(notesEl.value) ? "\n" : "";
+              insertTextAtCursor(notesEl, prefix + tags);
               renderEvidencePane();
             });
           };
+          bindEvidenceLayoutControls();
+        }
+        function bindEvidenceLayoutControls() {
+          var featureModalEl = document.getElementById("featureDetailModal");
+          if (typeof window.bindEvidenceLayout === "function") window.bindEvidenceLayout(featureModalEl || document);
         }
         function saveCriteriaOnly() {
           var a = getLines(".feature-detail-criteria-input");
@@ -542,6 +586,11 @@
           });
         }
         function getDirtyState() {
+          var tabEd = document.getElementById("feature-detail-tab-edicion");
+          var tabEv = document.getElementById("feature-detail-tab-evidencia");
+          if (tabEd && tabEv && !tabEd.classList.contains("active") && !tabEv.classList.contains("active")) {
+            return false;
+          }
           var titleEl = document.getElementById("feature-detail-title-edit");
           var descEl = document.getElementById("feature-detail-desc-edit");
           var currTitle = (titleEl && titleEl.value || "").trim();
@@ -563,10 +612,10 @@
 
         var featStatuses = ["DRAFT", "APPROVED", "IN_PROGRESS", "DONE", "ARCHIVED"];
         var featPriorities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
-        var statusSelectHtml = '<span class="nexus-text-sm text-muted">Estado</span><select id="feature-detail-status-edit" class="form-select form-select-sm mt-1" style="max-width:100%">';
+        var statusSelectHtml = '<label class="editor-label" for="feature-detail-status-edit">Estado</label><select id="feature-detail-status-edit" class="form-select form-select-sm form-modern-input" style="max-width:100%">';
         featStatuses.forEach(function (s) { statusSelectHtml += '<option value="' + esc(s) + '"' + (statusBase === s ? ' selected' : '') + '>' + esc(s) + '</option>'; });
         statusSelectHtml += "</select>";
-        var prioritySelectHtml = '<span class="nexus-text-sm text-muted">Prioridad</span><select id="feature-detail-priority-edit" class="form-select form-select-sm mt-1" style="max-width:100%">';
+        var prioritySelectHtml = '<label class="editor-label" for="feature-detail-priority-edit">Prioridad</label><select id="feature-detail-priority-edit" class="form-select form-select-sm form-modern-input" style="max-width:100%">';
         featPriorities.forEach(function (p) { prioritySelectHtml += '<option value="' + esc(p) + '"' + (priorityBase === p ? ' selected' : '') + '>' + esc(p) + '</option>'; });
         prioritySelectHtml += "</select>";
 
@@ -578,45 +627,74 @@
         ]);
         bodyHtml += '<h1 class="nexus-page-title" id="feature-detail-page-title">' + esc(f.title || "Feature") + "</h1>";
         bodyHtml += '<div class="nexus-card p-4" style="max-width:100%">';
-        bodyHtml += '<ul class="nav nav-tabs mb-3" role="tablist"><li class="nav-item"><button type="button" class="nav-link active" id="feature-detail-tab-vista" data-bs-toggle="tab" data-bs-target="#feature-detail-panel-vista" aria-selected="true">Vista</button></li><li class="nav-item"><button type="button" class="nav-link" id="feature-detail-tab-edicion" data-bs-toggle="tab" data-bs-target="#feature-detail-panel-edicion" aria-selected="false">Edición</button></li><li class="nav-item"><button type="button" class="nav-link" id="feature-detail-tab-evidencia" data-bs-toggle="tab" data-bs-target="#feature-detail-panel-evidencia" aria-selected="false">Evidencia</button></li></ul>';
+        bodyHtml += '<div class="view-mode-switch mb-3" role="tablist" aria-label="Modo de vista"><button type="button" class="mode-btn nav-link active tooltip" id="feature-detail-tab-vista" data-bs-toggle="tab" data-bs-target="#feature-detail-panel-vista" aria-selected="true" data-tooltip="Modo vista"><i data-lucide="eye"></i> Vista</button><button type="button" class="mode-btn nav-link tooltip" id="feature-detail-tab-edicion" data-bs-toggle="tab" data-bs-target="#feature-detail-panel-edicion" aria-selected="false" data-tooltip="Modo edición"><i data-lucide="pencil"></i> Edición</button><button type="button" class="mode-btn nav-link tooltip" id="feature-detail-tab-evidencia" data-bs-toggle="tab" data-bs-target="#feature-detail-panel-evidencia" aria-selected="false" data-tooltip="Modo evidencia"><i data-lucide="paperclip"></i> Evidencia</button><button type="button" class="mode-btn nav-link tooltip" id="feature-detail-tab-backlog" data-bs-toggle="tab" data-bs-target="#feature-detail-panel-backlog" aria-selected="false" data-tooltip="Backlog de user stories"><i data-lucide="list-checks"></i> Backlog</button></div>';
         bodyHtml += '<div class="tab-content">';
-        bodyHtml += '<div class="tab-pane fade show active" id="feature-detail-panel-vista" role="tabpanel"><div class="row g-3">';
-        bodyHtml += '<div class="col-md-3"><span class="nexus-text-sm text-muted">ID</span><p class="nexus-font-semibold mb-0">' + esc(featureDisplayId) + '</p></div>';
-        bodyHtml += '<div class="col-md-3"><span class="nexus-text-sm text-muted">Estado</span><p class="mb-0" id="feature-detail-status-vista">' + esc(statusBase) + '</p></div>';
-        bodyHtml += '<div class="col-md-3"><span class="nexus-text-sm text-muted">Prioridad</span><p class="mb-0" id="feature-detail-priority-vista">' + esc(f.priority || "—") + '</p></div>';
-        bodyHtml += '<div class="col-md-3"><span class="nexus-text-sm text-muted">Creado</span><p class="mb-0 nexus-text-sm">' + esc((f.created_at && f.created_at.slice) ? f.created_at.slice(0, 10) : (f.created_at || "—")) + '</p></div>';
-        bodyHtml += '<div class="col-12"><span class="nexus-text-sm text-muted">Título</span><p class="mb-0" id="feature-detail-title-vista">' + esc(f.title || "—") + '</p></div>';
-        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Descripción</span><div id="feature-detail-description-vista">' + ((f.description && String(f.description).trim()) ? ('<p class="mb-0" style="white-space:pre-wrap">' + esc(f.description) + '</p>') : '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>') + '</div></div>';
-        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de aceptación</span><div id="feature-detail-criteria-vista">' + renderCriteriaListHtml(acceptanceBase) + '</div></div>';
-        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de implementación</span><div id="feature-detail-impl-vista">' + renderCriteriaListHtml(implementationBase) + '</div></div>';
+        bodyHtml += '<div class="tab-pane fade show active" id="feature-detail-panel-vista" role="tabpanel"><div class="entity-viewer">';
+        bodyHtml += '<section class="viewer-header"><h2 class="viewer-title" id="feature-detail-title-vista">' + esc(f.title || "—") + '</h2></section>';
+        bodyHtml += '<section class="viewer-metadata">';
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">ID</div><div class="metadata-value">' + esc(featureDisplayId) + '</div></div>';
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">Estado</div><div class="metadata-value" id="feature-detail-status-vista">' + esc(statusBase) + '</div></div>';
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">Prioridad</div><div class="metadata-value" id="feature-detail-priority-vista">' + esc(f.priority || "—") + '</div></div>';
+        var totalSt = f.user_stories_count != null ? f.user_stories_count : 0;
+        var doneSt = f.stories_done != null ? f.stories_done : 0;
+        var pctSt = f.progress_pct != null ? f.progress_pct : (totalSt > 0 ? Math.round((doneSt / totalSt) * 100) : 0);
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">Progreso stories</div><div class="metadata-value">' + (totalSt ? (doneSt + '/' + totalSt + ' (' + pctSt + '%)') : '—') + '</div></div>';
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">Creado</div><div class="metadata-value">' + esc((f.created_at && f.created_at.slice) ? f.created_at.slice(0, 10) : (f.created_at || "—")) + '</div></div>';
+        bodyHtml += '</section>';
+        bodyHtml += '<section class="viewer-section"><div class="viewer-section-title">Descripción</div><div id="feature-detail-description-vista">' + ((f.description && String(f.description).trim()) ? ('<p class="viewer-description-text">' + esc(f.description) + '</p>') : '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>') + '</div></section>';
+        bodyHtml += '<section class="viewer-section"><div class="viewer-section-title">Criterios de aceptación</div><div id="feature-detail-criteria-vista">' + renderCriteriaListHtml(acceptanceBase) + '</div></section>';
+        bodyHtml += '<section class="viewer-section"><div class="viewer-section-title">Criterios de implementación</div><div id="feature-detail-impl-vista">' + renderCriteriaListHtml(implementationBase) + '</div></section>';
         bodyHtml += '</div></div>';
 
-        bodyHtml += '<div class="tab-pane fade" id="feature-detail-panel-edicion" role="tabpanel"><div class="row g-3">';
-        bodyHtml += '<div class="col-md-3"><span class="nexus-text-sm text-muted">ID</span><p class="nexus-font-semibold mb-0">' + esc(featureDisplayId) + '</p></div>';
-        bodyHtml += '<div class="col-md-3">' + statusSelectHtml + '</div>';
-        bodyHtml += '<div class="col-md-3">' + prioritySelectHtml + '</div>';
-        bodyHtml += '<div class="col-md-3"><span class="nexus-text-sm text-muted">Actualizado</span><p class="mb-0 nexus-text-sm">' + esc((f.updated_at && f.updated_at.slice) ? f.updated_at.slice(0, 10) : (f.updated_at || "—")) + '</p></div>';
-        bodyHtml += '<div class="col-12"><span class="nexus-text-sm text-muted">Título</span><input type="text" id="feature-detail-title-edit" class="form-control form-control-sm mt-1" value="' + esc(f.title || "") + '"></div>';
-        bodyHtml += '<div class="col-12"><span class="nexus-text-sm text-muted">Descripción</span><textarea id="feature-detail-desc-edit" class="form-control form-control-sm mt-1" rows="3">' + esc(f.description || "") + '</textarea></div>';
-        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de aceptación</span><div id="feature-detail-criteria-list">';
+        bodyHtml += '<div class="tab-pane fade" id="feature-detail-panel-edicion" role="tabpanel"><div class="entity-editor">';
+        bodyHtml += '<section class="editor-section"><div class="editor-section-title">General</div><label class="editor-label" for="feature-detail-title-edit">Título</label><input type="text" id="feature-detail-title-edit" class="form-control form-control-sm form-modern-input editor-title-input" value="' + esc(f.title || "") + '"></section>';
+        bodyHtml += '<section class="editor-section"><div class="editor-section-title">Metadata</div><div class="metadata-grid">';
+        bodyHtml += '<div><span class="editor-label">ID</span><div class="editor-meta-value">' + esc(featureDisplayId) + "</div></div>";
+        bodyHtml += '<div>' + statusSelectHtml + "</div>";
+        bodyHtml += '<div>' + prioritySelectHtml + "</div>";
+        bodyHtml += '<div><span class="editor-label">Actualizado</span><div class="editor-meta-value">' + esc((f.updated_at && f.updated_at.slice) ? f.updated_at.slice(0, 10) : (f.updated_at || "—")) + "</div></div>";
+        bodyHtml += "</div></section>";
+        bodyHtml += '<section class="editor-section"><div class="editor-section-title">Descripción</div><textarea id="feature-detail-desc-edit" class="form-control form-control-sm form-modern-input description-editor" rows="3">' + esc(f.description || "") + "</textarea></section>";
+        bodyHtml += '<section class="editor-section"><div class="editor-section-title">Criterios de aceptación</div><div id="feature-detail-criteria-list">';
         var nA = acceptanceBase.length || 1;
-        for (var i = 0; i < nA; i++) bodyHtml += '<div class="feature-criterion-row d-flex gap-2 align-items-center mb-2"><input type="text" class="form-control form-control-sm feature-detail-criteria-input" value="' + esc(acceptanceBase[i] || "") + '" placeholder="Criterio ' + (i + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-criterion-remove">&times;</button></div>';
-        bodyHtml += '</div><div class="d-flex flex-wrap gap-2 mt-2"><button type="button" id="feature-detail-criteria-add" class="btn btn-outline-secondary btn-sm">+ Añadir criterio</button><button type="button" id="feature-detail-criteria-save" class="btn btn-nexus-primary btn-sm">Guardar criterios</button><span id="feature-detail-criteria-msg" class="nexus-text-sm text-muted"></span></div></div>';
-        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de implementación</span><div id="feature-detail-impl-list">';
+        for (var i = 0; i < nA; i++) bodyHtml += '<div class="feature-criterion-row criteria-item"><input type="text" class="form-control form-control-sm form-modern-input feature-detail-criteria-input" value="' + esc(acceptanceBase[i] || "") + '" placeholder="Criterio ' + (i + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-criterion-remove criteria-remove-btn tooltip" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button></div>';
+        bodyHtml += '</div><div class="d-flex flex-wrap gap-2 mt-2"><button type="button" id="feature-detail-criteria-add" class="btn btn-outline-secondary btn-sm btn-add tooltip" data-tooltip="Añadir criterio"><i data-lucide="plus"></i> Añadir criterio</button><button type="button" id="feature-detail-criteria-save" class="btn btn-nexus-primary btn-sm tooltip" data-tooltip="Guardar criterios"><i data-lucide="save"></i> Guardar criterios</button><span id="feature-detail-criteria-msg" class="nexus-text-sm text-muted"></span></div></section>';
+        bodyHtml += '<section class="editor-section"><div class="editor-section-title">Criterios de implementación</div><div id="feature-detail-impl-list">';
         var nI = implementationBase.length || 1;
-        for (var j = 0; j < nI; j++) bodyHtml += '<div class="feature-impl-row d-flex gap-2 align-items-center mb-2"><input type="text" class="form-control form-control-sm feature-detail-impl-input" value="' + esc(implementationBase[j] || "") + '" placeholder="Criterio ' + (j + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-impl-remove">&times;</button></div>';
-        bodyHtml += '</div><div class="d-flex flex-wrap gap-2 mt-2"><button type="button" id="feature-detail-impl-add" class="btn btn-outline-secondary btn-sm">+ Añadir criterio</button><button type="button" id="feature-detail-impl-save" class="btn btn-nexus-primary btn-sm">Guardar criterios</button><span id="feature-detail-impl-msg" class="nexus-text-sm text-muted"></span></div></div>';
+        for (var j = 0; j < nI; j++) bodyHtml += '<div class="feature-impl-row criteria-item"><input type="text" class="form-control form-control-sm form-modern-input feature-detail-impl-input" value="' + esc(implementationBase[j] || "") + '" placeholder="Criterio ' + (j + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-impl-remove criteria-remove-btn tooltip" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button></div>';
+        bodyHtml += '</div><div class="d-flex flex-wrap gap-2 mt-2"><button type="button" id="feature-detail-impl-add" class="btn btn-outline-secondary btn-sm btn-add tooltip" data-tooltip="Añadir criterio"><i data-lucide="plus"></i> Añadir criterio</button><button type="button" id="feature-detail-impl-save" class="btn btn-nexus-primary btn-sm tooltip" data-tooltip="Guardar criterios"><i data-lucide="save"></i> Guardar criterios</button><span id="feature-detail-impl-msg" class="nexus-text-sm text-muted"></span></div></section>';
         bodyHtml += '</div></div>';
-        bodyHtml += '<div class="tab-pane fade" id="feature-detail-panel-evidencia" role="tabpanel"><div class="row g-3">';
-        bodyHtml += '<div class="col-md-6"><span class="nexus-text-sm text-muted d-block mb-2">Edición</span><textarea id="feature-detail-evidence-notes" class="form-control form-control-sm mb-2" rows="5" placeholder="Notas de evidencia...">' + esc(evidenceState.notes || "") + '</textarea><input type="file" id="feature-detail-evidence-files" class="form-control form-control-sm mb-2" accept="image/*,video/*,.pdf,.doc,.docx,.txt" multiple><div id="feature-detail-evidence-list"></div></div>';
-        bodyHtml += '<div class="col-md-6"><span class="nexus-text-sm text-muted d-block mb-2">Previsualización</span><div id="feature-detail-evidence-preview"></div></div>';
-        bodyHtml += "</div></div>";
-        bodyHtml += '<div class="mt-3 d-flex flex-wrap justify-content-start align-items-center gap-2">';
-        bodyHtml += '<button type="button" id="feature-detail-export" class="btn btn-outline-secondary btn-sm">Exportar</button>';
+        bodyHtml += '<div class="tab-pane fade" id="feature-detail-panel-evidencia" role="tabpanel">';
+        bodyHtml += '<div class="evidence-container" id="feature-detail-evidence-container" data-evidence-mode="split">';
+        bodyHtml += '<div class="evidence-fullscreen-layout-controls mb-2">';
+        bodyHtml += '<button type="button" data-evidence-layout="left" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Solo editor"><i data-lucide="pencil"></i> Editor</button>';
+        bodyHtml += '<button type="button" data-evidence-layout="right" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Solo vista previa"><i data-lucide="eye"></i> Preview</button>';
+        bodyHtml += '<button type="button" data-evidence-layout="split" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Vista dividida"><i data-lucide="columns"></i> Split</button>';
+        bodyHtml += '<button type="button" class="btn btn-outline-secondary btn-sm btn-evidence-fullscreen-global ms-auto tooltip" aria-label="Ver en pantalla completa" data-tooltip="Pantalla completa"><i data-lucide="maximize"></i> Pantalla completa</button>';
+        bodyHtml += "</div>";
+        bodyHtml += '<div class="evidence-body evidence-split-layout" style="height:320px;">';
+        bodyHtml += '<div class="evidence-col" id="feature-detail-evidence-left-col" data-evidence-role="left-col"><div class="evidence-panel"><div class="evidence-panel-header">Edición</div><div class="evidence-panel-body evidence-content"><textarea id="feature-detail-evidence-notes" class="form-control form-control-sm border-0 shadow-none p-0 m-0 bg-transparent" rows="6" placeholder="Notas de evidencia..." style="min-height:100%; height:100%; resize:none; overflow-y:auto;">' + esc(evidenceState.notes || "") + '</textarea></div></div></div>';
+        bodyHtml += '<div class="split-resizer" data-evidence-role="resizer" aria-hidden="true"></div>';
+        bodyHtml += '<div class="evidence-col" id="feature-detail-evidence-right-col" data-evidence-role="right-col"><div class="evidence-panel"><div class="evidence-panel-header">Visualización</div><div class="evidence-panel-body evidence-content"><div id="feature-detail-evidence-preview"></div></div></div></div>';
+        bodyHtml += "</div></div></div>";
+        bodyHtml += '<div class="mt-3 d-flex flex-wrap justify-content-start align-items-center gap-2" id="feature-detail-transfer-actions">';
+        bodyHtml += '<button type="button" id="feature-detail-export" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Exportar evidencia"><i data-lucide="download"></i> Exportar</button>';
         bodyHtml += '<input type="file" id="feature-detail-import-input" class="d-none" accept=".json,application/json">';
-        bodyHtml += '<button type="button" id="feature-detail-import" class="btn btn-outline-secondary btn-sm">Importar</button>';
+        bodyHtml += '<button type="button" id="feature-detail-import" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Importar evidencia"><i data-lucide="upload"></i> Importar</button>';
         bodyHtml += "</div></div>";
+        bodyHtml += '<div class="tab-pane fade" id="feature-detail-panel-backlog" role="tabpanel">';
+        bodyHtml += '<h3 class="nexus-font-semibold nexus-text-primary mb-3">Backlog de la feature</h3>';
+        bodyHtml += '<div class="d-flex flex-wrap align-items-center gap-2 mb-3"><button type="button" class="btn btn-nexus-primary btn-sm" id="feature-detail-backlog-create-story"><i data-lucide="plus"></i> Create Story</button></div>';
+        bodyHtml += '<div id="feature-detail-backlog-container" class="table-responsive"><p class="nexus-text-sm text-muted">Seleccione la pestaña Backlog para cargar las stories.</p></div>';
+        bodyHtml += "</div>";
+        bodyHtml += "</div>";
+        bodyHtml += '<div class="d-flex flex-wrap justify-content-end gap-2 mt-3 pt-3 border-top nexus-card-footer">';
+        bodyHtml += '<button type="button" class="btn btn-secondary nexus-form-modal-cancel-btn tooltip" id="feature-detail-cancel" data-nexus-modal-id="featureDetailModal" data-tooltip="Cancelar"><i data-lucide="x"></i> Cancelar</button>';
+        bodyHtml += '<button type="button" class="btn btn-nexus-primary tooltip" id="feature-detail-save-all" data-tooltip="Guardar"><i data-lucide="save"></i> Guardar</button>';
+        bodyHtml += "</div>";
+        bodyHtml += "</div>";
 
+        var createdModal = null;
         window.openNexusFormModal({
           id: "featureDetailModal",
           title: "Detalle de la feature",
@@ -626,9 +704,23 @@
           primaryLabel: "Guardar",
           cancelButtonId: "feature-detail-cancel",
           modalDialogClass: "nexus-modal-story-detail",
+          footerInsideBody: true,
           getDirtyState: getDirtyState,
           onSaveBeforeClose: doSaveAll
         }, function () { doSaveAll(); });
+
+        createdModal = document.getElementById("featureDetailModal");
+        if (createdModal) {
+          createdModal.addEventListener("hidden.bs.modal", function () {
+            // Aseguramos que no queden copias huérfanas del modal en el DOM
+            var dup = document.querySelectorAll("#featureDetailModal");
+            if (dup.length > 1) {
+              for (var di = 1; di < dup.length; di++) {
+                if (dup[di] && dup[di].parentNode) dup[di].parentNode.removeChild(dup[di]);
+              }
+            }
+          });
+        }
 
         bindRemoveButtons();
         var btnAddA = document.getElementById("feature-detail-criteria-add");
@@ -636,9 +728,10 @@
           var list = document.getElementById("feature-detail-criteria-list");
           var n = list.querySelectorAll(".feature-criterion-row").length + 1;
           var row = document.createElement("div");
-          row.className = "feature-criterion-row d-flex gap-2 align-items-center mb-2";
-          row.innerHTML = '<input type="text" class="form-control form-control-sm feature-detail-criteria-input" placeholder="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-criterion-remove">&times;</button>';
+          row.className = "feature-criterion-row criteria-item";
+          row.innerHTML = '<input type="text" class="form-control form-control-sm form-modern-input feature-detail-criteria-input" placeholder="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-criterion-remove criteria-remove-btn tooltip" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button>';
           list.appendChild(row);
+          if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
           bindRemoveButtons();
         };
         var btnAddI = document.getElementById("feature-detail-impl-add");
@@ -646,9 +739,10 @@
           var list = document.getElementById("feature-detail-impl-list");
           var n = list.querySelectorAll(".feature-impl-row").length + 1;
           var row = document.createElement("div");
-          row.className = "feature-impl-row d-flex gap-2 align-items-center mb-2";
-          row.innerHTML = '<input type="text" class="form-control form-control-sm feature-detail-impl-input" placeholder="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-impl-remove">&times;</button>';
+          row.className = "feature-impl-row criteria-item";
+          row.innerHTML = '<input type="text" class="form-control form-control-sm form-modern-input feature-detail-impl-input" placeholder="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-impl-remove criteria-remove-btn tooltip" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button>';
           list.appendChild(row);
+          if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
           bindRemoveButtons();
         };
         var btnSaveA = document.getElementById("feature-detail-criteria-save");
@@ -704,8 +798,8 @@
                 listA.innerHTML = "";
                 (featureData.acceptance_criteria.length ? featureData.acceptance_criteria : [""]).forEach(function (val, idx) {
                   var row = document.createElement("div");
-                  row.className = "feature-criterion-row d-flex gap-2 align-items-center mb-2";
-                  row.innerHTML = '<input type="text" class="form-control form-control-sm feature-detail-criteria-input" value="' + esc(String(val || "")) + '" placeholder="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-criterion-remove">&times;</button>';
+                  row.className = "feature-criterion-row criteria-item";
+                  row.innerHTML = '<input type="text" class="form-control form-control-sm form-modern-input feature-detail-criteria-input" value="' + esc(String(val || "")) + '" placeholder="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-criterion-remove criteria-remove-btn tooltip" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button>';
                   listA.appendChild(row);
                 });
               }
@@ -714,11 +808,12 @@
                 listI.innerHTML = "";
                 (featureData.implementation_criteria.length ? featureData.implementation_criteria : [""]).forEach(function (val, idx) {
                   var row = document.createElement("div");
-                  row.className = "feature-impl-row d-flex gap-2 align-items-center mb-2";
-                  row.innerHTML = '<input type="text" class="form-control form-control-sm feature-detail-impl-input" value="' + esc(String(val || "")) + '" placeholder="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-impl-remove">&times;</button>';
+                  row.className = "feature-impl-row criteria-item";
+                  row.innerHTML = '<input type="text" class="form-control form-control-sm form-modern-input feature-detail-impl-input" value="' + esc(String(val || "")) + '" placeholder="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm feature-impl-remove criteria-remove-btn tooltip" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button>';
                   listI.appendChild(row);
                 });
               }
+              if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
               bindRemoveButtons();
               bindEvidenceEvents();
               refreshViewFromEdit();
@@ -731,6 +826,139 @@
           };
           reader.readAsText(file);
         };
+        function syncFeatureTransferActionsVisibility() {
+          var group = document.getElementById("feature-detail-transfer-actions");
+          var tabEd = document.getElementById("feature-detail-tab-edicion");
+          if (!group || !tabEd) return;
+          group.classList.toggle("d-none", !tabEd.classList.contains("active"));
+        }
+        function loadFeatureBacklog(featureId) {
+          var container = document.getElementById("feature-detail-backlog-container");
+          if (!container) return;
+          container.innerHTML = "<p class=\"nexus-text-sm text-muted\">Cargando...</p>";
+          window.fetchApi("/features/" + featureId + "/stories?page=1&limit=100").then(function (r) {
+            if (!r || !r.success || !r.data) {
+              container.innerHTML = "<p class=\"nexus-text-sm text-danger\">Error al cargar el backlog.</p>";
+              return;
+            }
+            var items = r.data.items || r.data || [];
+            if (items.length === 0) {
+              container.innerHTML = "<p class=\"nexus-text-sm text-muted\">No hay user stories en esta feature.</p>";
+              return;
+            }
+            var table = "<table class=\"table table-sm nexus-table\"><thead><tr><th>ID</th><th>Título</th><th>Estado</th><th>Prioridad</th><th>Sprint</th><th>Responsable</th><th></th></tr></thead><tbody>";
+            items.forEach(function (st) {
+              var displayId = "US-" + (st.number != null ? st.number : (st.id ? String(st.id).slice(0, 8) : ""));
+              var title = (st.title || "").slice(0, 60);
+              var status = st.status || "—";
+              var priority = st.priority || "—";
+              var sprintName = (st.sprint && st.sprint.name) ? st.sprint.name : (st.sprint_id ? "—" : "Sin asignar");
+              var assignee = (st.assignee && (st.assignee.name || st.assignee.email)) ? (st.assignee.name || st.assignee.email) : "—";
+              var storyIdAttr = st.id ? esc(st.id) : "";
+              table += "<tr><td>" + esc(displayId) + "</td><td>" + (st.id ? "<a href=\"#\" class=\"feature-backlog-story-link\" data-story-id=\"" + storyIdAttr + "\">" + esc(title) + "</a>" : esc(title)) + "</td><td><span class=\"" + (typeof window.nexusBadgeClass === "function" ? window.nexusBadgeClass(st.status) : "") + "\">" + esc(status) + "</span></td><td>" + esc(priority) + "</td><td>" + esc(sprintName) + "</td><td>" + esc(assignee) + "</td><td><a href=\"#\" class=\"btn btn-outline-secondary btn-sm feature-backlog-story-link\" data-story-id=\"" + storyIdAttr + "\">Ver</a></td></tr>";
+            });
+            table += "</tbody></table>";
+            container.innerHTML = table;
+            if (!container.dataset.storyClickBound) {
+              container.dataset.storyClickBound = "1";
+              container.addEventListener("click", function (e) {
+                var a = e.target && e.target.closest ? e.target.closest("a.feature-backlog-story-link") : null;
+                if (!a) return;
+                e.preventDefault();
+                var storyId = (a.getAttribute("data-story-id") || "").trim();
+                if (!storyId) return;
+                if (window.targetStackManager) {
+                  window.targetStackManager.openTarget("story", storyId, { projectId: f.project_id || state.projectId || null, featureId: f.id });
+                }
+                if (typeof window.openStoryViewModal === "function") {
+                  window.openStoryViewModal(storyId, { projectIdHint: f.project_id || state.projectId, onStoryUpdated: function () { loadFeatureBacklog(f.id); }, includeStoriesLink: false });
+                } else if (typeof window._openStoryModalById === "function") {
+                  window._openStoryModalById(storyId, function () { loadFeatureBacklog(f.id); });
+                } else if (typeof window.openNexusAlertModal === "function") {
+                  window.openNexusAlertModal({ title: "Story", message: "No hay componente disponible para abrir el detalle de la story." });
+                }
+              });
+            }
+            if (typeof window.nexusCreateIcons === "function") setTimeout(window.nexusCreateIcons, 0);
+          }).catch(function () {
+            container.innerHTML = "<p class=\"nexus-text-sm text-danger\">Error al cargar el backlog.</p>";
+          });
+        }
+        var tabVistaFeature = document.getElementById("feature-detail-tab-vista");
+        var tabEdicionFeature = document.getElementById("feature-detail-tab-edicion");
+        var tabEvidenciaFeature = document.getElementById("feature-detail-tab-evidencia");
+        var tabBacklogFeature = document.getElementById("feature-detail-tab-backlog");
+        if (tabVistaFeature) tabVistaFeature.addEventListener("shown.bs.tab", syncFeatureTransferActionsVisibility);
+        if (tabEdicionFeature) tabEdicionFeature.addEventListener("shown.bs.tab", syncFeatureTransferActionsVisibility);
+        if (tabEvidenciaFeature) tabEvidenciaFeature.addEventListener("shown.bs.tab", syncFeatureTransferActionsVisibility);
+        if (tabBacklogFeature) tabBacklogFeature.addEventListener("shown.bs.tab", function () { loadFeatureBacklog(f.id); });
+        syncFeatureTransferActionsVisibility();
+        var btnCreateStory = document.getElementById("feature-detail-backlog-create-story");
+        if (btnCreateStory) btnCreateStory.onclick = function () {
+          var projectIdForSprints = f.project_id || state.projectId || "";
+          var usersPromise = window.fetchApi("/users?limit=50");
+          var sprintsPromise = projectIdForSprints ? window.fetchApi("/projects/" + projectIdForSprints + "/sprints?limit=50") : Promise.resolve(null);
+          Promise.all([usersPromise, sprintsPromise]).then(function (results) {
+            var raw = (results[0] && results[0].success && results[0].data) ? results[0].data : null;
+            var users = Array.isArray(raw) ? raw : (raw && raw.data) ? raw.data : (raw && raw.items) ? raw.items : [];
+            var rawSprints = (results[1] && results[1].success && results[1].data) ? results[1].data : null;
+            var sprintList = Array.isArray(rawSprints) ? rawSprints : (rawSprints && rawSprints.data) ? rawSprints.data : (rawSprints && rawSprints.items) ? rawSprints.items : [];
+            var bodyHtml = "<div class=\"mb-3\"><label class=\"form-label\">Título de la story</label><input type=\"text\" id=\"feature-backlog-story-title\" class=\"form-control\" placeholder=\"Título\" required></div>";
+            bodyHtml += "<div class=\"mb-3\"><label class=\"form-label\">Descripción</label><textarea id=\"feature-backlog-story-desc\" class=\"form-control\" rows=\"3\" placeholder=\"Descripción\" required></textarea></div>";
+            bodyHtml += "<div class=\"mb-3\"><label class=\"form-label\">Prioridad</label><select id=\"feature-backlog-story-priority\" class=\"form-select\"><option value=\"MEDIUM\" selected>Media</option><option value=\"LOW\">Baja</option><option value=\"HIGH\">Alta</option><option value=\"CRITICAL\">Crítica</option></select></div>";
+            bodyHtml += "<div class=\"mb-3\"><label class=\"form-label\">Story points</label><select id=\"feature-backlog-story-points\" class=\"form-select\"><option value=\"\">—</option><option value=\"1\">1</option><option value=\"2\">2</option><option value=\"3\">3</option><option value=\"5\">5</option><option value=\"8\">8</option><option value=\"13\">13</option><option value=\"21\">21</option></select></div>";
+            bodyHtml += "<div class=\"mb-3\"><label class=\"form-label\">Asignado a</label><select id=\"feature-backlog-story-assigned\" class=\"form-select\"><option value=\"\">Nadie</option>";
+            users.forEach(function (u) { bodyHtml += "<option value=\"" + esc(u.id || "") + "\">" + esc((u.name && u.name.trim()) ? u.name.trim() : (u.email || u.id)) + "</option>"; });
+            bodyHtml += "</select></div>";
+            bodyHtml += "<div class=\"mb-3\"><label class=\"form-label\">Sprint</label><select id=\"feature-backlog-story-sprint\" class=\"form-select\"><option value=\"\">Ninguno</option>";
+            sprintList.forEach(function (sp) { bodyHtml += "<option value=\"" + esc(sp.id || "") + "\">" + esc(sp.name || sp.id || "") + "</option>"; });
+            bodyHtml += "</select></div>";
+            bodyHtml += "<div id=\"feature-backlog-story-error\" class=\"alert alert-danger d-none\"></div>";
+            function doCreate() {
+              var title = (document.getElementById("feature-backlog-story-title") && document.getElementById("feature-backlog-story-title").value || "").trim();
+              var desc = (document.getElementById("feature-backlog-story-desc") && document.getElementById("feature-backlog-story-desc").value || "").trim();
+              var priority = (document.getElementById("feature-backlog-story-priority") && document.getElementById("feature-backlog-story-priority").value) || "MEDIUM";
+              var pointsEl = document.getElementById("feature-backlog-story-points");
+              var story_points = (pointsEl && pointsEl.value) ? parseInt(pointsEl.value, 10) : null;
+              var assignedEl = document.getElementById("feature-backlog-story-assigned");
+              var sprintEl = document.getElementById("feature-backlog-story-sprint");
+              var assigned_to = (assignedEl && assignedEl.value) ? assignedEl.value : null;
+              var sprint_id = (sprintEl && sprintEl.value) ? sprintEl.value : null;
+              var errEl = document.getElementById("feature-backlog-story-error");
+              if (errEl) { errEl.classList.add("d-none"); errEl.textContent = ""; }
+              if (!title) { if (errEl) { errEl.textContent = "El título es obligatorio."; errEl.classList.remove("d-none"); } return Promise.resolve(false); }
+              if (!desc) { if (errEl) { errEl.textContent = "La descripción es obligatoria."; errEl.classList.remove("d-none"); } return Promise.resolve(false); }
+              var payload = { title: title, description: desc, priority: priority };
+              if (assigned_to) payload.assigned_to = assigned_to;
+              if (sprint_id) payload.sprint_id = sprint_id;
+              if (story_points != null && !isNaN(story_points)) payload.story_points = story_points;
+              return window.fetchApi("/features/" + f.id + "/stories", { method: "POST", body: JSON.stringify(payload) }).then(function (res) {
+                if (res && res.success) {
+                  if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Story creada correctamente.");
+                  loadFeatureBacklog(f.id);
+                  return true;
+                }
+                if (errEl) { errEl.textContent = (res && res.error && res.error.message) || "Error al crear la story."; errEl.classList.remove("d-none"); }
+                return false;
+              });
+            }
+            window.openNexusFormModal({
+              id: "featureBacklogNewStoryModal",
+              title: "Create Story",
+              bodyHtml: bodyHtml,
+              mode: "create",
+              primaryButtonId: "feature-backlog-story-submit",
+              primaryLabel: "Crear",
+              getDirtyState: function () { var t = (document.getElementById("feature-backlog-story-title") && document.getElementById("feature-backlog-story-title").value || "").trim(); var d = (document.getElementById("feature-backlog-story-desc") && document.getElementById("feature-backlog-story-desc").value || "").trim(); return t.length > 0 || d.length > 0; },
+              onSaveBeforeClose: doCreate
+            }, function (bsModal) { doCreate().then(function (ok) { if (ok && bsModal) bsModal.hide(); }); });
+            if (typeof window.nexusCreateIcons === "function") setTimeout(window.nexusCreateIcons, 0);
+          }).catch(function () {
+            window.openNexusAlertModal({ title: "Error", message: "No se pudo cargar usuarios o sprints." });
+          });
+        };
+        var featureModalEl = document.getElementById("featureDetailModal");
+        if (featureModalEl && typeof window.bindEvidenceLayout === "function") window.bindEvidenceLayout(featureModalEl);
         bindEvidenceEvents();
         renderEvidencePane();
       });
@@ -877,7 +1105,14 @@
           e.preventDefault();
           var featureId = a.getAttribute("data-feature-id");
           if (!featureId) return;
-          openFeatureDetailModal(featureId);
+          if (window.targetStackManager) {
+            window.targetStackManager.openTarget("feature", featureId, { projectId: state.projectId || null });
+          }
+          if (typeof window.openFeatureDetailTarget === "function") {
+            window.openFeatureDetailTarget(featureId, { projectId: state.projectId || null });
+          } else {
+            openFeatureDetailModal(featureId);
+          }
         };
       });
       document.querySelectorAll("#content .feat-status-select").forEach(function (sel) {
@@ -1038,11 +1273,35 @@
       };
     }
 
+    function openFeatureDetailTarget(featureId, meta) {
+      if (!featureId) return;
+      if (window.targetStackManager) {
+        var projectId = meta && meta.projectId ? meta.projectId : (meta && meta.project_id) ? meta.project_id : null;
+        window.targetStackManager.openTarget("feature", featureId, { projectId: projectId });
+      }
+      openFeatureDetailModal(featureId);
+    }
+    window.openFeatureDetailTarget = openFeatureDetailTarget;
+
     state.projectId = projectParam;
+    var featureMatch = window.location.hash.match(/[?&]feature=([^&]+)/);
+    var featureIdFromHash = featureMatch ? decodeURIComponent(featureMatch[1].replace(/\+/g, " ")) : "";
+    if (window.targetStackManager) {
+      var base = [{ entity_type: "view", entity_id: "features", meta: { projectId: state.projectId || null } }];
+      if (featureIdFromHash) {
+        base.push({ entity_type: "feature", entity_id: featureIdFromHash, meta: { projectId: state.projectId || null } });
+      }
+      window.targetStackManager.reset(base);
+    }
     if (state.projectId) loadFeatures();
     else {
       window.setContent(renderList(null, null, ""));
       bindFeatures();
+    }
+    if (featureIdFromHash) {
+      setTimeout(function () {
+        openFeatureDetailModal(featureIdFromHash);
+      }, 150);
     }
   });
 })();

@@ -6,6 +6,7 @@
 const projectsService = require("./projects.service");
 const featureService = require("./feature.service");
 const userStoryService = require("./userStory.service");
+const backlogService = require("./backlog.service");
 const { buildSuccess } = require("../../shared/responses/responseLayer");
 const { buildContext: buildContextBase, assertRequestValid } = require("../../shared/utils/controllerUtils");
 
@@ -196,6 +197,66 @@ async function listStoriesController(req, res, next) {
   }
 }
 
+async function listProjectStoriesController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const projectId = req.params.projectId;
+    const page = req.query.page ? parseInt(req.query.page, 10) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 10;
+    const status = req.query.status || undefined;
+    const feature_id = req.query.feature_id || undefined;
+    const sprint_id = req.query.sprint_id !== undefined && req.query.sprint_id !== "" ? req.query.sprint_id : undefined;
+    const result = await userStoryService.listStoriesByProject(
+      projectId,
+      { page, limit, status, feature_id, sprint_id },
+      req.organizationId
+    );
+    res.status(200).json(buildSuccess({ items: result.data, ...result.meta }, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function getProjectBacklogController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const projectId = req.params.projectId;
+    const page = req.query.page ? parseInt(req.query.page, 10) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50;
+    const status = req.query.status || undefined;
+    const feature_id = req.query.feature_id || undefined;
+    const sprint_id = req.query.sprint_id !== undefined && req.query.sprint_id !== "" ? req.query.sprint_id : undefined;
+    const assigned_to = req.query.assigned_to || undefined;
+    const labelsParam = req.query.labels;
+    const labels = labelsParam ? (Array.isArray(labelsParam) ? labelsParam : String(labelsParam).split(",").map((l) => l.trim()).filter(Boolean)) : undefined;
+    const result = await backlogService.getProjectBacklog(
+      projectId,
+      { page, limit, status, feature_id, sprint_id, assigned_to, labels },
+      req.organizationId
+    );
+    res.status(200).json(buildSuccess(result, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function reorderProjectBacklogController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const projectId = req.params.projectId;
+    const feature_ids = Array.isArray(req.body.feature_ids) ? req.body.feature_ids : [];
+    const story_ids = Array.isArray(req.body.story_ids) ? req.body.story_ids : [];
+    const data = await backlogService.reorderProjectBacklog(
+      projectId,
+      { feature_ids, story_ids },
+      req.organizationId
+    );
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 async function patchStoryStatusController(req, res, next) {
   try {
     assertRequestValid(req);
@@ -262,6 +323,9 @@ module.exports = {
   createStoryController,
   getStoryController,
   listStoriesController,
+  listProjectStoriesController,
+  getProjectBacklogController,
+  reorderProjectBacklogController,
   patchStoryStatusController,
   patchStoryAssignController,
   patchStorySprintController,

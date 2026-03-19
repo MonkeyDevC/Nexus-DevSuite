@@ -121,12 +121,47 @@ async function updateSprintStatus(sprintId, nextStatus, context) {
   }
   validateSprintTransition(currentStatus, nextStatus);
 
+  if (nextStatus === "IN_PROGRESS") {
+    const goalTrimmed = sprint.goal != null ? String(sprint.goal).trim() : "";
+    if (!goalTrimmed) {
+      throw new AppError(
+        "Para abrir el sprint oficialmente debe definir los objetivos del sprint. Edite el sprint y complete el campo Objetivo.",
+        { statusCode: 400, code: ERROR_CODES.SPRINT_OPEN_GOAL_REQUIRED }
+      );
+    }
+    const storyCount = await sprintRepository.countStoriesBySprintId(sprintId);
+    if (storyCount === 0) {
+      throw new AppError(
+        "Para abrir el sprint oficialmente debe incluir al menos una user story en el sprint. Asigne stories desde el listado anterior.",
+        { statusCode: 400, code: ERROR_CODES.SPRINT_OPEN_STORIES_REQUIRED }
+      );
+    }
+  }
+
   if (nextStatus === "CLOSED") {
     if (context.user?.role !== "MASTER") {
       throw new AppError("Solo MASTER puede cerrar el sprint", {
         statusCode: 403,
         code: ERROR_CODES.AUTH_FORBIDDEN
       });
+    }
+    const { getModels } = require("../../infrastructure/db/loadModels");
+    const { UserStory } = getModels();
+    const sprintStories = await UserStory.findAll({
+      where: { sprint_id: sprintId },
+      attributes: ["id", "status"]
+    });
+    const inProgressOrBlocked = sprintStories.filter(
+      (s) => s.status === "IN_PROGRESS" || s.status === "BLOCKED"
+    );
+    if (inProgressOrBlocked.length > 0) {
+      throw new AppError(
+        "No se puede cerrar el sprint: hay stories en estado IN_PROGRESS o BLOCKED. Complételas o muévalas al backlog.",
+        {
+          statusCode: 400,
+          code: ERROR_CODES.SPRINT_CLOSE_STORIES_IN_PROGRESS
+        }
+      );
     }
   }
 
@@ -149,6 +184,13 @@ async function updateSprintStatus(sprintId, nextStatus, context) {
   });
 
   if (nextStatus === "CLOSED") {
+    const { getModels } = require("../../infrastructure/db/loadModels");
+    const { UserStory } = getModels();
+    const { Op } = require("sequelize");
+    await UserStory.update(
+      { sprint_id: null },
+      { where: { sprint_id: sprintId, status: { [Op.ne]: "DONE" } } }
+    );
     await authRepository.createAuditLog({
       ...auditCtx,
       action: "SPRINT_CLOSED",
@@ -228,6 +270,12 @@ async function assignStoryToSprint(sprintId, storyId, context) {
       code: ERROR_CODES.SPRINT_STORY_PROJECT_MISMATCH
     });
   }
+  if (story.status !== "READY") {
+    throw new AppError(
+      "Solo se pueden asignar al sprint stories en estado READY. La story está en estado " + story.status + ".",
+      { statusCode: 400, code: ERROR_CODES.STORY_NOT_READY_FOR_SPRINT }
+    );
+  }
 
   await userStoryRepository.update(storyId, { sprint_id: sprintId });
   const auditCtx = ensureAuditContext(context);
@@ -292,6 +340,7 @@ async function listStoriesBySprintId(sprintId, params = {}, organizationId) {
   if (project) featureService.ensureProjectInOrg(project, organizationId);
   const { getModels } = require("../../infrastructure/db/loadModels");
   const { UserStory } = getModels();
+  const sequelize = UserStory.sequelize;
   const page = Math.max(1, parseInt(params.page, 10) || 1);
   const limit = Math.min(50, Math.max(1, parseInt(params.limit, 10) || 10));
   const offset = (page - 1) * limit;
@@ -299,12 +348,51 @@ async function listStoriesBySprintId(sprintId, params = {}, organizationId) {
     where: { sprint_id: sprintId },
     limit,
     offset,
-    order: [["created_at", "DESC"]]
+    order: [
+      [sequelize.literal("(backlog_position IS NULL)"), "ASC"],
+      ["backlog_position", "ASC"],
+      ["created_at", "DESC"]
+    ]
   });
   const totalPages = count === 0 ? 0 : Math.ceil(count / limit);
   return {
     data: rows.map((s) => (typeof s.toJSON === "function" ? s.toJSON() : s)),
     meta: { total: count, page, limit, totalPages }
+  };
+}
+
+async function getSprintSummary(sprintId, organizationId) {
+  const sprint = await sprintRepository.findById(sprintId);
+  if (!sprint) {
+    throw new AppError("Sprint no encontrado", {
+      statusCode: 404,
+      code: ERROR_CODES.SPRINT_NOT_FOUND
+    });
+  }
+  const project = await projectsRepository.findById(sprint.project_id);
+  if (project) featureService.ensureProjectInOrg(project, organizationId);
+  const { getModels } = require("../../infrastructure/db/loadModels");
+  const { UserStory } = getModels();
+  const stories = await UserStory.findAll({
+    where: { sprint_id: sprintId },
+    attributes: ["id", "status", "story_points"]
+  });
+  let totalStoryPoints = 0;
+  let completedStoryPoints = 0;
+  let storiesDoneCount = 0;
+  stories.forEach((s) => {
+    const pts = s.story_points != null ? Number(s.story_points) : 0;
+    totalStoryPoints += pts;
+    if (s.status === "DONE") {
+      completedStoryPoints += pts;
+      storiesDoneCount += 1;
+    }
+  });
+  return {
+    stories_count: stories.length,
+    stories_done_count: storiesDoneCount,
+    total_story_points: totalStoryPoints,
+    completed_story_points: completedStoryPoints
   };
 }
 
@@ -345,6 +433,7 @@ module.exports = {
   assignStoryToSprint,
   unassignStoryFromSprint,
   listStoriesBySprintId,
+  getSprintSummary,
   deleteSprint,
   toPlain
 };

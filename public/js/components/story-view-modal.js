@@ -23,12 +23,32 @@
     return "nexus.story.evidence." + String(storyId || "");
   }
 
+  function createEvidenceRef() {
+    return "img-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  }
+
+  function buildEvidenceRefTag(ref) {
+    return "<evidence://" + String(ref || "") + ">";
+  }
+
+  function insertTextAtCursor(el, text) {
+    if (!el) return;
+    var start = typeof el.selectionStart === "number" ? el.selectionStart : el.value.length;
+    var end = typeof el.selectionEnd === "number" ? el.selectionEnd : el.value.length;
+    var before = el.value.slice(0, start);
+    var after = el.value.slice(end);
+    el.value = before + text + after;
+    var nextPos = start + text.length;
+    if (typeof el.setSelectionRange === "function") el.setSelectionRange(nextPos, nextPos);
+  }
+
   function normalizeEvidencePayload(payload) {
     var p = payload && typeof payload === "object" ? payload : {};
     return {
       notes: p.notes != null ? String(p.notes) : "",
       files: Array.isArray(p.files) ? p.files.filter(function (f) { return f && f.data_url; }).map(function (f) {
         return {
+          ref: f.ref ? String(f.ref) : createEvidenceRef(),
           name: f.name ? String(f.name) : "archivo",
           type: f.type ? String(f.type) : "application/octet-stream",
           data_url: String(f.data_url)
@@ -54,6 +74,12 @@
   window.openStoryViewModal = function (storyId, opts) {
     opts = opts || {};
     if (!storyId || typeof window.openNexusFormModal !== "function") return;
+
+    if (window.targetStackManager) {
+      window.targetStackManager.openTarget("story", storyId, {
+        projectId: opts.projectIdHint || null
+      });
+    }
 
     var onStoryUpdated = typeof opts.onStoryUpdated === "function" ? opts.onStoryUpdated : null;
     var includeStoriesLink = opts.includeStoriesLink === true;
@@ -108,7 +134,7 @@
         var evidenceState = loadStoryEvidence(storyId);
         var evidenceBaselineJson = JSON.stringify(evidenceState);
 
-        var assigneeSelectHtml = '<span class="nexus-text-sm text-muted">Asignado a</span><select id="story-detail-edit-assigned" class="form-select form-select-sm mt-1" style="max-width:100%"><option value="">Nadie (sin asignar)</option>';
+        var assigneeSelectHtml = '<label class="editor-label" for="story-detail-edit-assigned">Asignado a</label><select id="story-detail-edit-assigned" class="form-select form-select-sm form-modern-input" style="max-width:100%"><option value="">Nadie (sin asignar)</option>';
         usersForEdit.forEach(function (u) {
           var uid = (u.id || "").replace(/"/g, "&quot;");
           var label = (u.name && String(u.name).trim()) ? esc(u.name) : (u.email ? esc(u.email) : "Sin nombre");
@@ -118,21 +144,20 @@
         assigneeSelectHtml += "</select>";
 
         var priorityOpts = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
-        var prioritySelectHtml = '<span class="nexus-text-sm text-muted">Prioridad</span><select id="story-detail-edit-priority" class="form-select form-select-sm mt-1" style="max-width:100%">';
+        var prioritySelectHtml = '<label class="editor-label" for="story-detail-edit-priority">Prioridad</label><select id="story-detail-edit-priority" class="form-select form-select-sm form-modern-input" style="max-width:100%">';
         priorityOpts.forEach(function (pr) {
           var sel = (s.priority || "MEDIUM") === pr ? " selected" : "";
           prioritySelectHtml += "<option value=\"" + esc(pr) + "\"" + sel + ">" + esc(pr) + "</option>";
         });
         prioritySelectHtml += "</select>";
 
-        var statusVistaHtml = '<span class="nexus-text-sm text-muted">Estado</span><p class="mb-0" id="story-detail-status-vista">' + esc(s.status || "—") + "</p>";
-        var statusSelectEditHtml = '<span class="nexus-text-sm text-muted">Estado</span><select id="story-detail-status-edicion" class="form-select form-select-sm mt-1" style="max-width:100%" aria-label="Estado"><option value="">—</option>';
+        var statusSelectEditHtml = '<label class="editor-label" for="story-detail-status-edicion">Estado</label><select id="story-detail-status-edicion" class="form-select form-select-sm form-modern-input" style="max-width:100%" aria-label="Estado"><option value="">—</option>';
         storyStatuses.forEach(function (st) {
           statusSelectEditHtml += '<option value="' + esc(st) + '"' + (s.status === st ? " selected" : "") + ">" + esc(st) + "</option>";
         });
         statusSelectEditHtml += "</select>";
 
-        var sprintSelectHtml = '<span class="nexus-text-sm text-muted">Sprint</span><div class="d-flex align-items-center gap-2 mt-1"><select id="story-detail-sprint" class="form-select form-select-sm" style="max-width:100%"><option value="">Ninguno</option></select><span id="story-detail-sprint-msg" class="nexus-text-sm text-muted"></span></div>';
+        var sprintSelectHtml = '<label class="editor-label" for="story-detail-sprint">Sprint</label><div class="d-flex align-items-center gap-2"><select id="story-detail-sprint" class="form-select form-select-sm form-modern-input" style="max-width:100%"><option value="">Ninguno</option></select><span id="story-detail-sprint-msg" class="nexus-text-sm text-muted"></span></div>';
 
         var storyBreadcrumbs = window.renderBreadcrumbs([
           { label: "Panel", href: "#/dashboard" },
@@ -141,77 +166,91 @@
         var bodyHtml = storyBreadcrumbs;
         bodyHtml += '<h1 class="nexus-page-title">' + esc(s.title || "Story") + "</h1>";
         bodyHtml += '<div class="nexus-card p-4" style="max-width:100%">';
-        bodyHtml += '<ul class="nav nav-tabs mb-3" role="tablist"><li class="nav-item"><button type="button" class="nav-link active" id="story-detail-tab-vista" data-bs-toggle="tab" data-bs-target="#story-detail-panel-vista" aria-selected="true">Vista</button></li><li class="nav-item"><button type="button" class="nav-link" id="story-detail-tab-edicion" data-bs-toggle="tab" data-bs-target="#story-detail-panel-edicion" aria-selected="false">Edición</button></li><li class="nav-item"><button type="button" class="nav-link" id="story-detail-tab-evidencia" data-bs-toggle="tab" data-bs-target="#story-detail-panel-evidencia" aria-selected="false">Evidencia</button></li></ul>';
+        bodyHtml += '<div class="view-mode-switch mb-3" role="tablist" aria-label="Modo de vista"><button type="button" class="mode-btn nav-link active tooltip" id="story-detail-tab-vista" data-bs-toggle="tab" data-bs-target="#story-detail-panel-vista" aria-selected="true" data-tooltip="Modo vista"><i data-lucide="eye"></i> Vista</button><button type="button" class="mode-btn nav-link tooltip" id="story-detail-tab-edicion" data-bs-toggle="tab" data-bs-target="#story-detail-panel-edicion" aria-selected="false" data-tooltip="Modo edición"><i data-lucide="pencil"></i> Edición</button><button type="button" class="mode-btn nav-link tooltip" id="story-detail-tab-evidencia" data-bs-toggle="tab" data-bs-target="#story-detail-panel-evidencia" aria-selected="false" data-tooltip="Modo evidencia"><i data-lucide="paperclip"></i> Evidencia</button></div>';
         bodyHtml += '<div class="tab-content">';
-        bodyHtml += '<div class="tab-pane fade show active" id="story-detail-panel-vista" role="tabpanel"><div class="row g-3">';
-        bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">ID</span><p class="nexus-font-semibold mb-0">' + esc(did) + "</p></div>";
-        bodyHtml += '<div class="col-md-4">' + statusVistaHtml + "</div>";
-        bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Creado</span><p class="mb-0 nexus-text-sm">' + esc(s.created_at || "—") + "</p></div>";
-        bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Título</span><p class="mb-0" id="story-detail-title-vista">' + esc(s.title || "—") + "</p></div>";
-        bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Prioridad</span><p class="mb-0" id="story-detail-priority-vista">' + esc(s.priority || "—") + "</p></div>";
-        bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Actualizado</span><p class="mb-0 nexus-text-sm">' + esc(s.updated_at || "—") + "</p></div>";
-        bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Asignado a</span><p class="mb-0" id="story-detail-assignee-vista">' + esc(assigneeText) + "</p></div>";
-        bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Sprint</span><p class="mb-0" id="story-detail-sprint-view">' + esc(sprintNameView) + "</p></div>";
-        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Descripción</span>';
-        bodyHtml += '<div id="story-detail-description-vista">' + ((s.description && String(s.description).trim()) ? '<p class="mb-0" style="white-space:pre-wrap">' + esc(s.description) + "</p>" : '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>') + "</div>";
-        bodyHtml += "</div>";
-        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de aceptación</span><div id="story-detail-criteria-vista">';
-        if (criteriaLines.length === 0) bodyHtml += '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
-        else {
-          bodyHtml += '<ul class="list-unstyled mb-0">';
-          criteriaLines.forEach(function (line, idx) { bodyHtml += '<li class="py-1">' + (idx + 1) + ". " + esc(line || "—") + "</li>"; });
-          bodyHtml += "</ul>";
-        }
+        bodyHtml += '<div class="tab-pane fade show active" id="story-detail-panel-vista" role="tabpanel"><div class="entity-viewer">';
+        bodyHtml += '<section class="viewer-header"><h2 class="viewer-title" id="story-detail-title-vista">' + esc(s.title || "—") + "</h2></section>";
+        bodyHtml += '<section class="viewer-metadata">';
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">ID</div><div class="metadata-value">' + esc(did) + "</div></div>";
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">Estado</div><div class="metadata-value" id="story-detail-status-vista">' + esc(s.status || "—") + "</div></div>";
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">Creado</div><div class="metadata-value">' + esc(s.created_at || "—") + "</div></div>";
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">Prioridad</div><div class="metadata-value" id="story-detail-priority-vista">' + esc(s.priority || "—") + "</div></div>";
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">Actualizado</div><div class="metadata-value">' + esc(s.updated_at || "—") + "</div></div>";
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">Asignado a</div><div class="metadata-value" id="story-detail-assignee-vista">' + esc(assigneeText) + "</div></div>";
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">Sprint</div><div class="metadata-value" id="story-detail-sprint-view">' + esc(sprintNameView) + "</div></div>";
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">Story points</div><div class="metadata-value" id="story-detail-points-vista">' + (s.story_points != null ? s.story_points : "—") + "</div></div>";
+        var labelsArr = Array.isArray(s.labels) ? s.labels : (s.labels ? [s.labels] : []);
+        bodyHtml += '<div class="metadata-card"><div class="metadata-label">Etiquetas</div><div class="metadata-value" id="story-detail-labels-vista">' + (labelsArr.length ? esc(labelsArr.join(", ")) : "—") + "</div></div>";
+        bodyHtml += "</section>";
+        bodyHtml += '<section class="viewer-section"><div class="viewer-section-title">Descripción</div><div id="story-detail-description-vista">' + ((s.description && String(s.description).trim()) ? '<p class="viewer-description-text">' + esc(s.description) + "</p>" : '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>') + "</div></section>";
+        bodyHtml += '<section class="viewer-section"><div class="viewer-section-title">Criterios de aceptación</div><div id="story-detail-criteria-vista">' + renderCriteriaListHtml(criteriaLines) + "</div></section>";
+        bodyHtml += '<section class="viewer-section"><div class="viewer-section-title">Criterios de implementación</div><div id="story-detail-impl-criteria-vista">' + renderCriteriaListHtml(implCriteriaLines) + "</div></section>";
         bodyHtml += "</div></div>";
-        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de implementación</span><div id="story-detail-impl-criteria-vista">';
-        if (implCriteriaLines.length === 0) bodyHtml += '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
-        else {
-          bodyHtml += '<ul class="list-unstyled mb-0">';
-          implCriteriaLines.forEach(function (line, idx) { bodyHtml += '<li class="py-1">' + (idx + 1) + ". " + esc(line || "—") + "</li>"; });
-          bodyHtml += "</ul>";
-        }
-        bodyHtml += "</div></div></div></div>";
 
-        bodyHtml += '<div class="tab-pane fade" id="story-detail-panel-edicion" role="tabpanel"><div class="row g-3">';
-        bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">ID</span><p class="nexus-font-semibold mb-0">' + esc(did) + "</p></div>";
-        bodyHtml += '<div class="col-md-4">' + statusSelectEditHtml + "</div>";
-        bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Creado</span><p class="mb-0 nexus-text-sm">' + esc(s.created_at || "—") + "</p></div>";
-        bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Título</span><input type="text" id="story-detail-edit-title" class="form-control form-control-sm mt-1" value="' + esc(s.title || "") + '" placeholder="Título" aria-label="Título"></div>';
-        bodyHtml += '<div class="col-md-4">' + prioritySelectHtml + "</div>";
-        bodyHtml += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Actualizado</span><p class="mb-0 nexus-text-sm">' + esc(s.updated_at || "—") + "</p></div>";
-        bodyHtml += '<div class="col-md-4">' + assigneeSelectHtml + "</div>";
-        bodyHtml += '<div class="col-md-4">' + sprintSelectHtml + "</div>";
-        bodyHtml += '<div class="col-12"><span class="nexus-text-sm text-muted">Descripción</span><textarea id="story-detail-edit-desc" class="form-control form-control-sm mt-1" rows="3" placeholder="Descripción" aria-label="Descripción">' + esc(s.description || "") + "</textarea></div>";
-        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de aceptación</span>';
+        bodyHtml += '<div class="tab-pane fade" id="story-detail-panel-edicion" role="tabpanel"><div class="entity-editor">';
+        bodyHtml += '<section class="editor-section"><div class="editor-section-title">General</div><label class="editor-label" for="story-detail-edit-title">Título</label><input type="text" id="story-detail-edit-title" class="form-control form-control-sm form-modern-input editor-title-input" value="' + esc(s.title || "") + '" placeholder="Título" aria-label="Título"></section>';
+        bodyHtml += '<section class="editor-section"><div class="editor-section-title">Metadata</div><div class="metadata-grid">';
+        bodyHtml += '<div><span class="editor-label">ID</span><div class="editor-meta-value">' + esc(did) + "</div></div>";
+        bodyHtml += '<div>' + statusSelectEditHtml + "</div>";
+        bodyHtml += '<div><span class="editor-label">Creado</span><div class="editor-meta-value">' + esc(s.created_at || "—") + "</div></div>";
+        bodyHtml += '<div>' + prioritySelectHtml + "</div>";
+        bodyHtml += '<div><span class="editor-label">Actualizado</span><div class="editor-meta-value">' + esc(s.updated_at || "—") + "</div></div>";
+        bodyHtml += '<div>' + assigneeSelectHtml + "</div>";
+        bodyHtml += '<div>' + sprintSelectHtml + "</div>";
+        var storyPointsOpts = [1, 2, 3, 5, 8, 13, 21];
+        var storyPointsSelectHtml = '<label class="editor-label" for="story-detail-edit-points">Story points</label><select id="story-detail-edit-points" class="form-select form-select-sm form-modern-input" style="max-width:100%"><option value="">—</option>';
+        storyPointsOpts.forEach(function (pt) {
+          var sel = (s.story_points != null && Number(s.story_points) === pt) ? " selected" : "";
+          storyPointsSelectHtml += "<option value=\"" + pt + "\"" + sel + ">" + pt + "</option>";
+        });
+        storyPointsSelectHtml += "</select>";
+        var labelsVal = Array.isArray(s.labels) ? (s.labels || []).join(", ") : (s.labels ? String(s.labels) : "");
+        bodyHtml += '<div>' + storyPointsSelectHtml + "</div>";
+        bodyHtml += '<div class="mt-2"><label class="editor-label" for="story-detail-edit-labels">Etiquetas</label><input type="text" id="story-detail-edit-labels" class="form-control form-control-sm form-modern-input" value="' + esc(labelsVal) + '" placeholder="ej: api, frontend (separadas por coma)" aria-label="Etiquetas"></div>';
+        bodyHtml += "</div></section>";
+        bodyHtml += '<section class="editor-section"><div class="editor-section-title">Descripción</div><textarea id="story-detail-edit-desc" class="form-control form-control-sm form-modern-input description-editor" rows="3" placeholder="Descripción" aria-label="Descripción">' + esc(s.description || "") + "</textarea></section>";
+        bodyHtml += '<section class="editor-section"><div class="editor-section-title">Criterios de aceptación</div>';
         bodyHtml += '<div id="story-detail-criteria-list">';
         var numCriteria = criteriaLines.length || 1;
         for (var i = 0; i < numCriteria; i++) {
-          bodyHtml += '<div class="story-criterion-row d-flex gap-2 align-items-center mb-2"><input type="text" class="form-control form-control-sm story-detail-criteria-input" placeholder="Criterio ' + (i + 1) + '" value="' + esc(criteriaLines[i] || "") + '" aria-label="Criterio ' + (i + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm story-criterion-remove" aria-label="Quitar criterio">&times;</button></div>';
+          bodyHtml += '<div class="story-criterion-row criteria-item"><input type="text" class="form-control form-control-sm form-modern-input story-detail-criteria-input" placeholder="Criterio ' + (i + 1) + '" value="' + esc(criteriaLines[i] || "") + '" aria-label="Criterio ' + (i + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm story-criterion-remove criteria-remove-btn tooltip" aria-label="Quitar criterio" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button></div>';
         }
-        bodyHtml += '</div><div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button type="button" id="story-detail-criteria-add" class="btn btn-outline-secondary btn-sm">+ Añadir criterio</button><button type="button" id="story-detail-criteria-save" class="btn btn-nexus-primary btn-sm">Guardar criterios</button><span id="story-detail-criteria-msg" class="nexus-text-sm text-muted"></span></div></div>';
-        bodyHtml += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de implementación</span>';
+        bodyHtml += '</div><div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button type="button" id="story-detail-criteria-add" class="btn btn-outline-secondary btn-sm btn-add tooltip" data-tooltip="Añadir criterio"><i data-lucide="plus"></i> Añadir criterio</button><button type="button" id="story-detail-criteria-save" class="btn btn-nexus-primary btn-sm tooltip" data-tooltip="Guardar criterios"><i data-lucide="save"></i> Guardar criterios</button><span id="story-detail-criteria-msg" class="nexus-text-sm text-muted"></span></div></section>';
+        bodyHtml += '<section class="editor-section"><div class="editor-section-title">Criterios de implementación</div>';
         bodyHtml += '<div id="story-detail-impl-criteria-list">';
         var numImplCriteria = implCriteriaLines.length || 1;
         for (var j = 0; j < numImplCriteria; j++) {
-          bodyHtml += '<div class="story-impl-criterion-row d-flex gap-2 align-items-center mb-2"><input type="text" class="form-control form-control-sm story-detail-impl-criteria-input" placeholder="Criterio ' + (j + 1) + '" value="' + esc(implCriteriaLines[j] || "") + '" aria-label="Criterio ' + (j + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm story-impl-criterion-remove" aria-label="Quitar criterio">&times;</button></div>';
+          bodyHtml += '<div class="story-impl-criterion-row criteria-item"><input type="text" class="form-control form-control-sm form-modern-input story-detail-impl-criteria-input" placeholder="Criterio ' + (j + 1) + '" value="' + esc(implCriteriaLines[j] || "") + '" aria-label="Criterio ' + (j + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm story-impl-criterion-remove criteria-remove-btn tooltip" aria-label="Quitar criterio" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button></div>';
         }
-        bodyHtml += '</div><div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button type="button" id="story-detail-impl-criteria-add" class="btn btn-outline-secondary btn-sm">+ Añadir criterio</button><button type="button" id="story-detail-impl-criteria-save" class="btn btn-nexus-primary btn-sm">Guardar criterios</button><span id="story-detail-impl-criteria-msg" class="nexus-text-sm text-muted"></span></div></div>';
+        bodyHtml += '</div><div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button type="button" id="story-detail-impl-criteria-add" class="btn btn-outline-secondary btn-sm btn-add tooltip" data-tooltip="Añadir criterio"><i data-lucide="plus"></i> Añadir criterio</button><button type="button" id="story-detail-impl-criteria-save" class="btn btn-nexus-primary btn-sm tooltip" data-tooltip="Guardar criterios"><i data-lucide="save"></i> Guardar criterios</button><span id="story-detail-impl-criteria-msg" class="nexus-text-sm text-muted"></span></div></section>';
         bodyHtml += "</div></div>";
-        bodyHtml += '<div class="tab-pane fade" id="story-detail-panel-evidencia" role="tabpanel"><div class="row g-3">';
-        bodyHtml += '<div class="col-md-6"><span class="nexus-text-sm text-muted d-block mb-2">Edición</span><textarea id="story-detail-evidence-notes" class="form-control form-control-sm mb-2" rows="5" placeholder="Notas de evidencia...">' + esc(evidenceState.notes || "") + '</textarea><input type="file" id="story-detail-evidence-files" class="form-control form-control-sm mb-2" accept="image/*,video/*,.pdf,.doc,.docx,.txt" multiple><div id="story-detail-evidence-list"></div></div>';
-        bodyHtml += '<div class="col-md-6"><span class="nexus-text-sm text-muted d-block mb-2">Previsualización</span><div id="story-detail-evidence-preview"></div></div>';
-        bodyHtml += "</div></div>";
+        bodyHtml += '<div class="tab-pane fade" id="story-detail-panel-evidencia" role="tabpanel">';
+        bodyHtml += '<div class="evidence-container" id="story-detail-evidence-container" data-evidence-mode="split">';
+        bodyHtml += '<div class="evidence-fullscreen-layout-controls mb-2">';
+        bodyHtml += '<button type="button" data-evidence-layout="left" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Solo editor"><i data-lucide="pencil"></i> Editor</button>';
+        bodyHtml += '<button type="button" data-evidence-layout="right" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Solo vista previa"><i data-lucide="eye"></i> Preview</button>';
+        bodyHtml += '<button type="button" data-evidence-layout="split" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Vista dividida"><i data-lucide="columns"></i> Split</button>';
+        bodyHtml += '<button type="button" class="btn btn-outline-secondary btn-sm btn-evidence-fullscreen-global ms-auto tooltip" aria-label="Ver en pantalla completa" data-tooltip="Pantalla completa"><i data-lucide="maximize"></i> Pantalla completa</button>';
         bodyHtml += "</div>";
-        bodyHtml += '<div class="mt-3 d-flex flex-wrap justify-content-start align-items-center gap-2">';
-        bodyHtml += '<button type="button" id="story-detail-export" class="btn btn-outline-secondary btn-sm">Exportar</button>';
+        bodyHtml += '<div class="evidence-body evidence-split-layout" style="height:320px;">';
+        bodyHtml += '<div class="evidence-col" id="story-detail-evidence-left-col" data-evidence-role="left-col"><div class="evidence-panel"><div class="evidence-panel-header">Edición</div><div class="evidence-panel-body evidence-content"><textarea id="story-detail-evidence-notes" class="form-control form-control-sm border-0 shadow-none p-0 m-0 bg-transparent" rows="6" placeholder="Notas de evidencia..." style="min-height:100%; height:100%; resize:none; overflow-y:auto;">' + esc(evidenceState.notes || "") + '</textarea></div></div></div>';
+        bodyHtml += '<div class="split-resizer" data-evidence-role="resizer" aria-hidden="true"></div>';
+        bodyHtml += '<div class="evidence-col" id="story-detail-evidence-right-col" data-evidence-role="right-col"><div class="evidence-panel"><div class="evidence-panel-header">Visualización</div><div class="evidence-panel-body evidence-content"><div id="story-detail-evidence-preview"></div></div></div></div>';
+        bodyHtml += "</div></div></div>";
+        bodyHtml += "</div>";
+        bodyHtml += '<div class="mt-3 d-flex flex-wrap justify-content-start align-items-center gap-2" id="story-detail-transfer-actions">';
+        bodyHtml += '<button type="button" id="story-detail-export" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Exportar evidencia"><i data-lucide="download"></i> Exportar</button>';
         bodyHtml += '<input type="file" id="story-detail-import-input" class="d-none" accept=".json,application/json">';
-        bodyHtml += '<button type="button" id="story-detail-import" class="btn btn-outline-secondary btn-sm">Importar</button>';
+        bodyHtml += '<button type="button" id="story-detail-import" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Importar evidencia"><i data-lucide="upload"></i> Importar</button>';
         bodyHtml += "</div></div>";
 
         var initialTitle = (s.title || "").trim();
         var initialDesc = (s.description || "").trim();
         var initialPriority = s.priority || "MEDIUM";
         var initialAssigned = s.assigned_to || "";
+        var initialStoryPoints = s.story_points != null ? s.story_points : null;
+        var initialLabelsArr = Array.isArray(s.labels) ? s.labels : (s.labels ? [s.labels] : []);
+        var initialLabelsStr = initialLabelsArr.join(", ");
         var baseCriteriaLines = criteriaLines.slice();
         var baseImplCriteriaLines = implCriteriaLines.slice();
 
@@ -238,6 +277,10 @@
           initialDesc = (descEl && descEl.value || "").trim();
           initialPriority = prioritySel ? prioritySel.value : "MEDIUM";
           initialAssigned = assignedSel && assignedSel.value ? assignedSel.value : "";
+          var ptsEl = document.getElementById("story-detail-edit-points");
+          var lblEl = document.getElementById("story-detail-edit-labels");
+          initialStoryPoints = (ptsEl && ptsEl.value) ? parseInt(ptsEl.value, 10) : null;
+          initialLabelsStr = (lblEl && lblEl.value) ? lblEl.value.trim() : "";
           baseCriteriaLines = (currCrit || []).slice();
           baseImplCriteriaLines = (currImpl || []).slice();
           evidenceBaselineJson = JSON.stringify(getCurrentStoryEvidence());
@@ -245,9 +288,9 @@
 
         function renderCriteriaListHtml(lines) {
           if (!lines || !lines.length) return '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
-          var html = '<ul class="list-unstyled mb-0">';
-          lines.forEach(function (line, idx) { html += '<li class="py-1">' + (idx + 1) + ". " + esc(line || "—") + "</li>"; });
-          html += "</ul>";
+          var html = '<ol class="criteria-list criteria-list-numbered">';
+          lines.forEach(function (line) { html += "<li>" + esc(line || "—") + "</li>"; });
+          html += "</ol>";
           return html;
         }
 
@@ -287,9 +330,15 @@
             }
             viewSprint.textContent = sprintText;
           }
+          var pointsEl = document.getElementById("story-detail-edit-points");
+          var labelsEl = document.getElementById("story-detail-edit-labels");
+          var viewPoints = document.getElementById("story-detail-points-vista");
+          var viewLabels = document.getElementById("story-detail-labels-vista");
+          if (viewPoints) viewPoints.textContent = (pointsEl && pointsEl.value) ? pointsEl.value : "—";
+          if (viewLabels) viewLabels.textContent = (labelsEl && labelsEl.value && labelsEl.value.trim()) ? labelsEl.value.trim() : "—";
           if (viewDesc) {
             var desc = (descEl && descEl.value || "").trim();
-            viewDesc.innerHTML = desc ? ('<p class="mb-0" style="white-space:pre-wrap">' + esc(desc) + "</p>") : '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
+            viewDesc.innerHTML = desc ? ('<p class="viewer-description-text">' + esc(desc) + "</p>") : '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
           }
           if (viewCriteria) viewCriteria.innerHTML = renderCriteriaListHtml(getStoryCriteriaLines());
           if (viewImplCriteria) viewImplCriteria.innerHTML = renderCriteriaListHtml(getStoryImplementationCriteriaLines());
@@ -300,7 +349,14 @@
           return Promise.all(files.map(function (file) {
             return new Promise(function (resolve) {
               var reader = new FileReader();
-              reader.onload = function () { resolve({ name: file.name || "archivo", type: file.type || "application/octet-stream", data_url: reader.result }); };
+              reader.onload = function () {
+                resolve({
+                  ref: createEvidenceRef(),
+                  name: file.name || "archivo",
+                  type: file.type || "application/octet-stream",
+                  data_url: reader.result
+                });
+              };
               reader.onerror = function () { resolve(null); };
               reader.readAsDataURL(file);
             });
@@ -313,54 +369,70 @@
         }
 
         function renderStoryEvidencePane() {
-          var listEl = document.getElementById("story-detail-evidence-list");
           var previewEl = document.getElementById("story-detail-evidence-preview");
-          if (listEl) {
-            if (!evidenceState.files.length) listEl.innerHTML = '<p class="mb-0 nexus-text-sm text-muted">Sin archivos adjuntos.</p>';
-            else {
-              var listHtml = '<ul class="list-unstyled mb-0">';
-              evidenceState.files.forEach(function (file, idx) {
-                listHtml += '<li class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2"><span class="nexus-text-sm text-truncate me-2">' + esc(file.name || ("Archivo " + (idx + 1))) + '</span><button type="button" class="btn btn-outline-danger btn-sm story-evidence-remove" data-evidence-index="' + idx + '">Quitar</button></li>';
-              });
-              listHtml += "</ul>";
-              listEl.innerHTML = listHtml;
-              listEl.querySelectorAll(".story-evidence-remove").forEach(function (btn) {
-                btn.onclick = function () {
-                  var index = parseInt(btn.getAttribute("data-evidence-index"), 10);
-                  if (!isNaN(index)) evidenceState.files.splice(index, 1);
-                  renderStoryEvidencePane();
-                };
-              });
-            }
-          }
           if (previewEl) {
             var preview = "";
             var notesText = (document.getElementById("story-detail-evidence-notes") && document.getElementById("story-detail-evidence-notes").value || "").trim();
-            preview += '<div class="border rounded p-2 mb-2"><div class="nexus-text-sm text-muted mb-1">Notas</div>' + (notesText ? ('<div style="white-space:pre-wrap">' + esc(notesText) + '</div>') : '<div class="nexus-text-sm text-muted">Sin notas.</div>') + "</div>";
-            if (!evidenceState.files.length) preview += '<p class="mb-0 nexus-text-sm text-muted">Sin previsualizaciones.</p>';
-            else {
-              evidenceState.files.forEach(function (file) {
-                if (String(file.type || "").indexOf("image/") === 0) preview += '<img src="' + file.data_url + '" alt="' + esc(file.name || "evidencia") + '" class="img-fluid rounded border mb-2">';
-                else if (String(file.type || "").indexOf("video/") === 0) preview += '<video src="' + file.data_url + '" controls class="w-100 rounded border mb-2" style="max-height:240px"></video>';
-                else preview += '<div class="border rounded p-2 mb-2"><span class="nexus-text-sm">' + esc(file.name || "Archivo") + "</span></div>";
-              });
+            var filesByRef = {};
+            var filesByName = {};
+            evidenceState.files.forEach(function (file) {
+              if (file && file.ref) filesByRef[String(file.ref)] = file;
+              if (file && file.name) filesByName[String(file.name)] = file;
+            });
+            function renderNotesWithInlineImages(text) {
+              if (!text) return '<div class="nexus-text-sm text-muted">Sin notas.</div>';
+              var pattern = /<([^>\n]+)>/g;
+              var html = "";
+              var last = 0;
+              var m;
+              while ((m = pattern.exec(text)) !== null) {
+                var segment = text.slice(last, m.index);
+                if (segment) html += esc(segment).replace(/\n/g, "<br>");
+                var token = (m[1] || "").trim();
+                var ref = token.indexOf("evidence://") === 0 ? token.slice("evidence://".length) : token;
+                var file = filesByRef[ref] || filesByName[ref];
+                if (file && String(file.type || "").indexOf("image/") === 0) {
+                  html += '<div class="my-2"><img src="' + file.data_url + '" alt="' + esc(file.name || "evidencia") + '" class="img-fluid rounded border"></div>';
+                } else {
+                  html += esc(m[0]);
+                }
+                last = pattern.lastIndex;
+              }
+              var tail = text.slice(last);
+              if (tail) html += esc(tail).replace(/\n/g, "<br>");
+              return html || '<div class="nexus-text-sm text-muted">Sin notas.</div>';
             }
+            preview += '<div style="white-space:normal">' + renderNotesWithInlineImages(notesText) + "</div>";
             previewEl.innerHTML = preview;
           }
         }
 
         function bindStoryEvidenceEvents() {
           var notesEl = document.getElementById("story-detail-evidence-notes");
-          var filesEl = document.getElementById("story-detail-evidence-files");
           if (notesEl) notesEl.oninput = function () { renderStoryEvidencePane(); };
-          if (filesEl) filesEl.onchange = function () {
-            if (!(filesEl.files && filesEl.files.length)) return;
-            readFilesAsDataUrl(filesEl.files).then(function (rows) {
+          if (notesEl) notesEl.onpaste = function (ev) {
+            var items = (ev.clipboardData && ev.clipboardData.items) ? Array.prototype.slice.call(ev.clipboardData.items) : [];
+            var imageFiles = items
+              .filter(function (it) { return it && it.kind === "file" && String(it.type || "").indexOf("image/") === 0; })
+              .map(function (it) { return it.getAsFile(); })
+              .filter(Boolean);
+            if (!imageFiles.length) return;
+            ev.preventDefault();
+            readFilesAsDataUrl(imageFiles).then(function (rows) {
+              if (!rows.length) return;
               evidenceState.files = evidenceState.files.concat(rows);
-              filesEl.value = "";
+              var tags = rows.map(function (row) { return buildEvidenceRefTag(row.ref); }).join("\n");
+              var prefix = notesEl.value && !/\n$/.test(notesEl.value) ? "\n" : "";
+              insertTextAtCursor(notesEl, prefix + tags);
               renderStoryEvidencePane();
             });
           };
+          bindStoryEvidenceLayoutControls();
+        }
+
+        function bindStoryEvidenceLayoutControls() {
+          var modalRoot = document.getElementById("storyDetailModal");
+          if (typeof window.bindEvidenceLayout === "function") window.bindEvidenceLayout(modalRoot || document);
         }
 
         function doSaveStoryAll() {
@@ -368,12 +440,20 @@
           var desc = (document.getElementById("story-detail-edit-desc") && document.getElementById("story-detail-edit-desc").value || "").trim();
           var prioritySel = document.getElementById("story-detail-edit-priority");
           var assignedSel = document.getElementById("story-detail-edit-assigned");
+          var pointsEl = document.getElementById("story-detail-edit-points");
+          var labelsEl = document.getElementById("story-detail-edit-labels");
           var priority = prioritySel ? prioritySel.value : "MEDIUM";
           var assignedTo = assignedSel && assignedSel.value ? assignedSel.value : null;
+          var storyPoints = pointsEl && pointsEl.value ? parseInt(pointsEl.value, 10) : null;
+          var labelsRaw = labelsEl && labelsEl.value ? labelsEl.value.trim() : "";
+          var labels = labelsRaw ? labelsRaw.split(",").map(function (x) { return x.trim(); }).filter(Boolean) : [];
           if (!title) return Promise.resolve(false);
+          var mainPayload = { title: title, description: desc, priority: priority, assigned_to: assignedTo };
+          if (storyPoints != null) mainPayload.story_points = storyPoints;
+          if (labels) mainPayload.labels = labels;
           var mainPromise = window.fetchApi("/stories/" + storyId, {
             method: "PATCH",
-            body: JSON.stringify({ title: title, description: desc, priority: priority, assigned_to: assignedTo })
+            body: JSON.stringify(mainPayload)
           }).then(function (r) {
             if (r && r.success) {
               if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Cambios guardados correctamente.");
@@ -414,7 +494,13 @@
           var d = (descEl && descEl.value || "").trim();
           var p = prioritySel ? prioritySel.value : "MEDIUM";
           var a = assignedSel && assignedSel.value ? assignedSel.value : "";
+          var pointsEl = document.getElementById("story-detail-edit-points");
+          var labelsEl = document.getElementById("story-detail-edit-labels");
+          var pts = (pointsEl && pointsEl.value) ? pointsEl.value : "";
+          var lbls = (labelsEl && labelsEl.value) ? labelsEl.value.trim() : "";
           if (t !== initialTitle || d !== initialDesc || p !== initialPriority || a !== initialAssigned) return true;
+          if (pts !== (initialStoryPoints != null ? String(initialStoryPoints) : "")) return true;
+          if (lbls !== initialLabelsStr) return true;
           var curr = getStoryCriteriaLines();
           if (curr.length !== baseCriteriaLines.length) return true;
           for (var i = 0; i < baseCriteriaLines.length; i++) if (curr[i] !== (baseCriteriaLines[i] || "").trim()) return true;
@@ -439,6 +525,7 @@
         }, function () { doSaveStoryAll(); });
 
         var storyModal = document.getElementById("storyDetailModal");
+        if (storyModal && typeof window.bindEvidenceLayout === "function") window.bindEvidenceLayout(storyModal);
         var storyFooter = storyModal ? storyModal.querySelector(".modal-footer") : null;
         var storyCancelBtn = document.getElementById("story-detail-cancel");
         var storyPrimaryBtn = document.getElementById("story-detail-close");
@@ -446,13 +533,22 @@
         var storyBsModalInst = storyModal && typeof bootstrap !== "undefined" ? bootstrap.Modal.getInstance(storyModal) : null;
 
         function storyDoClose() { if (storyBsModalInst) storyBsModalInst.hide(); }
+        function syncStoryTransferActionsVisibility() {
+          var transferGroup = document.getElementById("story-detail-transfer-actions");
+          var storyTabEdicion = document.getElementById("story-detail-tab-edicion");
+          if (!transferGroup || !storyTabEdicion) return;
+          transferGroup.classList.toggle("d-none", !storyTabEdicion.classList.contains("active"));
+        }
         function storySwitchToViewMode() {
           if (storyCancelBtn) storyCancelBtn.style.display = "none";
+          var transferGroup = document.getElementById("story-detail-transfer-actions");
+          if (transferGroup) transferGroup.classList.add("d-none");
           if (storyPrimaryBtn) { storyPrimaryBtn.textContent = "Cerrar"; storyPrimaryBtn.onclick = function () { storyDoClose(); }; }
           if (storyCloseXBtn) storyCloseXBtn.onclick = function () { storyDoClose(); };
         }
         function storySwitchToEditMode() {
           if (storyCancelBtn) storyCancelBtn.style.display = "";
+          syncStoryTransferActionsVisibility();
           if (storyPrimaryBtn) { storyPrimaryBtn.textContent = "Guardar"; storyPrimaryBtn.onclick = function () { doSaveStoryAll(); }; }
           if (storyCloseXBtn) storyCloseXBtn.onclick = function () {
             window.nexusFormModalCloseAttempt({ modalEl: storyModal, getDirtyState: getStoryDirtyState, onSaveBeforeClose: doSaveStoryAll }, storyDoClose);
@@ -477,9 +573,10 @@
             var rows = criteriaList.querySelectorAll(".story-criterion-row");
             var n = rows.length + 1;
             var row = document.createElement("div");
-            row.className = "story-criterion-row d-flex gap-2 align-items-center mb-2";
-            row.innerHTML = '<input type="text" class="form-control form-control-sm story-detail-criteria-input" placeholder="Criterio ' + n + '" aria-label="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm story-criterion-remove" aria-label="Quitar criterio">&times;</button>';
+            row.className = "story-criterion-row criteria-item";
+            row.innerHTML = '<input type="text" class="form-control form-control-sm form-modern-input story-detail-criteria-input" placeholder="Criterio ' + n + '" aria-label="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm story-criterion-remove criteria-remove-btn tooltip" aria-label="Quitar criterio" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button>';
             criteriaList.appendChild(row);
+            if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
             row.querySelector(".story-criterion-remove").onclick = function () { if (criteriaList.querySelectorAll(".story-criterion-row").length > 1) row.remove(); };
           };
         }
@@ -514,9 +611,10 @@
             var rows = implCriteriaList.querySelectorAll(".story-impl-criterion-row");
             var n = rows.length + 1;
             var row = document.createElement("div");
-            row.className = "story-impl-criterion-row d-flex gap-2 align-items-center mb-2";
-            row.innerHTML = '<input type="text" class="form-control form-control-sm story-detail-impl-criteria-input" placeholder="Criterio ' + n + '" aria-label="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm story-impl-criterion-remove" aria-label="Quitar criterio">&times;</button>';
+            row.className = "story-impl-criterion-row criteria-item";
+            row.innerHTML = '<input type="text" class="form-control form-control-sm form-modern-input story-detail-impl-criteria-input" placeholder="Criterio ' + n + '" aria-label="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm story-impl-criterion-remove criteria-remove-btn tooltip" aria-label="Quitar criterio" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button>';
             implCriteriaList.appendChild(row);
+            if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
             row.querySelector(".story-impl-criterion-remove").onclick = function () { if (implCriteriaList.querySelectorAll(".story-impl-criterion-row").length > 1) row.remove(); };
           };
         }
@@ -552,13 +650,18 @@
             if (inputs) for (var i = 0; i < inputs.length; i++) lines.push((inputs[i].value || "").trim());
             return lines.length ? lines : [""];
           }
-          var data = {
+          var pointsEl = document.getElementById("story-detail-edit-points");
+            var labelsEl = document.getElementById("story-detail-edit-labels");
+            var labelsVal = (labelsEl && labelsEl.value && labelsEl.value.trim()) ? labelsEl.value.trim().split(",").map(function (x) { return x.trim(); }).filter(Boolean) : [];
+            var data = {
             title: (document.getElementById("story-detail-edit-title") && document.getElementById("story-detail-edit-title").value) || "",
             description: (document.getElementById("story-detail-edit-desc") && document.getElementById("story-detail-edit-desc").value) || "",
             status: (document.getElementById("story-detail-status-edicion") && document.getElementById("story-detail-status-edicion").value) || "DRAFT",
             priority: (document.getElementById("story-detail-edit-priority") && document.getElementById("story-detail-edit-priority").value) || "MEDIUM",
             assigned_to: (document.getElementById("story-detail-edit-assigned") && document.getElementById("story-detail-edit-assigned").value) || null,
             sprint_id: (document.getElementById("story-detail-sprint") && document.getElementById("story-detail-sprint").value) || null,
+            story_points: (pointsEl && pointsEl.value) ? parseInt(pointsEl.value, 10) : null,
+            labels: labelsVal,
             acceptance_criteria: getAllStoryCriteriaLines(".story-detail-criteria-input"),
             implementation_criteria: getAllStoryCriteriaLines(".story-detail-impl-criteria-input"),
             evidence: getCurrentStoryEvidence()
@@ -593,6 +696,10 @@
               if (prioritySel && data.priority) prioritySel.value = data.priority;
               if (assignedSel && data.assigned_to !== undefined) assignedSel.value = data.assigned_to || "";
               if (sprintSel && data.sprint_id !== undefined) sprintSel.value = data.sprint_id || "";
+              var pointsInput = document.getElementById("story-detail-edit-points");
+              var labelsInput = document.getElementById("story-detail-edit-labels");
+              if (pointsInput && data.story_points != null) pointsInput.value = data.story_points;
+              if (labelsInput && data.labels) labelsInput.value = Array.isArray(data.labels) ? data.labels.join(", ") : String(data.labels);
               if (data.evidence) evidenceState = normalizeEvidencePayload(data.evidence);
               if (notesEl) notesEl.value = evidenceState.notes || "";
               if (data.acceptance_criteria && Array.isArray(data.acceptance_criteria)) {
@@ -602,10 +709,11 @@
                   var items = data.acceptance_criteria.length ? data.acceptance_criteria : [""];
                   items.forEach(function (val, idx) {
                     var row = document.createElement("div");
-                    row.className = "story-criterion-row d-flex gap-2 align-items-center mb-2";
-                    row.innerHTML = '<input type="text" class="form-control form-control-sm story-detail-criteria-input" placeholder="Criterio ' + (idx + 1) + '" value="' + esc(String(val || "")) + '" aria-label="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm story-criterion-remove" aria-label="Quitar criterio">&times;</button>';
+                    row.className = "story-criterion-row criteria-item";
+                    row.innerHTML = '<input type="text" class="form-control form-control-sm form-modern-input story-detail-criteria-input" placeholder="Criterio ' + (idx + 1) + '" value="' + esc(String(val || "")) + '" aria-label="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm story-criterion-remove criteria-remove-btn tooltip" aria-label="Quitar criterio" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button>';
                     list.appendChild(row);
                   });
+                  if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
                   list.querySelectorAll(".story-criterion-remove").forEach(function (btn) {
                     btn.onclick = function () {
                       var row = btn.closest(".story-criterion-row");
@@ -621,10 +729,11 @@
                   var implItems = data.implementation_criteria.length ? data.implementation_criteria : [""];
                   implItems.forEach(function (val, idx) {
                     var row = document.createElement("div");
-                    row.className = "story-impl-criterion-row d-flex gap-2 align-items-center mb-2";
-                    row.innerHTML = '<input type="text" class="form-control form-control-sm story-detail-impl-criteria-input" placeholder="Criterio ' + (idx + 1) + '" value="' + esc(String(val || "")) + '" aria-label="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm story-impl-criterion-remove" aria-label="Quitar criterio">&times;</button>';
+                    row.className = "story-impl-criterion-row criteria-item";
+                    row.innerHTML = '<input type="text" class="form-control form-control-sm form-modern-input story-detail-impl-criteria-input" placeholder="Criterio ' + (idx + 1) + '" value="' + esc(String(val || "")) + '" aria-label="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm story-impl-criterion-remove criteria-remove-btn tooltip" aria-label="Quitar criterio" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button>';
                     implList.appendChild(row);
                   });
+                  if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
                   implList.querySelectorAll(".story-impl-criterion-remove").forEach(function (btn) {
                     btn.onclick = function () {
                       var row = btn.closest(".story-impl-criterion-row");
@@ -657,7 +766,16 @@
               e.preventDefault();
               storyDoClose();
               setTimeout(function () {
-                window.location.hash = "#/stories?feature=" + encodeURIComponent(s.feature_id || "");
+                // Nuevo modelo: usar hash suave + Target Stack sin navegación dura.
+                var featureId = s.feature_id || "";
+                if (window.targetStackManager) {
+                  var base = [{ entity_type: "view", entity_id: "stories", meta: { projectId: null, featureId: featureId || null } }];
+                  window.targetStackManager.reset(base);
+                }
+                var baseHash = featureId ? "#/stories?feature=" + encodeURIComponent(featureId) : "#/stories";
+                if (window.location.hash !== baseHash) {
+                  window.history.replaceState(null, "", baseHash);
+                }
               }, 150);
             };
             storyFooter.insertBefore(storiesLinkEl, storyCancelBtn || storyFooter.firstChild);

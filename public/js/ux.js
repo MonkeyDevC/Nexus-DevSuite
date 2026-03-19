@@ -200,6 +200,97 @@
     }
   }
 
+  function normalizeBackdrops() {
+    // Mantener un backdrop por modal visible (si Bootstrap genera más).
+    var shownModals = document.querySelectorAll(".modal.show").length;
+    var backdrops = document.querySelectorAll(".modal-backdrop");
+    var expected = shownModals;
+    if (backdrops.length > expected) {
+      for (var i = 0; i < backdrops.length - expected; i++) {
+        if (backdrops[i] && backdrops[i].parentNode) backdrops[i].parentNode.removeChild(backdrops[i]);
+      }
+    }
+    if (shownModals > 0) document.body.classList.add("modal-open");
+    else document.body.classList.remove("modal-open");
+  }
+
+  function setEvidenceFullscreenState(panel, btn, nextState) {
+    if (!panel || !btn) return;
+    panel.classList.toggle("evidence-fullscreen", !!nextState);
+    btn.textContent = nextState ? "✕" : "⛶";
+    btn.setAttribute("aria-pressed", nextState ? "true" : "false");
+    btn.setAttribute("title", nextState ? "Salir de pantalla completa" : "Ver en pantalla completa");
+    var anyFullscreen = !!document.querySelector(".evidence-panel.evidence-fullscreen");
+    document.body.classList.toggle("nexus-evidence-fullscreen-open", anyFullscreen);
+  }
+
+  function setSplitFullscreenButtonsState(container, exitState) {
+    if (!container) return;
+    container.querySelectorAll(".btn-evidence-fullscreen").forEach(function (btn) {
+      btn.textContent = exitState ? "✕" : "⛶";
+      btn.setAttribute("aria-pressed", exitState ? "true" : "false");
+      btn.setAttribute("title", exitState ? "Salir de pantalla completa" : "Ver en pantalla completa");
+    });
+  }
+
+  function enterSplitFullscreen(container) {
+    if (!container) return;
+    container.classList.add("evidence-split-fullscreen");
+    document.body.classList.add("nexus-evidence-split-fullscreen-open");
+    setSplitFullscreenButtonsState(container, true);
+  }
+
+  function exitSplitFullscreen(container) {
+    if (!container) return;
+    container.classList.remove("evidence-split-fullscreen");
+    document.body.classList.remove("nexus-evidence-split-fullscreen-open");
+    setSplitFullscreenButtonsState(container, false);
+  }
+
+  window.bindEvidenceFullscreen = function (rootEl) {
+    var root = rootEl || document;
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll(".evidence-panel").forEach(function (panel) {
+      var btn = panel.querySelector(".btn-evidence-fullscreen");
+      if (!btn || btn.getAttribute("data-evidence-fs-bound") === "1") return;
+      btn.setAttribute("data-evidence-fs-bound", "1");
+      setEvidenceFullscreenState(panel, btn, false);
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        var container = panel.closest(".evidence-container");
+        var mode = container ? container.getAttribute("data-evidence-mode") : "";
+        if (mode === "split") {
+          if (container.classList.contains("evidence-split-fullscreen")) {
+            exitSplitFullscreen(container);
+          } else {
+            enterSplitFullscreen(container);
+          }
+        } else {
+          var isOn = panel.classList.contains("evidence-fullscreen");
+          setEvidenceFullscreenState(panel, btn, !isOn);
+        }
+      });
+    });
+  };
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    document.querySelectorAll(".evidence-container.evidence-split-fullscreen").forEach(function (container) {
+      exitSplitFullscreen(container);
+    });
+    document.querySelectorAll(".evidence-panel.evidence-fullscreen").forEach(function (panel) {
+      var btn = panel.querySelector(".btn-evidence-fullscreen");
+      if (btn) setEvidenceFullscreenState(panel, btn, false);
+      else panel.classList.remove("evidence-fullscreen");
+    });
+    if (!document.querySelector(".evidence-panel.evidence-fullscreen")) {
+      document.body.classList.remove("nexus-evidence-fullscreen-open");
+    }
+    if (!document.querySelector(".evidence-container.evidence-split-fullscreen")) {
+      document.body.classList.remove("nexus-evidence-split-fullscreen-open");
+    }
+  });
+
   /**
    * Punto único: modal tipo form card (tarjeta centrada).
    * opts: { id?, title, bodyHtml, primaryButtonId?, primaryLabel?, mode?, cancelButtonId? }
@@ -215,18 +306,22 @@
     var mode = opts.mode || "edit";
     var dialogClass = opts.modalDialogClass ? (" " + opts.modalDialogClass) : "";
     var backdrop = (mode === "edit" || mode === "create") ? " data-bs-backdrop=\"static\" data-bs-keyboard=\"false\"" : "";
+    var footerInsideBody = opts.footerInsideBody === true;
     var html = '<div class="modal fade nexus-modal-manage-user" id="' + id + '" tabindex="-1" aria-labelledby="' + id + 'Label" aria-hidden="true"' + backdrop + '>';
     html += '<div class="modal-dialog modal-dialog-centered' + dialogClass + '"><div class="nexus-manage-user-card modal-content">';
     html += '<div class="modal-header border-0 pb-0"><h5 class="modal-title nexus-manage-user-title" id="' + id + 'Label">' + title + '</h5><button type="button" class="btn-close nexus-form-modal-close-btn" aria-label="Cerrar" data-nexus-modal-id="' + id + '"></button></div>';
     html += '<div class="modal-body pt-2">' + bodyHtml + '</div>';
-    html += '<div class="modal-footer border-0">';
-    if (mode === "view") {
-      html += '<button type="button" class="btn btn-nexus-primary" id="' + primaryId + '">Cerrar</button>';
-    } else {
-      html += '<button type="button" class="btn btn-secondary nexus-form-modal-cancel-btn" id="' + cancelId + '" data-nexus-modal-id="' + id + '">Cancelar</button>';
-      html += '<button type="button" class="btn btn-nexus-primary" id="' + primaryId + '">' + primaryLabel + '</button>';
+    if (!footerInsideBody) {
+      html += '<div class="modal-footer border-0">';
+      if (mode === "view") {
+        html += '<button type="button" class="btn btn-nexus-primary tooltip" id="' + primaryId + '" data-tooltip="Cerrar"><i data-lucide="x"></i> Cerrar</button>';
+      } else {
+        html += '<button type="button" class="btn btn-secondary nexus-form-modal-cancel-btn tooltip" id="' + cancelId + '" data-nexus-modal-id="' + id + '" data-tooltip="Cancelar"><i data-lucide="x"></i> Cancelar</button>';
+        html += '<button type="button" class="btn btn-nexus-primary tooltip" id="' + primaryId + '" data-tooltip="' + (primaryLabel === "Guardar" ? "Guardar cambios" : primaryLabel === "Crear" ? "Crear" : primaryLabel) + '"><i data-lucide="' + (primaryLabel === "Guardar" || primaryLabel === "Guardar criterios" ? "save" : primaryLabel === "Crear" ? "plus" : "save") + '"></i> ' + primaryLabel + '</button>';
+      }
+      html += "</div>";
     }
-    html += "</div></div></div></div>";
+    html += "</div></div></div>";
     return html;
   };
 
@@ -245,11 +340,12 @@
     html += '<div class="modal-dialog modal-dialog-centered"><div class="nexus-manage-user-card modal-content">';
     html += '<div class="modal-header border-0 pb-0"><h5 class="modal-title">Cambios sin guardar</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>';
     html += '<div class="modal-body pt-2"><p class="nexus-text-secondary mb-0">' + CONFIRM_UNSAVED_MESSAGE + '</p></div>';
-    html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary" id="nexus-confirm-unsave-no">No, salir sin guardar</button><button type="button" class="btn btn-nexus-primary" id="nexus-confirm-unsave-yes">Sí, guardar</button></div>';
+    html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary tooltip" id="nexus-confirm-unsave-no" data-tooltip="Salir sin guardar"><i data-lucide="x"></i> No, salir sin guardar</button><button type="button" class="btn btn-nexus-primary tooltip" id="nexus-confirm-unsave-yes" data-tooltip="Guardar y cerrar"><i data-lucide="save"></i> Sí, guardar</button></div>';
     html += "</div></div></div>";
     var wrap = document.createElement("div");
     wrap.innerHTML = html;
     document.body.appendChild(wrap.firstElementChild);
+    if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
     var confirmEl = document.getElementById("nexusConfirmUnsaveModal");
     var bsConfirm = new bootstrap.Modal(confirmEl);
     function normalizeBackdrops() {
@@ -264,15 +360,27 @@
       if (shownModals > 0) document.body.classList.add("modal-open");
       else document.body.classList.remove("modal-open");
     }
+    function moveFocusOutConfirm() {
+      if (document.activeElement && confirmEl.contains(document.activeElement)) {
+        document.body.setAttribute("tabindex", "-1");
+        document.body.focus();
+      }
+    }
+    confirmEl.addEventListener("hide.bs.modal", moveFocusOutConfirm);
     confirmEl.addEventListener("hidden.bs.modal", function () {
       try { var i = bootstrap.Modal.getInstance(confirmEl); if (i) i.dispose(); } catch (e) {}
-      if (confirmEl.parentNode) confirmEl.parentNode.removeChild(confirmEl);
-      normalizeBackdrops();
+      document.body.removeAttribute("tabindex");
+      setTimeout(function () {
+        document.querySelectorAll(".modal-backdrop").forEach(function (el) { if (el.parentNode) el.parentNode.removeChild(el); });
+        if (confirmEl.parentNode) confirmEl.parentNode.removeChild(confirmEl);
+        normalizeBackdrops();
+      }, 150);
     });
     confirmEl.addEventListener("shown.bs.modal", function () {
       applyModalLayer(confirmEl, 2100, 2090);
     });
     document.getElementById("nexus-confirm-unsave-no").onclick = function () {
+      moveFocusOutConfirm();
       bsConfirm.hide();
       setTimeout(doClose, 150);
     };
@@ -281,13 +389,15 @@
         var result = ctx.onSaveBeforeClose(ctx.modalEl);
         if (result && typeof result.then === "function") {
           result.then(function (ok) {
-            if (ok !== false) { bsConfirm.hide(); setTimeout(doClose, 150); }
+            if (ok !== false) { moveFocusOutConfirm(); bsConfirm.hide(); setTimeout(doClose, 150); }
           }).catch(function () {});
         } else if (result !== false) {
+          moveFocusOutConfirm();
           bsConfirm.hide();
           setTimeout(doClose, 150);
         }
       } else {
+        moveFocusOutConfirm();
         bsConfirm.hide();
         setTimeout(doClose, 150);
       }
@@ -312,14 +422,24 @@
     var wrap = document.createElement("div");
     wrap.innerHTML = modalHtml;
     document.body.appendChild(wrap.firstElementChild);
+    if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
     var modalEl = document.getElementById(id);
     var cancelId = opts.cancelButtonId || "nexus-form-card-cancel";
     var primaryId = opts.primaryButtonId || "nexus-form-card-submit";
+    function moveFocusOutOfModal() {
+      if (document.activeElement && modalEl.contains(document.activeElement)) {
+        document.body.setAttribute("tabindex", "-1");
+        document.body.focus();
+      }
+    }
     function cleanupBackdrop() {
-      document.body.classList.remove("nexus-manage-user-modal-open", "modal-open");
-      document.querySelectorAll(".modal-backdrop").forEach(function (el) { el.remove(); });
+      // No quitar modal-open si hay otros modales visibles (stack).
+      document.body.classList.remove("nexus-manage-user-modal-open");
+      document.body.removeAttribute("tabindex");
+      normalizeBackdrops();
     }
     function doClose() {
+      moveFocusOutOfModal();
       bsModal.hide();
     }
     var ctx = {
@@ -331,12 +451,29 @@
       document.body.classList.add("nexus-manage-user-modal-open");
       ctx.modalEl = modalEl;
       ctx.bsModal = bsModal;
-      applyModalLayer(modalEl, 2055, 2050);
+      // Stack: cada modal nuevo se eleva por encima del anterior.
+      var shown = document.querySelectorAll(".modal.show").length;
+      var baseZ = 2055;
+      var step = 20;
+      var modalZ = baseZ + Math.max(0, shown - 1) * step;
+      applyModalLayer(modalEl, modalZ, modalZ - 5);
+    });
+    modalEl.addEventListener("hide.bs.modal", function () {
+      moveFocusOutOfModal();
     });
     modalEl.addEventListener("hidden.bs.modal", function () {
+      try {
+        var inst = bootstrap.Modal.getInstance(modalEl);
+        if (inst) inst.dispose();
+      } catch (e) {}
       cleanupBackdrop();
-      try { var inst = bootstrap.Modal.getInstance(modalEl); if (inst) inst.dispose(); } catch (e) {}
-      if (modalEl.parentNode) modalEl.remove();
+      if (!document.querySelector(".evidence-panel.evidence-fullscreen") && !document.querySelector(".evidence-container.evidence-fullscreen")) {
+        document.body.classList.remove("nexus-evidence-fullscreen-open");
+      }
+      setTimeout(function () {
+        if (modalEl.parentNode) modalEl.parentNode.removeChild(modalEl);
+        normalizeBackdrops();
+      }, 150);
     });
     var bsModal = new bootstrap.Modal(modalEl);
     ctx.bsModal = bsModal;
@@ -381,27 +518,35 @@
     html += '<div class="modal-dialog modal-dialog-centered"><div class="nexus-manage-user-card modal-content">';
     html += '<div class="modal-header border-0 pb-0"><h5 class="modal-title nexus-manage-user-title">' + title + '</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>';
     html += '<div class="modal-body pt-2">' + bodyHtml + '</div>';
-    html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn ' + (primaryDanger ? "btn-danger" : "btn-nexus-primary") + '" id="' + id + '-btn">' + primaryLabel + '</button></div>';
+    html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary tooltip" data-bs-dismiss="modal" data-tooltip="Cancelar"><i data-lucide="x"></i> Cancelar</button><button type="button" class="btn ' + (primaryDanger ? "btn-danger" : "btn-nexus-primary") + ' tooltip" id="' + id + '-btn" data-tooltip="' + primaryLabel + '"><i data-lucide="' + (primaryDanger ? "trash" : "check") + '"></i> ' + primaryLabel + '</button></div>';
     html += "</div></div></div>";
     var wrap = document.createElement("div");
     wrap.innerHTML = html;
     document.body.appendChild(wrap.firstElementChild);
+    if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
     var modalEl = document.getElementById(id);
     var errEl = document.getElementById(errId);
-    function cleanupBackdropConfirm() {
-      document.body.classList.remove("nexus-manage-user-modal-open", "modal-open");
-      document.querySelectorAll(".modal-backdrop").forEach(function (el) { el.remove(); });
+    function moveFocusOut(el) {
+      if (document.activeElement && el.contains(document.activeElement)) {
+        document.body.setAttribute("tabindex", "-1");
+        document.body.focus();
+      }
     }
+    modalEl.addEventListener("hide.bs.modal", function () { moveFocusOut(modalEl); });
     modalEl.addEventListener("shown.bs.modal", function () { document.body.classList.add("nexus-manage-user-modal-open"); });
     modalEl.addEventListener("shown.bs.modal", function () { applyModalLayer(modalEl, 2100, 2090); });
     modalEl.addEventListener("hidden.bs.modal", function () {
-      cleanupBackdropConfirm();
       try { var inst = bootstrap.Modal.getInstance(modalEl); if (inst) inst.dispose(); } catch (e) {}
-      if (modalEl.parentNode) modalEl.remove();
+      document.body.classList.remove("nexus-manage-user-modal-open", "modal-open");
+      document.body.removeAttribute("tabindex");
+      setTimeout(function () {
+        document.querySelectorAll(".modal-backdrop").forEach(function (el) { if (el.parentNode) el.parentNode.removeChild(el); });
+        if (modalEl.parentNode) modalEl.parentNode.removeChild(modalEl);
+      }, 150);
     });
     var bsModal = new bootstrap.Modal(modalEl);
     document.getElementById(id + "-btn").onclick = function () {
-      onConfirm(function () { bsModal.hide(); }, function (msg) { if (errEl) { errEl.textContent = msg; errEl.classList.remove("d-none"); } });
+      onConfirm(function () { moveFocusOut(modalEl); bsModal.hide(); }, function (msg) { if (errEl) { errEl.textContent = msg; errEl.classList.remove("d-none"); } });
     };
     bsModal.show();
   };
@@ -417,22 +562,30 @@
     html += '<div class="modal-dialog modal-dialog-centered"><div class="nexus-manage-user-card modal-content">';
     html += '<div class="modal-header border-0 pb-0"><h5 class="modal-title nexus-manage-user-title">' + title + '</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>';
     html += '<div class="modal-body pt-2"><p class="nexus-text-secondary mb-0">' + message + '</p></div>';
-    html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button></div>';
+    html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary tooltip" data-bs-dismiss="modal" data-tooltip="Cerrar"><i data-lucide="x"></i> Cerrar</button></div>';
     html += "</div></div></div>";
     var wrap = document.createElement("div");
     wrap.innerHTML = html;
     document.body.appendChild(wrap.firstElementChild);
+    if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
     var modalEl = document.getElementById(id);
-    function cleanupBackdropAlert() {
-      document.body.classList.remove("nexus-manage-user-modal-open", "modal-open");
-      document.querySelectorAll(".modal-backdrop").forEach(function (el) { el.remove(); });
+    function moveFocusOutAlert(el) {
+      if (document.activeElement && el.contains(document.activeElement)) {
+        document.body.setAttribute("tabindex", "-1");
+        document.body.focus();
+      }
     }
+    modalEl.addEventListener("hide.bs.modal", function () { moveFocusOutAlert(modalEl); });
     modalEl.addEventListener("shown.bs.modal", function () { document.body.classList.add("nexus-manage-user-modal-open"); });
     modalEl.addEventListener("shown.bs.modal", function () { applyModalLayer(modalEl, 2100, 2090); });
     modalEl.addEventListener("hidden.bs.modal", function () {
-      cleanupBackdropAlert();
       try { var inst = bootstrap.Modal.getInstance(modalEl); if (inst) inst.dispose(); } catch (e) {}
-      if (modalEl.parentNode) modalEl.remove();
+      document.body.classList.remove("nexus-manage-user-modal-open", "modal-open");
+      document.body.removeAttribute("tabindex");
+      setTimeout(function () {
+        document.querySelectorAll(".modal-backdrop").forEach(function (el) { if (el.parentNode) el.parentNode.removeChild(el); });
+        if (modalEl.parentNode) modalEl.parentNode.removeChild(modalEl);
+      }, 150);
     });
     var bsModal = new bootstrap.Modal(modalEl);
     bsModal.show();
@@ -464,25 +617,27 @@
     if (opts.view && opts.view.href) {
       var viewLabel = escAttr(opts.view.label || "Ver");
       var viewAria = opts.view.ariaLabel ? ' aria-label="' + escAttr(opts.view.ariaLabel) + '"' : "";
-      html += '<a href="' + escAttr(opts.view.href) + '" class="nexus-action-view"' + viewAria + '>' + viewLabel + "</a>";
+      html += '<a href="' + escAttr(opts.view.href) + '" class="nexus-action-view tooltip" data-tooltip="Ver"' + viewAria + '><i data-lucide="eye"></i><span class="nexus-action-label">' + viewLabel + "</span></a>";
     }
     if (opts.edit) {
       var e = opts.edit;
       var label = escAttr(e.label || "Editar");
-      var cls = "nexus-action-edit" + (e.className ? " " + e.className : "");
-      if (e.href) html += '<a href="' + escAttr(e.href) + '" class="' + cls + '">' + label + "</a>";
-      else html += '<a href="#" class="' + cls + '" data-id="' + escAttr(e.id) + '">' + label + "</a>";
+      var cls = "nexus-action-edit" + (e.className ? " " + e.className : "") + " tooltip";
+      var tooltipEdit = ' data-tooltip="Editar"';
+      if (e.href) html += '<a href="' + escAttr(e.href) + '" class="' + cls + '"' + tooltipEdit + '><i data-lucide="pencil"></i><span class="nexus-action-label">' + label + "</span></a>";
+      else html += '<a href="#" class="' + cls + '" data-id="' + escAttr(e.id) + '"' + tooltipEdit + '><i data-lucide="pencil"></i><span class="nexus-action-label">' + label + "</span></a>";
     }
     if (opts.archive) {
       var a = opts.archive;
-      var archiveClass = "nexus-action-archive" + (a.className ? " " + a.className : "");
+      var archiveClass = "nexus-action-archive" + (a.className ? " " + a.className : "") + " tooltip";
       var archiveLabel = escAttr(a.label || "Archivar");
-      if (a.href) html += '<a href="' + escAttr(a.href) + '" class="' + archiveClass + '">' + archiveLabel + "</a>";
-      else if (a.id != null) html += '<a href="#" class="' + archiveClass + '" data-id="' + escAttr(a.id) + '">' + archiveLabel + "</a>";
+      var tooltipArchive = ' data-tooltip="Archivar"';
+      if (a.href) html += '<a href="' + escAttr(a.href) + '" class="' + archiveClass + '"' + tooltipArchive + '><i data-lucide="archive"></i><span class="nexus-action-label">' + archiveLabel + "</span></a>";
+      else if (a.id != null) html += '<a href="#" class="' + archiveClass + '" data-id="' + escAttr(a.id) + '"' + tooltipArchive + '><i data-lucide="archive"></i><span class="nexus-action-label">' + archiveLabel + "</span></a>";
     }
     if (opts.delete && opts.delete.id != null) {
       var d = opts.delete;
-      html += '<a href="#" class="nexus-action-delete' + (d.className ? " " + d.className : "") + '" data-id="' + escAttr(d.id) + '">' + escAttr(d.label || "Eliminar") + "</a>";
+      html += '<a href="#" class="nexus-action-delete tooltip' + (d.className ? " " + d.className : "") + '" data-id="' + escAttr(d.id) + '" data-tooltip="Eliminar"><i data-lucide="trash"></i><span class="nexus-action-label">' + escAttr(d.label || "Eliminar") + "</span></a>";
     }
     if (opts.other && opts.other.length) {
       opts.other.forEach(function (o) {

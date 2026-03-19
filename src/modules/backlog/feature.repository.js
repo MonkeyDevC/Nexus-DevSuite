@@ -11,6 +11,13 @@ function getFeatureModel() {
   return Feature;
 }
 
+/** Máximo número de feature en toda la aplicación (para IDs únicos globales FT-1, FT-2, ...). */
+async function getMaxFeatureNumberGlobal(transaction) {
+  const Feature = getFeatureModel();
+  const r = await Feature.max("number", { transaction: transaction || undefined });
+  return r == null ? 0 : Number(r);
+}
+
 async function create(payload) {
   const Feature = getFeatureModel();
   return Feature.create(payload);
@@ -23,6 +30,7 @@ async function findById(id, options = {}) {
 
 async function listByProject(projectId, { page = 1, limit = 10, status } = {}) {
   const Feature = getFeatureModel();
+  const sequelize = Feature.sequelize;
   const offset = (page - 1) * limit;
   const where = { project_id: projectId };
   if (status) where.status = status;
@@ -31,7 +39,12 @@ async function listByProject(projectId, { page = 1, limit = 10, status } = {}) {
     where,
     limit,
     offset,
-    order: [["created_at", "DESC"]]
+    order: [
+      [sequelize.literal("(backlog_position IS NULL)"), "ASC"],
+      ["backlog_position", "ASC"],
+      [sequelize.literal("FIELD(priority, 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW')"), "DESC"],
+      ["created_at", "DESC"]
+    ]
   });
   return { items: rows, total: count };
 }
@@ -53,5 +66,6 @@ module.exports = {
   findById,
   listByProject,
   update,
-  updateReleaseIdToNull
+  updateReleaseIdToNull,
+  getMaxFeatureNumberGlobal
 };

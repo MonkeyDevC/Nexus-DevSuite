@@ -17,7 +17,7 @@
     var labelText = opts.labelText != null ? opts.labelText : "Ver por página";
     var ariaLabel = opts.ariaLabel != null ? opts.ariaLabel : "Filas por página";
     var html = '<label class="mb-0"><span class="nexus-text-sm">' + (labelText.replace(/</g, "&lt;")) + '</span> ';
-    html += '<select id="' + selectId.replace(/"/g, "&quot;") + '" class="form-select form-select-sm d-inline-block" style="width:auto" aria-label="' + (ariaLabel.replace(/"/g, "&quot;")) + '">';
+    html += '<select id="' + selectId.replace(/"/g, "&quot;") + '" class="form-select form-select-sm d-inline-block nexus-page-size-select" style="width:auto;min-width:64px" aria-label="' + (ariaLabel.replace(/"/g, "&quot;")) + '">';
     options.forEach(function (n) {
       html += '<option value="' + n + '"' + (currentLimit === n ? ' selected' : '') + '>' + n + '</option>';
     });

@@ -14,7 +14,10 @@ const {
   deleteProjectController,
   deleteProjectsBulkController,
   createFeatureController,
-  listFeaturesController
+  listFeaturesController,
+  listProjectStoriesController,
+  getProjectBacklogController,
+  reorderProjectBacklogController
 } = require("./backlog.controller");
 const {
   createProjectValidator,
@@ -23,7 +26,8 @@ const {
   projectIdAsParamValidator,
   createFeatureValidator,
   listQueryValidator,
-  bulkDeleteProjectsValidator
+  bulkDeleteProjectsValidator,
+  reorderBacklogValidator
 } = require("./backlog.validator");
 const {
   createSprintController,
@@ -56,6 +60,9 @@ router.get("/:projectId/sprints", authenticateMiddleware, authorizeMiddleware("M
 router.post("/:projectId/sprints", authenticateMiddleware, authorizeMiddleware("MASTER"), sprintProjectIdParamValidator, createSprintValidator, createSprintController);
 router.get("/:projectId/incidents", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), incidentProjectIdParamValidator, listIncidentsQueryValidator, listIncidentsController);
 router.post("/:projectId/incidents", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), incidentProjectIdParamValidator, createIncidentValidator, createIncidentController);
+router.get("/:projectId/stories", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), projectIdAsParamValidator, listQueryValidator, listProjectStoriesController);
+router.get("/:projectId/backlog", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), projectIdAsParamValidator, getProjectBacklogController);
+router.post("/:projectId/backlog/order", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), projectIdAsParamValidator, reorderBacklogValidator, reorderProjectBacklogController);
 router.get("/:id", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), projectIdParamValidator, getProjectController);
 router.patch("/:id", authenticateMiddleware, authorizeMiddleware("MASTER"), projectIdParamValidator, updateProjectValidator, updateProjectController);
 router.patch("/:id/archive", authenticateMiddleware, authorizeMiddleware("MASTER"), projectIdParamValidator, archiveProjectController);

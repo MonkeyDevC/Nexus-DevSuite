@@ -1,0 +1,136 @@
+.entity-editor {
+  display: block;
+}
+
+.editor-section {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 22px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.editor-section:last-child {
+  margin-bottom: 0;
+}
+
+.editor-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  color: #1f2937;
+}
+
+.editor-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.editor-title-input {
+  font-size: 22px;
+  font-weight: 600;
+  border: none;
+  border-bottom: 2px solid #e5e7eb;
+  border-radius: 0;
+  padding: 6px 0;
+  width: 100%;
+  box-shadow: none;
+}
+
+.editor-title-input:focus {
+  border-bottom-color: #2563eb;
+  outline: none;
+  box-shadow: none;
+}
+
+.metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.form-modern-input {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.form-modern-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  outline: none;
+}
+
+.description-editor {
+  min-height: 140px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.editor-meta-value {
+  min-height: 44px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+}
+
+.criteria-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: #fafafa;
+}
+
+.criteria-item:hover {
+  background: #f3f4f6;
+}
+
+.criteria-item .form-modern-input {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
+.criteria-item .form-modern-input:focus {
+  border: none;
+  box-shadow: none;
+}
+
+.criteria-remove-btn {
+  flex: 0 0 auto;
+}
+
+.btn-add {
+  border: 1px dashed #d1d5db;
+  background: transparent;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}

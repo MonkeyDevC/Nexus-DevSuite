@@ -18,6 +18,10 @@ function defineFeatureModel(sequelize) {
         type: DataTypes.UUID,
         allowNull: false
       },
+      number: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: false
+      },
       title: {
         type: DataTypes.STRING(500),
         allowNull: false
@@ -54,6 +58,10 @@ function defineFeatureModel(sequelize) {
       },
       release_id: {
         type: DataTypes.UUID,
+        allowNull: true
+      },
+      backlog_position: {
+        type: DataTypes.INTEGER.UNSIGNED,
         allowNull: true
       }
     },

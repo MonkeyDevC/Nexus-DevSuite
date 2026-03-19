@@ -4,6 +4,18 @@
  */
 (function () {
   function esc(s) { if (s == null) return ""; var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+  function createEvidenceRef() { return "img-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8); }
+  function buildEvidenceRefTag(ref) { return "<evidence://" + String(ref || "") + ">"; }
+  function insertTextAtCursor(el, text) {
+    if (!el) return;
+    var start = typeof el.selectionStart === "number" ? el.selectionStart : el.value.length;
+    var end = typeof el.selectionEnd === "number" ? el.selectionEnd : el.value.length;
+    var before = el.value.slice(0, start);
+    var after = el.value.slice(end);
+    el.value = before + text + after;
+    var nextPos = start + text.length;
+    if (typeof el.setSelectionRange === "function") el.setSelectionRange(nextPos, nextPos);
+  }
 
   window.registerView("projects", async function () {
     await window.showNav();
@@ -36,17 +48,17 @@
       html += '</select></label>';
       html += window.renderClearFiltersButton({ show: hasFilter, id: "projects-clear-filters-btn" });
       if (isMaster) {
-        html += '<div class="d-flex align-items-center gap-2 ms-auto">';
+        html += '<div class="d-flex align-items-center gap-2 ms-auto projects-toolbar-actions">';
         if (state.selectionMode) {
           html += '<span class="nexus-text-sm text-muted" id="projects-selection-count">' + (state.selectedIds.length ? state.selectedIds.length + " seleccionado(s)" : "Seleccione proyectos") + '</span>';
-          html += '<button type="button" class="btn btn-outline-secondary btn-sm" id="btn-cancel-selection">Cancelar selección</button>';
-          html += '<button type="button" class="btn btn-outline-danger btn-sm" id="btn-bulk-delete-confirm" ' + (state.selectedIds.length === 0 ? " disabled" : "") + '>Eliminación múltiple</button>';
+          html += '<button type="button" class="btn btn-outline-secondary btn-sm tooltip" id="btn-cancel-selection" data-tooltip="Cancelar selección"><i data-lucide="x"></i> Cancelar selección</button>';
+          html += '<button type="button" class="btn btn-outline-danger btn-sm tooltip" id="btn-bulk-delete-confirm" data-tooltip="Eliminar seleccionados" ' + (state.selectedIds.length === 0 ? " disabled" : "") + '><i data-lucide="trash"></i> Eliminación múltiple</button>';
         } else {
-          html += '<button type="button" class="btn btn-outline-danger btn-sm" id="btn-bulk-delete">Eliminación múltiple</button>';
-          html += '<button type="button" class="btn btn-outline-secondary btn-sm" id="btn-projects-export-full">Exportar</button>';
+          html += '<button type="button" class="btn btn-outline-danger btn-sm tooltip" id="btn-bulk-delete" data-tooltip="Eliminación múltiple"><i data-lucide="trash"></i> Eliminación múltiple</button>';
+          html += '<button type="button" class="btn btn-outline-secondary btn-sm tooltip" id="btn-projects-export-full" data-tooltip="Exportar proyectos"><i data-lucide="download"></i> Exportar</button>';
           html += '<input type="file" id="projects-import-full-input" class="d-none" accept=".json,application/json">';
-          html += '<button type="button" class="btn btn-outline-secondary btn-sm" id="btn-projects-import-full">Importar</button>';
-          html += '<a href="#" id="btn-create-project" class="btn btn-nexus-primary btn-sm">+ Nuevo proyecto</a>';
+          html += '<button type="button" class="btn btn-outline-secondary btn-sm tooltip" id="btn-projects-import-full" data-tooltip="Importar proyectos"><i data-lucide="upload"></i> Importar</button>';
+          html += '<button type="button" id="btn-create-project" class="btn btn-nexus-primary btn-sm tooltip" data-tooltip="Crear nuevo proyecto"><i data-lucide="plus"></i> Nuevo proyecto</button>';
         }
         html += "</div>";
       }
@@ -55,7 +67,7 @@
       if (!items || items.length === 0) {
         var msg = meta && state.search ? "No hay resultados para tu búsqueda o filtro." : "Aún no hay proyectos";
         html += '<div class="nexus-empty-state"><p class="nexus-empty-state-title">' + msg + "</p><p class=\"nexus-text-secondary\">Cree su primer proyecto para comenzar.</p>";
-        if (isMaster) html += '<a href="#" id="btn-create-project-2" class="btn btn-nexus-primary mt-3" aria-label="Crear proyecto">Crear proyecto</a>';
+        if (isMaster) html += '<a href="#" id="btn-create-project-2" class="btn btn-nexus-primary mt-3 tooltip" aria-label="Crear proyecto" data-tooltip="Crear proyecto"><i data-lucide="plus"></i> Crear proyecto</a>';
         html += "</div>";
       } else {
         var allChecked = items.length > 0 && items.every(function (p) { return state.selectedIds.indexOf(p.id) !== -1; });
@@ -198,7 +210,7 @@
       html += '<div class="modal-dialog modal-dialog-centered"><div class="nexus-manage-user-card modal-content">';
       html += '<div class="modal-header border-0 pb-0"><h5 class="modal-title nexus-manage-user-title" id="' + modalId + 'Label">Eliminar proyecto</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>';
       html += '<div class="modal-body pt-2">' + bodyHtml + '<div id="project-delete-error" class="alert alert-danger d-none mt-2"></div></div>';
-      html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-danger" id="project-delete-confirm-btn">Eliminar</button></div>';
+      html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary tooltip" data-bs-dismiss="modal" data-tooltip="Cancelar"><i data-lucide="x"></i> Cancelar</button><button type="button" class="btn btn-danger tooltip" id="project-delete-confirm-btn" data-tooltip="Eliminar proyecto"><i data-lucide="trash"></i> Eliminar</button></div>';
       html += "</div></div></div>";
       var wrap = document.createElement("div");
       wrap.innerHTML = html;
@@ -246,7 +258,7 @@
       html += '<div class="modal-dialog modal-dialog-centered"><div class="nexus-manage-user-card modal-content">';
       html += '<div class="modal-header border-0 pb-0"><h5 class="modal-title nexus-manage-user-title" id="' + modalId + 'Label">Eliminación múltiple</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>';
       html += '<div class="modal-body pt-2">' + bodyHtml + '<div id="project-bulk-delete-error" class="alert alert-danger d-none mt-2"></div></div>';
-      html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-danger" id="project-bulk-delete-confirm-btn">Eliminar</button></div>';
+      html += '<div class="modal-footer border-0"><button type="button" class="btn btn-secondary tooltip" data-bs-dismiss="modal" data-tooltip="Cancelar"><i data-lucide="x"></i> Cancelar</button><button type="button" class="btn btn-danger tooltip" id="project-bulk-delete-confirm-btn" data-tooltip="Eliminar seleccionados"><i data-lucide="trash"></i> Eliminar</button></div>';
       html += "</div></div></div>";
       var wrap = document.createElement("div");
       wrap.innerHTML = html;
@@ -310,6 +322,7 @@
         notes: p.notes != null ? String(p.notes) : "",
         files: Array.isArray(p.files) ? p.files.filter(function (f) { return f && f.data_url; }).map(function (f) {
           return {
+            ref: f.ref ? String(f.ref) : createEvidenceRef(),
             name: f.name ? String(f.name) : "archivo",
             type: f.type ? String(f.type) : "application/octet-stream",
             data_url: String(f.data_url)
@@ -564,7 +577,7 @@
       var acceptanceLines = storedCriteria.acceptance || [];
       var implementationLines = storedCriteria.implementation || [];
       var statusOpts = ["ACTIVE", "ARCHIVED"];
-      var statusSelectHtml = '<span class="nexus-text-sm text-muted">Estado</span><select id="project-detail-status-edit" class="form-select form-select-sm mt-1" style="max-width:100%">';
+      var statusSelectHtml = '<label class="editor-label" for="project-detail-status-edit">Estado</label><select id="project-detail-status-edit" class="form-select form-select-sm form-modern-input" style="max-width:100%">';
       statusOpts.forEach(function (st) {
         statusSelectHtml += '<option value="' + esc(st) + '"' + (p.status === st ? ' selected' : '') + '>' + esc(st) + '</option>';
       });
@@ -577,68 +590,75 @@
       html += '<div class="nexus-panel nexus-section-spacing">';
       html += '<h1 class="nexus-page-title">' + esc(p.name || "Proyecto") + "</h1>";
       html += '<div class="nexus-card p-4" style="max-width:100%">';
-      html += '<ul class="nav nav-tabs mb-3" role="tablist"><li class="nav-item"><button type="button" class="nav-link' + (forceEditMode ? "" : " active") + '" id="project-detail-tab-vista" data-bs-toggle="tab" data-bs-target="#project-detail-panel-vista" aria-selected="' + (forceEditMode ? "false" : "true") + '">Vista</button></li><li class="nav-item"><button type="button" class="nav-link' + (forceEditMode ? " active" : "") + '" id="project-detail-tab-edicion" data-bs-toggle="tab" data-bs-target="#project-detail-panel-edicion" aria-selected="' + (forceEditMode ? "true" : "false") + '">Edición</button></li><li class="nav-item"><button type="button" class="nav-link" id="project-detail-tab-evidencia" data-bs-toggle="tab" data-bs-target="#project-detail-panel-evidencia" aria-selected="false">Evidencia</button></li></ul>';
+      html += '<div class="view-mode-switch mb-3" role="tablist" aria-label="Modo de vista"><button type="button" class="mode-btn nav-link tooltip' + (forceEditMode ? "" : " active") + '" id="project-detail-tab-vista" data-bs-toggle="tab" data-bs-target="#project-detail-panel-vista" aria-selected="' + (forceEditMode ? "false" : "true") + '" data-tooltip="Modo vista"><i data-lucide="eye"></i> Vista</button><button type="button" class="mode-btn nav-link tooltip' + (forceEditMode ? " active" : "") + '" id="project-detail-tab-edicion" data-bs-toggle="tab" data-bs-target="#project-detail-panel-edicion" aria-selected="' + (forceEditMode ? "true" : "false") + '" data-tooltip="Modo edición"><i data-lucide="pencil"></i> Edición</button><button type="button" class="mode-btn nav-link tooltip" id="project-detail-tab-evidencia" data-bs-toggle="tab" data-bs-target="#project-detail-panel-evidencia" aria-selected="false" data-tooltip="Modo evidencia"><i data-lucide="paperclip"></i> Evidencia</button><button type="button" class="mode-btn nav-link tooltip" id="project-detail-tab-backlog" data-bs-toggle="tab" data-bs-target="#project-detail-panel-backlog" aria-selected="false" data-tooltip="Product Backlog del proyecto"><i data-lucide="list-checks"></i> Backlog</button></div>';
       html += '<div class="tab-content">';
-      html += '<div class="tab-pane fade' + (forceEditMode ? "" : " show active") + '" id="project-detail-panel-vista" role="tabpanel"><div class="row g-3">';
-      html += '<div class="col-md-4"><span class="nexus-text-sm text-muted">ID</span><p class="nexus-font-semibold mb-0">' + esc((p.number != null && p.number !== "") ? ("P" + String(p.number)) : ((p.id || "").slice(0, 8) || "—")) + "</p></div>";
-      html += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Estado</span><p class="mb-0">' + esc(p.status || "—") + "</p></div>";
-      html += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Creado</span><p class="mb-0 nexus-text-sm">' + esc((p.created_at && p.created_at.slice) ? p.created_at.slice(0, 10) : (p.created_at || "—")) + "</p></div>";
-      html += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Descripción</span>';
-      html += (p.description && String(p.description).trim()) ? '<p class="mb-0" style="white-space:pre-wrap">' + esc(p.description) + "</p>" : '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
-      html += "</div>";
-      html += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de aceptación</span><div id="project-detail-criteria-vista">';
-      if (!acceptanceLines.length) html += '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
-      else {
-        html += '<ul class="list-unstyled mb-0">';
-        acceptanceLines.forEach(function (line, idx) { html += '<li class="py-1">' + (idx + 1) + ". " + esc(line || "—") + "</li>"; });
-        html += "</ul>";
-      }
+      html += '<div class="tab-pane fade' + (forceEditMode ? "" : " show active") + '" id="project-detail-panel-vista" role="tabpanel"><div class="entity-viewer">';
+      html += '<section class="viewer-header"><h2 class="viewer-title">' + esc(p.name || "Proyecto") + "</h2></section>";
+      html += '<section class="viewer-metadata">';
+      html += '<div class="metadata-card"><div class="metadata-label">ID</div><div class="metadata-value">' + esc((p.number != null && p.number !== "") ? ("P" + String(p.number)) : ((p.id || "").slice(0, 8) || "—")) + "</div></div>";
+      html += '<div class="metadata-card"><div class="metadata-label">Estado</div><div class="metadata-value">' + esc(p.status || "—") + "</div></div>";
+      html += '<div class="metadata-card"><div class="metadata-label">Creado</div><div class="metadata-value">' + esc((p.created_at && p.created_at.slice) ? p.created_at.slice(0, 10) : (p.created_at || "—")) + "</div></div>";
+      html += "</section>";
+      html += '<section class="viewer-section"><div class="viewer-section-title">Descripción</div><div id="project-detail-description-vista">';
+      html += (p.description && String(p.description).trim()) ? '<p class="viewer-description-text">' + esc(p.description) + "</p>" : '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
+      html += "</div></section>";
+      html += '<section class="viewer-section"><div class="viewer-section-title">Criterios de aceptación</div><div id="project-detail-criteria-vista">';
+      html += criteriaToViewHtml(acceptanceLines);
+      html += "</div></section>";
+      html += '<section class="viewer-section"><div class="viewer-section-title">Criterios de implementación</div><div id="project-detail-impl-vista">';
+      html += criteriaToViewHtml(implementationLines);
+      html += "</div></section>";
       html += "</div></div>";
-      html += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de implementación</span><div id="project-detail-impl-vista">';
-      if (!implementationLines.length) html += '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
-      else {
-        html += '<ul class="list-unstyled mb-0">';
-        implementationLines.forEach(function (line, idx) { html += '<li class="py-1">' + (idx + 1) + ". " + esc(line || "—") + "</li>"; });
-        html += "</ul>";
-      }
-      html += "</div></div>";
-      html += "</div></div>";
-      html += '<div class="tab-pane fade' + (forceEditMode ? " show active" : "") + '" id="project-detail-panel-edicion" role="tabpanel"><div class="row g-3">';
-      html += '<div class="col-md-4"><span class="nexus-text-sm text-muted">ID</span><p class="nexus-font-semibold mb-0">' + esc((p.number != null && p.number !== "") ? ("P" + String(p.number)) : ((p.id || "").slice(0, 8) || "—")) + "</p></div>";
-      html += '<div class="col-md-4">' + statusSelectHtml + "</div>";
-      html += '<div class="col-md-4"><span class="nexus-text-sm text-muted">Creado</span><p class="mb-0 nexus-text-sm">' + esc((p.created_at && p.created_at.slice) ? p.created_at.slice(0, 10) : (p.created_at || "—")) + "</p></div>";
-      html += '<div class="col-12"><span class="nexus-text-sm text-muted">Nombre</span><input type="text" id="project-detail-edit-name" class="form-control form-control-sm mt-1" value="' + esc(p.name || "") + '" placeholder="Nombre" aria-label="Nombre"></div>';
-      html += '<div class="col-12"><span class="nexus-text-sm text-muted">Descripción</span><textarea id="project-detail-edit-desc" class="form-control form-control-sm mt-1" rows="3" placeholder="Descripción" aria-label="Descripción">' + esc(p.description || "") + "</textarea></div>";
-      html += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de aceptación</span><div id="project-detail-criteria-list">';
+      html += '<div class="tab-pane fade' + (forceEditMode ? " show active" : "") + '" id="project-detail-panel-edicion" role="tabpanel"><div class="entity-editor">';
+      html += '<section class="editor-section"><div class="editor-section-title">General</div><label class="editor-label" for="project-detail-edit-name">Nombre</label><input type="text" id="project-detail-edit-name" class="form-control form-control-sm form-modern-input editor-title-input" value="' + esc(p.name || "") + '" placeholder="Nombre" aria-label="Nombre"></section>';
+      html += '<section class="editor-section"><div class="editor-section-title">Metadata</div><div class="metadata-grid">';
+      html += '<div><span class="editor-label">ID</span><div class="editor-meta-value">' + esc((p.number != null && p.number !== "") ? ("P" + String(p.number)) : ((p.id || "").slice(0, 8) || "—")) + '</div></div>';
+      html += '<div>' + statusSelectHtml + "</div>";
+      html += '<div><span class="editor-label">Creado</span><div class="editor-meta-value">' + esc((p.created_at && p.created_at.slice) ? p.created_at.slice(0, 10) : (p.created_at || "—")) + "</div></div>";
+      html += "</div></section>";
+      html += '<section class="editor-section"><div class="editor-section-title">Descripción</div><textarea id="project-detail-edit-desc" class="form-control form-control-sm form-modern-input description-editor" rows="3" placeholder="Descripción" aria-label="Descripción">' + esc(p.description || "") + "</textarea></section>";
+      html += '<section class="editor-section"><div class="editor-section-title">Criterios de aceptación</div><div id="project-detail-criteria-list">';
       var numCriteria = acceptanceLines.length || 1;
       for (var i = 0; i < numCriteria; i++) {
-        html += '<div class="project-criterion-row d-flex gap-2 align-items-center mb-2"><input type="text" class="form-control form-control-sm project-detail-criteria-input" placeholder="Criterio ' + (i + 1) + '" value="' + esc(acceptanceLines[i] || "") + '" aria-label="Criterio ' + (i + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm project-criterion-remove" aria-label="Quitar criterio">&times;</button></div>';
+        html += '<div class="project-criterion-row criteria-item"><input type="text" class="form-control form-control-sm form-modern-input project-detail-criteria-input" placeholder="Criterio ' + (i + 1) + '" value="' + esc(acceptanceLines[i] || "") + '" aria-label="Criterio ' + (i + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm project-criterion-remove criteria-remove-btn tooltip" aria-label="Quitar criterio" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button></div>';
       }
-      html += '</div><div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button type="button" id="project-detail-criteria-add" class="btn btn-outline-secondary btn-sm">+ Añadir criterio</button><button type="button" id="project-detail-criteria-save" class="btn btn-nexus-primary btn-sm">Guardar criterios</button><span id="project-detail-criteria-msg" class="nexus-text-sm text-muted"></span></div></div>';
-      html += '<div class="col-12 border-top pt-3 mt-2"><span class="nexus-text-sm text-muted d-block mb-2">Criterios de implementación</span><div id="project-detail-impl-criteria-list">';
+      html += '</div><div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button type="button" id="project-detail-criteria-add" class="btn btn-outline-secondary btn-sm btn-add tooltip" data-tooltip="Añadir criterio de aceptación"><i data-lucide="plus"></i> Añadir criterio</button><button type="button" id="project-detail-criteria-save" class="btn btn-nexus-primary btn-sm tooltip" data-tooltip="Guardar criterios de aceptación"><i data-lucide="save"></i> Guardar criterios</button><span id="project-detail-criteria-msg" class="nexus-text-sm text-muted"></span></div></section>';
+      html += '<section class="editor-section"><div class="editor-section-title">Criterios de implementación</div><div id="project-detail-impl-criteria-list">';
       var numImpl = implementationLines.length || 1;
       for (var j = 0; j < numImpl; j++) {
-        html += '<div class="project-impl-row d-flex gap-2 align-items-center mb-2"><input type="text" class="form-control form-control-sm project-detail-impl-input" placeholder="Criterio ' + (j + 1) + '" value="' + esc(implementationLines[j] || "") + '" aria-label="Criterio ' + (j + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm project-impl-remove" aria-label="Quitar criterio">&times;</button></div>';
+        html += '<div class="project-impl-row criteria-item"><input type="text" class="form-control form-control-sm form-modern-input project-detail-impl-input" placeholder="Criterio ' + (j + 1) + '" value="' + esc(implementationLines[j] || "") + '" aria-label="Criterio ' + (j + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm project-impl-remove criteria-remove-btn tooltip" aria-label="Quitar criterio" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button></div>';
       }
-      html += '</div><div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button type="button" id="project-detail-impl-add" class="btn btn-outline-secondary btn-sm">+ Añadir criterio</button><button type="button" id="project-detail-impl-save" class="btn btn-nexus-primary btn-sm">Guardar criterios</button><span id="project-detail-impl-msg" class="nexus-text-sm text-muted"></span></div></div>';
+      html += '</div><div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button type="button" id="project-detail-impl-add" class="btn btn-outline-secondary btn-sm btn-add tooltip" data-tooltip="Añadir criterio de implementación"><i data-lucide="plus"></i> Añadir criterio</button><button type="button" id="project-detail-impl-save" class="btn btn-nexus-primary btn-sm tooltip" data-tooltip="Guardar criterios de implementación"><i data-lucide="save"></i> Guardar criterios</button><span id="project-detail-impl-msg" class="nexus-text-sm text-muted"></span></div></section>';
       html += '</div></div>';
-      html += '<div class="tab-pane fade" id="project-detail-panel-evidencia" role="tabpanel"><div class="row g-3">';
-      html += '<div class="col-md-6"><span class="nexus-text-sm text-muted d-block mb-2">Edición</span><textarea id="project-detail-evidence-notes" class="form-control form-control-sm mb-2" rows="5" placeholder="Notas de evidencia...">' + esc(evidenceState.notes || "") + '</textarea><input type="file" id="project-detail-evidence-files" class="form-control form-control-sm mb-2" accept="image/*,video/*,.pdf,.doc,.docx,.txt" multiple><div id="project-detail-evidence-list"></div></div>';
-      html += '<div class="col-md-6"><span class="nexus-text-sm text-muted d-block mb-2">Previsualización</span><div id="project-detail-evidence-preview"></div></div>';
-      html += "</div></div></div>";
+      html += '<div class="tab-pane fade" id="project-detail-panel-backlog" role="tabpanel"><div class="nexus-section-spacing"><h3 class="nexus-font-semibold nexus-text-primary mb-3">Features del proyecto</h3><div class="d-flex flex-wrap gap-2 align-items-center mb-3"><label class="nexus-text-sm mb-0">Estado</label><select id="project-backlog-filter-status" class="form-select form-select-sm" style="width:auto" aria-label="Filtrar por estado"><option value="">Todos</option><option value="DRAFT">DRAFT</option><option value="READY">READY</option><option value="IN_PROGRESS">IN_PROGRESS</option><option value="BLOCKED">BLOCKED</option><option value="ARCHIVED">ARCHIVED</option></select><button type="button" class="btn btn-nexus-secondary btn-sm" id="project-backlog-refresh" aria-label="Actualizar"><i data-lucide="refresh-cw"></i> Actualizar</button></div><div id="project-detail-backlog-container"><p class="nexus-text-sm text-muted">Seleccione la pestaña Backlog para cargar las features.</p></div><div id="project-detail-backlog-pagination" class="mt-2 nexus-text-sm"></div></div></div>';
+      html += '<div class="tab-pane fade" id="project-detail-panel-evidencia" role="tabpanel">';
+      html += '<div class="evidence-container" id="project-detail-evidence-container" data-evidence-mode="split">';
+      html += '<div class="evidence-fullscreen-layout-controls mb-2">';
+      html += '<button type="button" data-evidence-layout="left" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Solo editor"><i data-lucide="pencil"></i> Editor</button>';
+      html += '<button type="button" data-evidence-layout="right" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Solo vista previa"><i data-lucide="eye"></i> Preview</button>';
+      html += '<button type="button" data-evidence-layout="split" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Vista dividida"><i data-lucide="columns"></i> Split</button>';
+      html += '<button type="button" class="btn btn-outline-secondary btn-sm btn-evidence-fullscreen-global ms-auto tooltip" aria-label="Ver en pantalla completa" data-tooltip="Pantalla completa"><i data-lucide="maximize"></i> Pantalla completa</button>';
+      html += "</div>";
+      html += '<div class="evidence-body evidence-split-layout" style="height:320px;">';
+      html += '<div class="evidence-col" id="project-detail-evidence-left-col" data-evidence-role="left-col"><div class="evidence-panel"><div class="evidence-panel-header">Edición</div><div class="evidence-panel-body evidence-content"><textarea id="project-detail-evidence-notes" class="form-control form-control-sm border-0 shadow-none p-0 m-0 bg-transparent" rows="6" placeholder="Notas de evidencia..." style="min-height:100%; height:100%; resize:none; overflow-y:auto;">' + esc(evidenceState.notes || "") + '</textarea></div></div></div>';
+      html += '<div class="split-resizer" data-evidence-role="resizer" aria-hidden="true"></div>';
+      html += '<div class="evidence-col" id="project-detail-evidence-right-col" data-evidence-role="right-col"><div class="evidence-panel"><div class="evidence-panel-header">Visualización</div><div class="evidence-panel-body evidence-content"><div id="project-detail-evidence-preview"></div></div></div></div>';
+      html += "</div></div></div></div>";
       html += '<div class="mt-3 d-flex flex-wrap justify-content-between align-items-center gap-2">';
-      html += '<div class="d-flex flex-wrap gap-2">';
-      html += '<button type="button" id="project-detail-export" class="btn btn-outline-secondary btn-sm">Exportar</button>';
+      html += '<div class="d-flex flex-wrap gap-2 ms-auto" id="project-detail-transfer-actions">';
+      html += '<button type="button" id="project-detail-export" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Exportar evidencia"><i data-lucide="download"></i> Exportar</button>';
       html += '<input type="file" id="project-detail-import-input" class="d-none" accept=".json,application/json">';
-      html += '<button type="button" id="project-detail-import" class="btn btn-outline-secondary btn-sm">Importar</button>';
+      html += '<button type="button" id="project-detail-import" class="btn btn-outline-secondary btn-sm tooltip" data-tooltip="Importar evidencia"><i data-lucide="upload"></i> Importar</button>';
       html += '</div>';
-      html += '<div class="d-flex flex-wrap gap-2">';
-      html += '<a href="#/features?project=' + esc(p.id) + '" class="btn btn-nexus-secondary btn-sm">Features</a>';
-      html += '<a href="#/sprints?project=' + esc(p.id) + '" class="btn btn-nexus-secondary btn-sm">Sprints</a>';
-      html += '<a href="#/incidents?project=' + esc(p.id) + '" class="btn btn-nexus-secondary btn-sm">Incidentes</a>';
+      html += '<div class="d-flex flex-wrap gap-2 ms-auto" id="project-detail-view-actions">';
+      html += '<a href="#/features?project=' + esc(p.id) + '" id="project-detail-go-features" class="btn btn-nexus-secondary btn-sm tooltip" data-tooltip="Ir a Features"><i data-lucide="layers"></i> Features</a>';
+      html += '<a href="#/sprints?project=' + esc(p.id) + '" id="project-detail-go-sprints" class="btn btn-nexus-secondary btn-sm tooltip" data-tooltip="Ir a Sprints"><i data-lucide="calendar"></i> Sprints</a>';
+      html += '<a href="#/incidents?project=' + esc(p.id) + '" id="project-detail-go-incidents" class="btn btn-nexus-secondary btn-sm tooltip" data-tooltip="Ir a Incidentes"><i data-lucide="alert-circle"></i> Incidentes</a>';
       if (isMaster) {
-        if (p.status !== "ARCHIVED") html += '<button class="btn btn-outline-danger btn-sm" id="btn-archive">Archivar</button>';
-        html += '<button class="btn btn-outline-danger btn-sm" id="btn-delete-project">Eliminar</button>';
+        html += '<span id="project-detail-destructive-actions" class="d-flex gap-2">';
+        if (p.status !== "ARCHIVED") html += '<button class="btn btn-outline-danger btn-sm tooltip" id="btn-archive" data-tooltip="Archivar proyecto"><i data-lucide="archive"></i> Archivar</button>';
+        html += '<button class="btn btn-outline-danger btn-sm tooltip" id="btn-delete-project" data-tooltip="Eliminar proyecto"><i data-lucide="trash"></i> Eliminar</button>';
+        html += '</span>';
       }
       html += "</div></div>";
       html += "</div>";
@@ -665,11 +685,45 @@
           });
         } : undefined
       }, function (bsModal) {
-        if (!isMaster) bsModal.hide();
+        if (!isMaster) {
+          bsModal.hide();
+          return;
+        }
+        saveMain().then(function (ok) {
+          if (!ok) {
+            window.openNexusAlertModal({ title: "Error", message: "No se pudieron guardar los cambios del proyecto." });
+            return;
+          }
+          saveCriteriaOnly();
+          if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Proyecto actualizado correctamente.");
+          runList();
+        });
       });
 
       var modalEl = document.getElementById("projectDetailModal");
       if (modalEl) {
+        if (typeof window.bindEvidenceLayout === "function") window.bindEvidenceLayout(modalEl);
+        function bindCloseThenNavigate(linkId) {
+          var link = document.getElementById(linkId);
+          if (!link) return;
+          link.onclick = function (e) {
+            e.preventDefault();
+            var targetHref = link.getAttribute("href");
+            if (!targetHref) return;
+            var bsInst = typeof bootstrap !== "undefined" ? bootstrap.Modal.getInstance(modalEl) : null;
+            if (!bsInst) {
+              window.location.hash = targetHref;
+              return;
+            }
+            modalEl.addEventListener("hidden.bs.modal", function () {
+              window.location.hash = targetHref;
+            }, { once: true });
+            bsInst.hide();
+          };
+        }
+        bindCloseThenNavigate("project-detail-go-features");
+        bindCloseThenNavigate("project-detail-go-sprints");
+        bindCloseThenNavigate("project-detail-go-incidents");
         modalEl.addEventListener("hidden.bs.modal", function () {
           if (window.location.hash.indexOf("#/projects/") === 0) window.location.hash = "#/projects";
         }, { once: true });
@@ -677,8 +731,135 @@
 
       if (!isMaster) {
         var tabEd = document.getElementById("project-detail-tab-edicion");
-        if (tabEd && tabEd.parentNode) tabEd.parentNode.remove();
+        if (tabEd) tabEd.remove();
       }
+      function syncProjectTransferActionsVisibility() {
+        var group = document.getElementById("project-detail-transfer-actions");
+        var tabEd = document.getElementById("project-detail-tab-edicion");
+        if (!group) return;
+        if (!isMaster || !tabEd) {
+          group.classList.add("d-none");
+          return;
+        }
+        group.classList.toggle("d-none", !tabEd.classList.contains("active"));
+      }
+      function syncProjectViewActionsVisibility() {
+        var group = document.getElementById("project-detail-view-actions");
+        var tabVista = document.getElementById("project-detail-tab-vista");
+        var tabBacklog = document.getElementById("project-detail-tab-backlog");
+        var destructiveActions = document.getElementById("project-detail-destructive-actions");
+        if (!group) return;
+        var show = (tabVista && tabVista.classList.contains("active")) || (tabBacklog && tabBacklog.classList.contains("active"));
+        group.classList.toggle("d-none", !show);
+        if (destructiveActions) destructiveActions.classList.toggle("d-none", tabBacklog && tabBacklog.classList.contains("active"));
+      }
+      var tabVistaProject = document.getElementById("project-detail-tab-vista");
+      var tabEdicionProject = document.getElementById("project-detail-tab-edicion");
+      var tabEvidenciaProject = document.getElementById("project-detail-tab-evidencia");
+      var tabBacklogProject = document.getElementById("project-detail-tab-backlog");
+      if (tabVistaProject) tabVistaProject.addEventListener("shown.bs.tab", syncProjectTransferActionsVisibility);
+      if (tabEdicionProject) tabEdicionProject.addEventListener("shown.bs.tab", syncProjectTransferActionsVisibility);
+      if (tabEvidenciaProject) tabEvidenciaProject.addEventListener("shown.bs.tab", syncProjectTransferActionsVisibility);
+      if (tabBacklogProject) tabBacklogProject.addEventListener("shown.bs.tab", syncProjectTransferActionsVisibility);
+      if (tabVistaProject) tabVistaProject.addEventListener("shown.bs.tab", syncProjectViewActionsVisibility);
+      if (tabEdicionProject) tabEdicionProject.addEventListener("shown.bs.tab", syncProjectViewActionsVisibility);
+      if (tabEvidenciaProject) tabEvidenciaProject.addEventListener("shown.bs.tab", syncProjectViewActionsVisibility);
+      if (tabBacklogProject) tabBacklogProject.addEventListener("shown.bs.tab", syncProjectViewActionsVisibility);
+      function syncProjectBacklogTabVisibility() {
+        var group = document.getElementById("project-detail-view-actions");
+        if (!group || !tabBacklogProject) return;
+        group.classList.toggle("d-none", !tabBacklogProject.classList.contains("active"));
+      }
+      if (tabBacklogProject) tabBacklogProject.addEventListener("shown.bs.tab", function () { syncProjectViewActionsVisibility(); });
+      function loadProjectBacklog(projectId, page) {
+        var container = document.getElementById("project-detail-backlog-container");
+        var paginationEl = document.getElementById("project-detail-backlog-pagination");
+        var statusFilter = document.getElementById("project-backlog-filter-status");
+        if (!container || !projectId) return;
+        var status = (statusFilter && statusFilter.value) ? statusFilter.value : "";
+        container.innerHTML = '<p class="nexus-text-sm text-muted">Cargando...</p>';
+        if (paginationEl) paginationEl.innerHTML = "";
+        var q = "?page=" + (page || 1) + "&limit=20";
+        if (status) q += "&status=" + encodeURIComponent(status);
+        window.fetchApi("/projects/" + projectId + "/features" + q).then(function (res) {
+          if (!res || !res.success || !res.data) {
+            container.innerHTML = '<p class="nexus-text-sm text-danger">Error al cargar las features.</p>';
+            return;
+          }
+          var data = res.data;
+          var items = data.items || data.data || [];
+          var total = (data.meta && data.meta.total) != null ? data.meta.total : (data.total || items.length);
+          var currentPage = (data.meta && data.meta.page) != null ? data.meta.page : 1;
+          var limit = (data.meta && data.meta.limit) != null ? data.meta.limit : 20;
+          var totalPages = (data.meta && data.meta.totalPages) != null ? data.meta.totalPages : Math.ceil(total / limit) || 1;
+          if (!items.length) {
+            container.innerHTML = '<p class="nexus-text-sm text-muted">No hay features en el proyecto con los filtros actuales.</p>';
+            if (paginationEl) paginationEl.innerHTML = "";
+            return;
+          }
+          var tableHtml = '<table class="table table-sm nexus-table"><thead><tr><th>ID</th><th>Título</th><th>Estado</th><th>Prioridad</th><th>Progreso</th><th></th></tr></thead><tbody>';
+          items.forEach(function (feat) {
+            var featureId = feat.id || "";
+            var title = (feat.title || "").slice(0, 80);
+            var totalSt = feat.user_stories_count != null ? feat.user_stories_count : 0;
+            var doneSt = feat.stories_done != null ? feat.stories_done : 0;
+            var pctSt = feat.progress_pct != null ? feat.progress_pct : (totalSt > 0 ? Math.round((doneSt / totalSt) * 100) : 0);
+            var progressText = totalSt ? (doneSt + "/" + totalSt + " (" + pctSt + "%)") : "—";
+            var displayId = (feat.number != null && feat.number !== "") ? "FT-" + feat.number : (featureId ? String(featureId).slice(0, 8) : "—");
+            var featureHref = "#/features?project=" + encodeURIComponent(projectId) + "&feature=" + encodeURIComponent(featureId);
+            tableHtml += "<tr><td>" + esc(displayId) + "</td><td>" + (featureId ? '<a href="' + featureHref + '" class="project-backlog-feature-link">' + esc(title) + "</a>" : esc(title)) + "</td><td><span class=\"" + (typeof window.nexusBadgeClass === "function" ? window.nexusBadgeClass(feat.status) : "") + "\">" + esc(feat.status || "") + "</span></td><td>" + esc(feat.priority || "—") + "</td><td>" + esc(progressText) + "</td><td><a href=\"" + esc(featureHref) + "\" class=\"btn btn-outline-secondary btn-sm project-backlog-feature-link\">Ver</a></td></tr>";
+          });
+          tableHtml += "</tbody></table>";
+          container.innerHTML = tableHtml;
+          if (!container.dataset.featureClickBound) {
+            container.dataset.featureClickBound = "1";
+            container.addEventListener("click", function (e) {
+              var a = e.target && e.target.closest ? e.target.closest("a.project-backlog-feature-link") : null;
+              if (!a) return;
+              var href = a.getAttribute("href") || "";
+              if (href.indexOf("feature=") === -1) return;
+              e.preventDefault();
+              var match = href.match(/feature=([^&]+)/);
+              var featureId = match ? decodeURIComponent(match[1]) : "";
+              if (!featureId) return;
+              if (window.targetStackManager) {
+                window.targetStackManager.openTarget("feature", featureId, { projectId: projectId });
+              }
+              if (typeof window.openFeatureDetailTarget === "function") {
+                // Nuevo modelo: NO cerrar el modal de Project. Abrir Feature encima (stack).
+                window.openFeatureDetailTarget(featureId, { projectId: projectId });
+              } else {
+                // Fallback: navegación clásica por hash si aún no existe la API de target
+                window.location.hash = href;
+              }
+            });
+          }
+          if (paginationEl && totalPages > 1) {
+            var pagHtml = "Página " + currentPage + " de " + totalPages + " (" + total + " en total). ";
+            if (currentPage > 1) pagHtml += '<button type="button" class="btn btn-link btn-sm p-0 me-1" id="project-backlog-prev">Anterior</button>';
+            if (currentPage < totalPages) pagHtml += '<button type="button" class="btn btn-link btn-sm p-0" id="project-backlog-next">Siguiente</button>';
+            paginationEl.innerHTML = pagHtml;
+            var prevBtn = document.getElementById("project-backlog-prev");
+            var nextBtn = document.getElementById("project-backlog-next");
+            if (prevBtn) prevBtn.onclick = function () { loadProjectBacklog(projectId, currentPage - 1); };
+            if (nextBtn) nextBtn.onclick = function () { loadProjectBacklog(projectId, currentPage + 1); };
+          }
+          if (typeof window.nexusCreateIcons === "function") setTimeout(window.nexusCreateIcons, 0);
+        }).catch(function () {
+          container.innerHTML = '<p class="nexus-text-sm text-danger">Error al cargar las features.</p>';
+        });
+      }
+      if (tabBacklogProject) {
+        tabBacklogProject.addEventListener("shown.bs.tab", function () {
+          loadProjectBacklog(p.id, 1);
+        });
+      }
+      var refreshBacklogBtn = document.getElementById("project-backlog-refresh");
+      if (refreshBacklogBtn) refreshBacklogBtn.onclick = function () { loadProjectBacklog(p.id, 1); };
+      var backlogStatusFilter = document.getElementById("project-backlog-filter-status");
+      if (backlogStatusFilter) backlogStatusFilter.onchange = function () { loadProjectBacklog(p.id, 1); };
+      syncProjectTransferActionsVisibility();
+      syncProjectViewActionsVisibility();
       var initialName = (p.name || "").trim();
       var initialDesc = (p.description || "").trim();
       var baselineCriteria = acceptanceLines.slice();
@@ -689,7 +870,14 @@
         return Promise.all(files.map(function (file) {
           return new Promise(function (resolve) {
             var reader = new FileReader();
-            reader.onload = function () { resolve({ name: file.name || "archivo", type: file.type || "application/octet-stream", data_url: reader.result }); };
+            reader.onload = function () {
+              resolve({
+                ref: createEvidenceRef(),
+                name: file.name || "archivo",
+                type: file.type || "application/octet-stream",
+                data_url: reader.result
+              });
+            };
             reader.onerror = function () { resolve(null); };
             reader.readAsDataURL(file);
           });
@@ -700,53 +888,68 @@
         return normalizeEvidencePayload({ notes: notesEl ? notesEl.value : "", files: evidenceState.files });
       }
       function renderProjectEvidencePane() {
-        var listEl = document.getElementById("project-detail-evidence-list");
         var previewEl = document.getElementById("project-detail-evidence-preview");
-        if (listEl) {
-          if (!evidenceState.files.length) listEl.innerHTML = '<p class="mb-0 nexus-text-sm text-muted">Sin archivos adjuntos.</p>';
-          else {
-            var listHtml = '<ul class="list-unstyled mb-0">';
-            evidenceState.files.forEach(function (file, idx) {
-              listHtml += '<li class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-2"><span class="nexus-text-sm text-truncate me-2">' + esc(file.name || ("Archivo " + (idx + 1))) + '</span><button type="button" class="btn btn-outline-danger btn-sm project-evidence-remove" data-evidence-index="' + idx + '">Quitar</button></li>';
-            });
-            listHtml += "</ul>";
-            listEl.innerHTML = listHtml;
-            listEl.querySelectorAll(".project-evidence-remove").forEach(function (btn) {
-              btn.onclick = function () {
-                var index = parseInt(btn.getAttribute("data-evidence-index"), 10);
-                if (!isNaN(index)) evidenceState.files.splice(index, 1);
-                renderProjectEvidencePane();
-              };
-            });
-          }
-        }
         if (previewEl) {
           var preview = "";
           var notesText = (document.getElementById("project-detail-evidence-notes") && document.getElementById("project-detail-evidence-notes").value || "").trim();
-          preview += '<div class="border rounded p-2 mb-2"><div class="nexus-text-sm text-muted mb-1">Notas</div>' + (notesText ? ('<div style="white-space:pre-wrap">' + esc(notesText) + '</div>') : '<div class="nexus-text-sm text-muted">Sin notas.</div>') + "</div>";
-          if (!evidenceState.files.length) preview += '<p class="mb-0 nexus-text-sm text-muted">Sin previsualizaciones.</p>';
-          else {
-            evidenceState.files.forEach(function (file) {
-              if (String(file.type || "").indexOf("image/") === 0) preview += '<img src="' + file.data_url + '" alt="' + esc(file.name || "evidencia") + '" class="img-fluid rounded border mb-2">';
-              else if (String(file.type || "").indexOf("video/") === 0) preview += '<video src="' + file.data_url + '" controls class="w-100 rounded border mb-2" style="max-height:240px"></video>';
-              else preview += '<div class="border rounded p-2 mb-2"><span class="nexus-text-sm">' + esc(file.name || "Archivo") + "</span></div>";
-            });
+          var filesByRef = {};
+          var filesByName = {};
+          evidenceState.files.forEach(function (file) {
+            if (file && file.ref) filesByRef[String(file.ref)] = file;
+            if (file && file.name) filesByName[String(file.name)] = file;
+          });
+          function renderNotesWithInlineImages(text) {
+            if (!text) return '<div class="nexus-text-sm text-muted">Sin notas.</div>';
+            var pattern = /<([^>\n]+)>/g;
+            var html = "";
+            var last = 0;
+            var m;
+            while ((m = pattern.exec(text)) !== null) {
+              var segment = text.slice(last, m.index);
+              if (segment) html += esc(segment).replace(/\n/g, "<br>");
+              var token = (m[1] || "").trim();
+              var ref = token.indexOf("evidence://") === 0 ? token.slice("evidence://".length) : token;
+              var file = filesByRef[ref] || filesByName[ref];
+              if (file && String(file.type || "").indexOf("image/") === 0) {
+                html += '<div class="my-2"><img src="' + file.data_url + '" alt="' + esc(file.name || "evidencia") + '" class="img-fluid rounded border"></div>';
+              } else {
+                html += esc(m[0]);
+              }
+              last = pattern.lastIndex;
+            }
+            var tail = text.slice(last);
+            if (tail) html += esc(tail).replace(/\n/g, "<br>");
+            return html || '<div class="nexus-text-sm text-muted">Sin notas.</div>';
           }
+          preview += '<div style="white-space:normal">' + renderNotesWithInlineImages(notesText) + "</div>";
           previewEl.innerHTML = preview;
         }
       }
       function bindProjectEvidenceEvents() {
         var notesEl = document.getElementById("project-detail-evidence-notes");
-        var filesEl = document.getElementById("project-detail-evidence-files");
         if (notesEl) notesEl.oninput = function () { renderProjectEvidencePane(); };
-        if (filesEl) filesEl.onchange = function () {
-          if (!(filesEl.files && filesEl.files.length)) return;
-          readFilesAsDataUrl(filesEl.files).then(function (rows) {
+        if (notesEl) notesEl.onpaste = function (ev) {
+          var items = (ev.clipboardData && ev.clipboardData.items) ? Array.prototype.slice.call(ev.clipboardData.items) : [];
+          var imageFiles = items
+            .filter(function (it) { return it && it.kind === "file" && String(it.type || "").indexOf("image/") === 0; })
+            .map(function (it) { return it.getAsFile(); })
+            .filter(Boolean);
+          if (!imageFiles.length) return;
+          ev.preventDefault();
+          readFilesAsDataUrl(imageFiles).then(function (rows) {
+            if (!rows.length) return;
             evidenceState.files = evidenceState.files.concat(rows);
-            filesEl.value = "";
+            var tags = rows.map(function (row) { return buildEvidenceRefTag(row.ref); }).join("\n");
+            var prefix = notesEl.value && !/\n$/.test(notesEl.value) ? "\n" : "";
+            insertTextAtCursor(notesEl, prefix + tags);
             renderProjectEvidencePane();
           });
         };
+        bindProjectEvidenceLayoutControls();
+      }
+      function bindProjectEvidenceLayoutControls() {
+        var modalRoot = document.getElementById("projectDetailModal");
+        if (typeof window.bindEvidenceLayout === "function") window.bindEvidenceLayout(modalRoot || document);
       }
       function isDirty() {
         var n = (document.getElementById("project-detail-edit-name") && document.getElementById("project-detail-edit-name").value || "").trim();
@@ -798,9 +1001,9 @@
       }
       function criteriaToViewHtml(lines) {
         if (!lines || !lines.length) return '<p class="mb-0 nexus-text-sm text-muted">Ninguno</p>';
-        var h = '<ul class="list-unstyled mb-0">';
-        lines.forEach(function (line, idx) { h += '<li class="py-1">' + (idx + 1) + ". " + esc(line || "—") + "</li>"; });
-        h += "</ul>";
+        var h = '<ol class="criteria-list criteria-list-numbered">';
+        lines.forEach(function (line) { h += "<li>" + esc(line || "—") + "</li>"; });
+        h += "</ol>";
         return h;
       }
       function refreshProjectViewCriteriaFromEdit() {
@@ -833,9 +1036,10 @@
         var list = document.getElementById("project-detail-criteria-list");
         var n = list.querySelectorAll(".project-criterion-row").length + 1;
         var row = document.createElement("div");
-        row.className = "project-criterion-row d-flex gap-2 align-items-center mb-2";
-        row.innerHTML = '<input type="text" class="form-control form-control-sm project-detail-criteria-input" placeholder="Criterio ' + n + '" aria-label="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm project-criterion-remove" aria-label="Quitar criterio">&times;</button>';
+        row.className = "project-criterion-row criteria-item";
+        row.innerHTML = '<input type="text" class="form-control form-control-sm form-modern-input project-detail-criteria-input" placeholder="Criterio ' + n + '" aria-label="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm project-criterion-remove criteria-remove-btn tooltip" aria-label="Quitar criterio" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button>';
         list.appendChild(row);
+        if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
         bindRowRemoveButtons();
       };
       var btnImplAdd = document.getElementById("project-detail-impl-add");
@@ -843,9 +1047,10 @@
         var list = document.getElementById("project-detail-impl-criteria-list");
         var n = list.querySelectorAll(".project-impl-row").length + 1;
         var row = document.createElement("div");
-        row.className = "project-impl-row d-flex gap-2 align-items-center mb-2";
-        row.innerHTML = '<input type="text" class="form-control form-control-sm project-detail-impl-input" placeholder="Criterio ' + n + '" aria-label="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm project-impl-remove" aria-label="Quitar criterio">&times;</button>';
+        row.className = "project-impl-row criteria-item";
+        row.innerHTML = '<input type="text" class="form-control form-control-sm form-modern-input project-detail-impl-input" placeholder="Criterio ' + n + '" aria-label="Criterio ' + n + '"><button type="button" class="btn btn-outline-secondary btn-sm project-impl-remove criteria-remove-btn tooltip" aria-label="Quitar criterio" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button>';
         list.appendChild(row);
+        if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
         bindRowRemoveButtons();
       };
       var btnCriteriaSave = document.getElementById("project-detail-criteria-save");
@@ -906,20 +1111,22 @@
               listA.innerHTML = "";
               (projectData.acceptance_criteria.length ? projectData.acceptance_criteria : [""]).forEach(function (val, idx) {
                 var row = document.createElement("div");
-                row.className = "project-criterion-row d-flex gap-2 align-items-center mb-2";
-                row.innerHTML = '<input type="text" class="form-control form-control-sm project-detail-criteria-input" placeholder="Criterio ' + (idx + 1) + '" value="' + esc(String(val || "")) + '" aria-label="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm project-criterion-remove" aria-label="Quitar criterio">&times;</button>';
+                row.className = "project-criterion-row criteria-item";
+                row.innerHTML = '<input type="text" class="form-control form-control-sm form-modern-input project-detail-criteria-input" placeholder="Criterio ' + (idx + 1) + '" value="' + esc(String(val || "")) + '" aria-label="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm project-criterion-remove criteria-remove-btn tooltip" aria-label="Quitar criterio" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button>';
                 listA.appendChild(row);
               });
+              if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
             }
             var listI = document.getElementById("project-detail-impl-criteria-list");
             if (listI && Array.isArray(projectData.implementation_criteria)) {
               listI.innerHTML = "";
               (projectData.implementation_criteria.length ? projectData.implementation_criteria : [""]).forEach(function (val, idx) {
                 var row = document.createElement("div");
-                row.className = "project-impl-row d-flex gap-2 align-items-center mb-2";
-                row.innerHTML = '<input type="text" class="form-control form-control-sm project-detail-impl-input" placeholder="Criterio ' + (idx + 1) + '" value="' + esc(String(val || "")) + '" aria-label="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm project-impl-remove" aria-label="Quitar criterio">&times;</button>';
+                row.className = "project-impl-row criteria-item";
+                row.innerHTML = '<input type="text" class="form-control form-control-sm form-modern-input project-detail-impl-input" placeholder="Criterio ' + (idx + 1) + '" value="' + esc(String(val || "")) + '" aria-label="Criterio ' + (idx + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm project-impl-remove criteria-remove-btn tooltip" aria-label="Quitar criterio" data-tooltip="Quitar criterio"><i data-lucide="x"></i></button>';
                 listI.appendChild(row);
               });
+              if (typeof window.nexusCreateIcons === "function") window.nexusCreateIcons();
             }
             bindRowRemoveButtons();
             bindProjectEvidenceEvents();

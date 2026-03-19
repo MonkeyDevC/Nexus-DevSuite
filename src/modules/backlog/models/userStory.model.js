@@ -75,6 +75,18 @@ function defineUserStoryModel(sequelize) {
       sprint_id: {
         type: DataTypes.UUID,
         allowNull: true
+      },
+      story_points: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: true
+      },
+      backlog_position: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: true
+      },
+      labels: {
+        type: DataTypes.JSON,
+        allowNull: true
       }
     },
     {

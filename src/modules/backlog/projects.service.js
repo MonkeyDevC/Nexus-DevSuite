@@ -6,6 +6,8 @@
 const { getModels } = require("../../infrastructure/db/loadModels");
 const { Op } = require("sequelize");
 const projectsRepository = require("./projects.repository");
+const featureRepository = require("./feature.repository");
+const userStoryRepository = require("./userStory.repository");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
 
@@ -489,6 +491,10 @@ async function importProjects(payload, context) {
   await sequelize.transaction(async (t) => {
     let maxProjectNumber = await projectsRepository.getMaxProjectNumber(t);
     maxProjectNumber = maxProjectNumber || 0;
+    let maxFeatureNumber = await featureRepository.getMaxFeatureNumberGlobal(t);
+    maxFeatureNumber = maxFeatureNumber || 0;
+    let maxStoryNumber = await userStoryRepository.getMaxStoryNumberGlobal(t);
+    maxStoryNumber = maxStoryNumber || 0;
 
     for (let pIdx = 0; pIdx < payload.projects.length; pIdx += 1) {
       const node = payload.projects[pIdx];
@@ -516,9 +522,11 @@ async function importProjects(payload, context) {
       const features = Array.isArray(node.features) ? node.features : [];
       for (let fIdx = 0; fIdx < features.length; fIdx += 1) {
         const feature = features[fIdx];
+        maxFeatureNumber += 1;
         const createdFeature = await Feature.create(
           {
             project_id: createdProject.id,
+            number: maxFeatureNumber,
             title: String(feature.title).trim(),
             description: feature.description != null ? String(feature.description) : "",
             status: String(feature.status).toUpperCase(),
@@ -530,14 +538,13 @@ async function importProjects(payload, context) {
         summary.features_created += 1;
 
         const stories = Array.isArray(feature.stories) ? feature.stories : [];
-        let storyNumber = 0;
         for (let sIdx = 0; sIdx < stories.length; sIdx += 1) {
           const story = stories[sIdx];
-          storyNumber += 1;
+          maxStoryNumber += 1;
           await UserStory.create(
             {
               feature_id: createdFeature.id,
-              number: storyNumber,
+              number: maxStoryNumber,
               title: String(story.title).trim(),
               description: story.description != null ? String(story.description) : "",
               acceptance_criteria: Array.isArray(story.acceptance_criteria) ? story.acceptance_criteria : null,

@@ -33,7 +33,7 @@
         html += '<ul class="list-unstyled" id="release-detail-features-list">';
         feats.forEach(function (f) {
           var href = (f.id) ? "#/features/" + f.id : "#/features?project=" + (f.project_id || "");
-          html += "<li><a href=\"" + href + "\">" + esc(f.title || f.id) + "</a></li>";
+          html += "<li><a href=\"" + href + "\" class=\"release-feature-link\" data-feature-id=\"" + esc(f.id || "") + "\" data-project-id=\"" + esc(f.project_id || "") + "\">" + esc(f.title || f.id) + "</a></li>";
         });
         html += '</ul>';
         if (feats.length === 0) html += '<p class="nexus-text-sm text-muted">No hay features asignadas.</p>';
@@ -103,17 +103,41 @@
           btnAssignFeat.disabled = true;
           window.fetchApi("/releases/" + releaseId + "/features/" + fid, { method: "POST", body: JSON.stringify({}) }).then(function (res) {
             btnAssignFeat.disabled = false;
-            if (res && res.success) {
+              if (res && res.success) {
               if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Feature asociada correctamente.");
               var li = document.createElement("li");
               var projId = projSel && projSel.value ? projSel.value : "";
               var label = (featSel.options[featSel.selectedIndex] && featSel.options[featSel.selectedIndex].textContent) || fid;
-              li.innerHTML = projId ? '<a href="#/features?project=' + projId + '">' + esc(label) + '</a>' : esc(label);
+              if (projId) {
+                li.innerHTML = '<a href="#/features?project=' + projId + '" class="release-feature-link" data-feature-id="' + esc(fid) + '" data-project-id="' + esc(projId) + '">' + esc(label) + '</a>';
+              } else {
+                li.textContent = esc(label);
+              }
               if (featuresListEl) featuresListEl.appendChild(li);
               featSel.value = "";
             } else window.openNexusAlertModal({ title: "Error", message: (res && res.error && res.error.message) || "Error al asignar feature." });
           });
         };
+        var root = document.getElementById("content");
+        if (root) {
+          root.addEventListener("click", function (e) {
+            var a = e.target && e.target.closest ? e.target.closest("a.release-feature-link") : null;
+            if (!a) return;
+            e.preventDefault();
+            var fid = a.getAttribute("data-feature-id") || "";
+            var pid = a.getAttribute("data-project-id") || "";
+            if (!fid) return;
+            if (window.targetStackManager) {
+              window.targetStackManager.openTarget("feature", fid, { projectId: pid || null });
+            }
+            if (typeof window.openFeatureDetailTarget === "function") {
+              window.openFeatureDetailTarget(fid, { projectId: pid || null });
+            } else {
+              var href = a.getAttribute("href") || "#/features";
+              window.location.hash = href;
+            }
+          });
+        }
       } else {
         window.setContent(window.showError(body && body.error && body.error.message));
       }

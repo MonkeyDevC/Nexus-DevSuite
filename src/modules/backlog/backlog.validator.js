@@ -36,15 +36,21 @@ const patchFeatureValidator = [
   param("id").isUUID(),
   body("title").optional().trim().notEmpty().withMessage("title no puede estar vacío").isLength({ max: 500 }),
   body("description").optional().trim().notEmpty().withMessage("description no puede estar vacío"),
-  body("priority").optional().isIn(["LOW", "MEDIUM", "HIGH", "CRITICAL"])
+  body("priority").optional().isIn(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+  body("backlog_position").optional({ nullable: true }).isInt({ min: 0 }).withMessage("backlog_position debe ser entero >= 0")
 ];
+
+const STORY_POINTS_VALID = [1, 2, 3, 5, 8, 13, 21];
 
 const createStoryValidator = [
   body("title").trim().notEmpty().withMessage("title es obligatorio").isLength({ max: 500 }),
   body("description").trim().notEmpty().withMessage("description es obligatorio"),
   body("acceptance_criteria").optional().isObject(),
   body("priority").optional().isIn(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
-  body("assigned_to").optional({ nullable: true }).isUUID().withMessage("assigned_to debe ser UUID o null")
+  body("assigned_to").optional({ nullable: true }).isUUID().withMessage("assigned_to debe ser UUID o null"),
+  body("story_points").optional({ nullable: true }).isInt({ min: 1, max: 100 }).custom((v) => v == null || STORY_POINTS_VALID.includes(Number(v))).withMessage("story_points debe ser uno de: 1, 2, 3, 5, 8, 13, 21"),
+  body("labels").optional({ nullable: true }).isArray().withMessage("labels debe ser un array de strings"),
+  body("labels.*").optional().isString().trim().isLength({ max: 50 })
 ];
 
 const storyIdParamValidator = [param("id").isUUID().withMessage("id debe ser UUID")];
@@ -70,6 +76,10 @@ const patchStoryValidator = [
   body("description").optional().trim().notEmpty().withMessage("description no puede estar vacío"),
   body("priority").optional().isIn(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
   body("assigned_to").optional({ nullable: true }).isUUID().withMessage("assigned_to debe ser UUID o null"),
+  body("story_points").optional({ nullable: true }).isInt({ min: 1, max: 100 }).custom((v) => v == null || v === "" || STORY_POINTS_VALID.includes(Number(v))).withMessage("story_points debe ser uno de: 1, 2, 3, 5, 8, 13, 21"),
+  body("labels").optional({ nullable: true }).isArray().withMessage("labels debe ser un array de strings"),
+  body("labels.*").optional().isString().trim().isLength({ max: 50 }),
+  body("backlog_position").optional({ nullable: true }).isInt({ min: 0 }).withMessage("backlog_position debe ser entero >= 0"),
   body("acceptance_criteria")
     .optional({ nullable: true })
     .custom(function (val) { return val === null || val === undefined || typeof val === "object"; })
@@ -93,6 +103,13 @@ const bulkDeleteProjectsValidator = [
   body("ids.*").isUUID().withMessage("Cada id debe ser un UUID válido")
 ];
 
+const reorderBacklogValidator = [
+  body("feature_ids").optional().isArray().withMessage("feature_ids debe ser un array"),
+  body("feature_ids.*").optional().isUUID().withMessage("Cada feature_id debe ser UUID"),
+  body("story_ids").optional().isArray().withMessage("story_ids debe ser un array"),
+  body("story_ids.*").optional().isUUID().withMessage("Cada story_id debe ser UUID")
+];
+
 module.exports = {
   createProjectValidator,
   updateProjectValidator,
@@ -111,5 +128,6 @@ module.exports = {
   patchStorySprintValidator,
   patchStoryValidator,
   listQueryValidator,
-  bulkDeleteProjectsValidator
+  bulkDeleteProjectsValidator,
+  reorderBacklogValidator
 };

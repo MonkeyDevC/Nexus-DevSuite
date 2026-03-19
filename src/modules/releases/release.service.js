@@ -147,6 +147,20 @@ async function updateStatus(id, nextStatus, context) {
         code: ERROR_CODES.RELEASE_EMPTY
       });
     }
+    const { getModels } = require("../../infrastructure/db/loadModels");
+    const { Feature } = getModels();
+    const features = await Feature.findAll({
+      where: { release_id: id },
+      attributes: ["id", "title", "status"]
+    });
+    const notDone = features.filter((f) => f.status !== "DONE");
+    if (notDone.length > 0) {
+      const titles = notDone.map((f) => (f.title || f.id).slice(0, 50)).join(", ");
+      throw new AppError(
+        "No se puede publicar la release: todas las features deben estar en estado DONE. Features no completadas: " + titles,
+        { statusCode: 400, code: ERROR_CODES.RELEASE_FEATURES_NOT_DONE }
+      );
+    }
   }
 
   const updatePayload = { status: nextStatus };

@@ -83,7 +83,11 @@ async function getSprintWithProjectAndStories(sprintId) {
   const { Sprint, Project, UserStory } = getReportModels();
   const sprint = await Sprint.findByPk(sprintId, {
     include: [
-      { model: Project, as: "project", attributes: ["id", "name", "description", "status", "created_at"] },
+      {
+        model: Project,
+        as: "project",
+        attributes: ["id", "organization_id", "name", "description", "status", "created_at"]
+      },
       {
         model: UserStory,
         as: "user_stories",
@@ -95,8 +99,50 @@ async function getSprintWithProjectAndStories(sprintId) {
   return sprint;
 }
 
+/**
+ * Resume stories por proyecto en una sola consulta.
+ * Retorna [{ project_id, stories_total, stories_done }].
+ */
+async function getStoryProgressByProjectIds(projectIds = []) {
+  if (!Array.isArray(projectIds) || projectIds.length === 0) return [];
+  const { Feature, UserStory } = getReportModels();
+  const sequelize = Feature.sequelize;
+
+  const rows = await Feature.findAll({
+    where: { project_id: { [Op.in]: projectIds } },
+    attributes: [
+      "project_id",
+      [sequelize.fn("COUNT", sequelize.col("user_stories.id")), "stories_total"],
+      [
+        sequelize.fn(
+          "SUM",
+          sequelize.literal("CASE WHEN user_stories.status = 'DONE' THEN 1 ELSE 0 END")
+        ),
+        "stories_done"
+      ]
+    ],
+    include: [
+      {
+        model: UserStory,
+        as: "user_stories",
+        attributes: [],
+        required: false
+      }
+    ],
+    group: ["project_id"],
+    raw: true
+  });
+
+  return rows.map((row) => ({
+    project_id: row.project_id,
+    stories_total: Number(row.stories_total || 0),
+    stories_done: Number(row.stories_done || 0)
+  }));
+}
+
 module.exports = {
   getAuditLogs,
   getProjectCounts,
-  getSprintWithProjectAndStories
+  getSprintWithProjectAndStories,
+  getStoryProgressByProjectIds
 };

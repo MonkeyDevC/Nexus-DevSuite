@@ -19,9 +19,11 @@ function toPlain(story) {
   const s = typeof story.toJSON === "function" ? story.toJSON() : story;
   const assignee = s.assignee ? { id: s.assignee.id, email: s.assignee.email, name: s.assignee.name || null } : null;
   const sprint = s.sprint ? { id: s.sprint.id, name: s.sprint.name || null } : null;
+  const feature = s.feature ? { id: s.feature.id, title: s.feature.title || null } : null;
   return {
     id: s.id,
     feature_id: s.feature_id,
+    feature,
     number: s.number,
     title: s.title,
     description: s.description,
@@ -29,6 +31,9 @@ function toPlain(story) {
     implementation_criteria: s.implementation_criteria,
     status: s.status,
     priority: s.priority,
+    story_points: s.story_points != null ? s.story_points : null,
+    backlog_position: s.backlog_position != null ? s.backlog_position : null,
+    labels: Array.isArray(s.labels) ? s.labels : (s.labels != null ? [s.labels] : []),
     assigned_to: s.assigned_to,
     assignee,
     sprint_id: s.sprint_id || null,
@@ -73,7 +78,7 @@ async function createStory(featureId, payload, context = {}) {
       code: ERROR_CODES.FEATURE_ARCHIVED
     });
   }
-  const nextNumber = (await userStoryRepository.getMaxStoryNumber(featureId)) + 1;
+  const nextNumber = (await userStoryRepository.getMaxStoryNumberGlobal()) + 1;
   const created = await userStoryRepository.create({
     ...payload,
     feature_id: featureId,
@@ -110,6 +115,22 @@ async function listStoriesByFeature(featureId, { page = 1, limit = 10, status } 
   const project = await projectsRepository.findById(feature.project_id);
   if (project) featureService.ensureProjectInOrg(project, organizationId);
   const { items, total } = await userStoryRepository.listByFeature(featureId, { page, limit, status });
+  return {
+    data: items.map(toPlain),
+    meta: { total, page, limit, totalPages: total === 0 ? 0 : Math.ceil(total / limit) }
+  };
+}
+
+async function listStoriesByProject(projectId, { page = 1, limit = 10, status, feature_id, sprint_id } = {}, organizationId) {
+  const project = await projectsRepository.findById(projectId);
+  if (!project) {
+    throw new AppError("Proyecto no encontrado", {
+      statusCode: 404,
+      code: ERROR_CODES.PROJECT_NOT_FOUND
+    });
+  }
+  featureService.ensureProjectInOrg(project, organizationId);
+  const { items, total } = await userStoryRepository.listByProject(projectId, { page, limit, status, feature_id, sprint_id });
   return {
     data: items.map(toPlain),
     meta: { total, page, limit, totalPages: total === 0 ? 0 : Math.ceil(total / limit) }
@@ -201,9 +222,21 @@ async function updateStorySprint(id, sprintId, context) {
   const project = await projectsRepository.findById(feature.project_id);
   if (project) featureService.ensureProjectInOrg(project, context.organizationId);
   if (sprintId != null) {
+    if (story.status !== "READY") {
+      throw new AppError(
+        "Solo se pueden asignar al sprint stories en estado READY. La story está en estado " + story.status + ".",
+        { statusCode: 400, code: ERROR_CODES.STORY_NOT_READY_FOR_SPRINT }
+      );
+    }
     const sprint = await sprintRepository.findById(sprintId);
     if (!sprint) {
       throw new AppError("Sprint no encontrado", { statusCode: 404, code: ERROR_CODES.NOT_FOUND });
+    }
+    if (sprint.status === "CLOSED") {
+      throw new AppError("No se puede asignar stories a un sprint cerrado", {
+        statusCode: 400,
+        code: ERROR_CODES.SPRINT_CLOSED
+      });
     }
     if (sprint.project_id !== feature.project_id) {
       throw new AppError("El sprint no pertenece al proyecto de la story", {
@@ -248,15 +281,20 @@ async function updateStory(id, payload, context) {
     }
     updatePayload.assigned_to = assignedTo;
   }
+  if (payload.story_points !== undefined) updatePayload.story_points = payload.story_points === null || payload.story_points === "" ? null : Number(payload.story_points);
+  if (payload.labels !== undefined) updatePayload.labels = Array.isArray(payload.labels) ? payload.labels : (payload.labels == null ? null : [payload.labels]);
+  if (payload.backlog_position !== undefined) updatePayload.backlog_position = payload.backlog_position === null || payload.backlog_position === "" ? null : Math.max(0, parseInt(payload.backlog_position, 10));
   if (Object.keys(updatePayload).length === 0) return toPlain(story);
   const updated = await userStoryRepository.update(id, updatePayload);
   return toPlain(updated);
 }
 
 module.exports = {
+  toPlain,
   createStory,
   getStoryById,
   listStoriesByFeature,
+  listStoriesByProject,
   updateStoryStatus,
   assignStory,
   updateStorySprint,

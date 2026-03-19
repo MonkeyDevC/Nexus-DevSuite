@@ -19,6 +19,8 @@
         }
         var s = body.data;
         var storiesRes = await window.fetchApi("/sprints/" + sid + "/stories?limit=50");
+        var summaryRes = await window.fetchApi("/sprints/" + sid + "/summary").catch(function () { return null; });
+        var summary = (summaryRes && summaryRes.success && summaryRes.data) ? summaryRes.data : null;
         var stories = [];
         if (storiesRes && storiesRes.success && storiesRes.data) {
           var d = storiesRes.data;
@@ -48,7 +50,11 @@
         html += "<p class=\"nexus-text-secondary\">Estado: <span class=\"" + window.nexusBadgeClass(s.status) + "\">" + esc(s.status || "") + "</span></p>";
         if (s.goal) html += "<p class=\"nexus-text-sm\">Objetivo: " + esc(s.goal) + "</p>";
         html += "<p class=\"nexus-text-sm\">Inicio: " + (s.start_date || "—") + " · Fin: " + (s.end_date || "—") + "</p>";
-        if (isMaster && s.status !== "CLOSED") html += '<button class="btn btn-nexus-primary btn-sm me-2" id="sprint-close-btn">Cerrar sprint</button>';
+        if (summary) {
+          html += '<div class="nexus-card p-3 mt-2 mb-3"><h3 class="nexus-font-semibold nexus-text-primary mb-2">Resumen del sprint</h3><div class="d-flex flex-wrap gap-4"><div><span class="nexus-text-sm text-muted">Stories</span><div class="nexus-font-semibold">' + (summary.stories_done_count != null ? summary.stories_done_count : 0) + ' / ' + (summary.stories_count != null ? summary.stories_count : 0) + '</div></div><div><span class="nexus-text-sm text-muted">Story points</span><div class="nexus-font-semibold">' + (summary.completed_story_points != null ? summary.completed_story_points : 0) + ' / ' + (summary.total_story_points != null ? summary.total_story_points : 0) + '</div></div></div></div>';
+        }
+        if (isMaster && s.status === "PLANNED") html += '<button class="btn btn-nexus-primary btn-sm me-2" id="sprint-open-official-btn"><i data-lucide="play"></i> Abrir sprint oficialmente</button>';
+        if (isMaster && s.status === "IN_PROGRESS") html += '<button class="btn btn-nexus-primary btn-sm me-2" id="sprint-close-btn">Cerrar sprint</button>';
         if (isMaster && s.status !== "CLOSED") html += '<button class="btn btn-nexus-secondary btn-sm me-2" id="sprint-edit-btn">Editar</button>';
         html += ' <a href="#/sprints' + (s.project_id ? '?project=' + s.project_id : '') + '" class="btn btn-nexus-secondary btn-sm" aria-label="Volver al listado de sprints">Volver</a>';
         html += "</div>";
@@ -66,15 +72,16 @@
         if (s.status !== "CLOSED" && s.project_id) {
           html += '<div class="mb-3"><label class="form-label nexus-text-sm">Asignar story al sprint</label><div class="d-flex gap-2 align-items-center flex-wrap"><select id="sprint-add-story-select" class="form-select form-select-sm nexus-input" style="max-width:320px" aria-label="Story a asignar"><option value="">— Seleccionar story —</option></select><button type="button" class="btn btn-nexus-primary btn-sm" id="sprint-add-story-btn">Asignar</button></div><div id="sprint-stories-msg" class="nexus-text-sm text-muted mt-1"></div></div>';
         }
-        html += '<div class="table-responsive"><table class="table table-sm nexus-table"><thead><tr><th>Título</th><th>Estado</th><th>Asignado</th>' + (s.status !== "CLOSED" ? "<th>Acciones</th>" : "") + '</tr></thead><tbody>';
+        html += '<div class="table-responsive"><table class="table table-sm nexus-table"><thead><tr><th>Título</th><th>Estado</th><th>Puntos</th><th>Asignado</th>' + (s.status !== "CLOSED" ? "<th>Acciones</th>" : "") + '</tr></thead><tbody>';
         if (stories.length === 0) {
-          html += "<tr><td colspan=\"" + (s.status !== "CLOSED" ? "4" : "3") + "\" class=\"text-muted text-center py-4\">No hay stories en este sprint.</td></tr>";
+          html += "<tr><td colspan=\"" + (s.status !== "CLOSED" ? "5" : "4") + "\" class=\"text-muted text-center py-4\">No hay stories en este sprint.</td></tr>";
         } else {
           stories.forEach(function (st) {
             var storyId = st.id || "";
             var titleCell = storyId ? '<a href="#/stories?story=' + encodeURIComponent(storyId) + '">' + esc(st.title || st.id) + '</a>' : esc(st.title || st.id);
-            html += "<tr data-story-id=\"" + esc(storyId) + "\"><td>" + titleCell + "</td><td><span class=\"" + window.nexusBadgeClass(st.status) + "\">" + esc(st.status || "") + "</span></td><td>" + (st.assignee ? esc(st.assignee.email || st.assigned_to) : "—") + "</td>";
-            if (s.status !== "CLOSED") html += '<td><button type="button" class="btn btn-outline-danger btn-sm sprint-remove-story" data-story-id="' + esc(storyId) + '">Quitar del sprint</button></td>';
+            var pts = st.story_points != null ? st.story_points : "—";
+            html += "<tr data-story-id=\"" + esc(storyId) + "\"><td>" + titleCell + "</td><td><span class=\"" + window.nexusBadgeClass(st.status) + "\">" + esc(st.status || "") + "</span></td><td>" + pts + "</td><td>" + (st.assignee ? esc(st.assignee.email || st.assigned_to) : "—") + "</td>";
+            if (s.status !== "CLOSED") html += '<td><button type="button" class="btn btn-outline-danger btn-sm sprint-remove-story" data-story-id="' + esc(storyId) + '" aria-label="Quitar del sprint">Quitar</button></td>';
             html += "</tr>";
           });
         }
@@ -91,7 +98,7 @@
           if (!Array.isArray(features)) features = [];
           var allStories = [];
           await Promise.all(features.slice(0, 15).map(function (f) {
-            return window.fetchApi("/features/" + (f.id || f) + "/stories?limit=50").then(function (r) {
+            return window.fetchApi("/features/" + (f.id || f) + "/stories?limit=50&status=READY").then(function (r) {
               if (r && r.success && r.data) {
                 var list = r.data.data || r.data.items || r.data || [];
                 if (!Array.isArray(list)) return;
@@ -105,7 +112,7 @@
             opt.textContent = (story.title || story.id || "").slice(0, 60);
             if (addSelect) addSelect.appendChild(opt);
           });
-          if (msgEl) msgEl.textContent = allStories.length ? "Stories del proyecto que no están en este sprint." : "No hay stories disponibles para asignar (todas están ya en el sprint o no hay stories en el proyecto).";
+          if (msgEl) msgEl.textContent = allStories.length ? "Solo se muestran stories en estado READY (listas para Sprint Planning)." : "No hay stories READY disponibles para asignar. Refine stories y pásalas a READY.";
           if (addBtn && addSelect) addBtn.onclick = function () {
             var storyId = addSelect.value;
             if (!storyId) return;
@@ -133,6 +140,55 @@
           window.fetchApi("/sprints/" + s.id + "/status", { method: "PATCH", body: JSON.stringify({ status: "CLOSED" }) }).then(function (r) {
             if (r && r.success) loadSprintDetail(s.id);
             else window.openNexusAlertModal({ title: "Error", message: (r && r.error && r.error.message) || "Error." });
+          });
+        };
+        var openOfficialBtn = document.getElementById("sprint-open-official-btn");
+        if (openOfficialBtn) openOfficialBtn.onclick = function () {
+          var storiesSummary = stories.length > 0
+            ? "<p class=\"nexus-text-sm mb-2\"><strong>" + stories.length + "</strong> user stor" + (stories.length === 1 ? "y" : "ies") + " en el Sprint Backlog:</p><ul class=\"list-unstyled nexus-text-sm mb-3\" style=\"max-height:120px;overflow-y:auto\">" + stories.slice(0, 15).map(function (st) { return "<li>" + esc((st.title || st.id || "").slice(0, 60)) + "</li>"; }).join("") + (stories.length > 15 ? "<li class=\"text-muted\">… y " + (stories.length - 15) + " más</li>" : "") + "</ul>"
+            : "<p class=\"nexus-text-sm text-warning mb-3\">No hay stories asignadas. Asigne al menos una story al sprint antes de abrirlo.</p>";
+          var bodyHtml = "<p class=\"nexus-text-secondary mb-2\">Defina los objetivos del sprint y confirme la apertura. El sprint pasará a <strong>En curso</strong> y las stories listadas quedarán como Sprint Backlog oficial.</p>" + storiesSummary + "<div class=\"mb-3\"><label class=\"form-label\" for=\"sprint-open-goal\">Objetivos del sprint <span class=\"text-danger\">*</span></label><textarea id=\"sprint-open-goal\" class=\"form-control\" rows=\"3\" placeholder=\"Objetivos y compromisos del sprint\" aria-label=\"Objetivos del sprint\">" + esc(s.goal || "") + "</textarea></div><div id=\"sprint-open-error\" class=\"alert alert-danger d-none mb-0\"></div>";
+          window.openNexusFormModal({
+            id: "sprintOpenOfficialModal",
+            title: "Apertura oficial del sprint",
+            bodyHtml: bodyHtml,
+            primaryButtonId: "sprint-open-official-submit",
+            primaryLabel: "Abrir sprint oficialmente",
+            mode: "edit",
+            cancelButtonId: "sprint-open-official-cancel"
+          }, function (bsModal) {
+            var goalEl = document.getElementById("sprint-open-goal");
+            var errEl = document.getElementById("sprint-open-error");
+            var goal = (goalEl && goalEl.value) ? goalEl.value.trim() : "";
+            if (errEl) errEl.classList.add("d-none");
+            if (!goal) {
+              if (errEl) { errEl.textContent = "Los objetivos del sprint son obligatorios para la apertura oficial."; errEl.classList.remove("d-none"); }
+              return;
+            }
+            var submitBtn = document.getElementById("sprint-open-official-submit");
+            if (submitBtn) submitBtn.disabled = true;
+            function done(errMsg) {
+              if (submitBtn) submitBtn.disabled = false;
+              if (errMsg) {
+                if (errEl) { errEl.textContent = errMsg; errEl.classList.remove("d-none"); }
+                return;
+              }
+              if (bsModal && typeof bsModal.hide === "function") bsModal.hide();
+              loadSprintDetail(s.id);
+            }
+            var currentGoal = (s.goal != null) ? String(s.goal).trim() : "";
+            if (goal !== currentGoal) {
+              window.fetchApi("/sprints/" + s.id, { method: "PATCH", body: JSON.stringify({ goal: goal }) }).then(function (r) {
+                if (!r || !r.success) { done((r && r.error && r.error.message) || "Error al guardar objetivos."); return; }
+                window.fetchApi("/sprints/" + s.id + "/status", { method: "PATCH", body: JSON.stringify({ status: "IN_PROGRESS" }) }).then(function (r2) {
+                  if (r2 && r2.success) done(); else done((r2 && r2.error && r2.error.message) || "Error al abrir el sprint.");
+                });
+              });
+            } else {
+              window.fetchApi("/sprints/" + s.id + "/status", { method: "PATCH", body: JSON.stringify({ status: "IN_PROGRESS" }) }).then(function (r) {
+                if (r && r.success) done(); else done((r && r.error && r.error.message) || "Error al abrir el sprint.");
+              });
+            }
           });
         };
         var editBtn = document.getElementById("sprint-edit-btn");

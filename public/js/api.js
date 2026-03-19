@@ -5,6 +5,54 @@
 (function () {
   const KEY_ACCESS = "nexus_access_token";
   const KEY_REFRESH = "nexus_refresh_token";
+  let refreshInFlight = null;
+  let bootRefreshChecked = false;
+
+  function decodeJwtPayload(token) {
+    if (!token || typeof token !== "string") return null;
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    try {
+      const payload = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+      return JSON.parse(payload);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function isTokenExpired(token) {
+    const payload = decodeJwtPayload(token);
+    if (!payload || typeof payload.exp !== "number") return false;
+    // Margen corto para evitar request con token a punto de vencer.
+    const nowSec = Math.floor(Date.now() / 1000);
+    return payload.exp <= nowSec + 5;
+  }
+
+  async function tryRefreshAccessToken(base) {
+    const refreshToken = window.getRefreshToken();
+    if (!refreshToken) return false;
+    try {
+      const refreshRes = await fetch(base + "/auth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken })
+      });
+      const refreshBody = refreshRes.ok ? await refreshRes.json() : null;
+      if (refreshBody && refreshBody.success && refreshBody.data && refreshBody.data.access_token) {
+        window.setTokens(refreshBody.data.access_token, refreshBody.data.refresh_token || refreshToken);
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  async function tryRefreshWithLock(base) {
+    if (refreshInFlight) return refreshInFlight;
+    refreshInFlight = tryRefreshAccessToken(base).finally(function () {
+      refreshInFlight = null;
+    });
+    return refreshInFlight;
+  }
 
   window.getToken = function () {
     return sessionStorage.getItem(KEY_ACCESS);
@@ -58,7 +106,34 @@
     const url = path.startsWith("http") ? path : base + path;
     const headers = { ...(options.headers || {}) };
     if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
-    const token = window.getToken();
+    const isAuthEndpoint = path.indexOf("/auth/login") !== -1 || path.indexOf("/auth/refresh") !== -1;
+
+    // Al recargar la app, fuerza un refresh único antes de llamar endpoints protegidos
+    // para evitar enviar un access token inválido y generar 401 en cascada.
+    if (!isAuthEndpoint && !bootRefreshChecked) {
+      bootRefreshChecked = true;
+      if (window.getRefreshToken()) {
+        const refreshedAtBoot = await tryRefreshWithLock(base);
+        if (!refreshedAtBoot && !window.getToken()) {
+          window.clearTokens();
+          if (typeof window.clearUser === "function") window.clearUser();
+          if (window.redirectToLogin) window.redirectToLogin();
+          return { success: false, error: { code: "AUTH_UNAUTHORIZED", message: "Sesión expirada" } };
+        }
+      }
+    }
+
+    let token = window.getToken();
+    if (!isAuthEndpoint && token && isTokenExpired(token)) {
+      const refreshed = await tryRefreshWithLock(base);
+      if (refreshed) token = window.getToken();
+      else {
+        window.clearTokens();
+        if (typeof window.clearUser === "function") window.clearUser();
+        if (window.redirectToLogin) window.redirectToLogin();
+        return { success: false, error: { code: "AUTH_UNAUTHORIZED", message: "Sesión expirada" } };
+      }
+    }
     if (token) headers["Authorization"] = "Bearer " + token;
 
     let res;
@@ -88,21 +163,8 @@
     }
 
     if (res.status === 401 && path.indexOf("/auth/login") === -1) {
-      const refreshToken = window.getRefreshToken();
-      if (refreshToken) {
-        try {
-          const refreshRes = await fetch(base + "/auth/refresh", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ refresh_token: refreshToken })
-          });
-          const refreshBody = refreshRes.ok ? await refreshRes.json() : null;
-          if (refreshBody && refreshBody.success && refreshBody.data && refreshBody.data.access_token) {
-            window.setTokens(refreshBody.data.access_token, refreshBody.data.refresh_token || refreshToken);
-            return window.fetchApi(path, options);
-          }
-        } catch (_) {}
-      }
+      const refreshed = await tryRefreshWithLock(base);
+      if (refreshed) return window.fetchApi(path, options);
       window.clearTokens();
       if (typeof window.clearUser === "function") window.clearUser();
       if (window.redirectToLogin) window.redirectToLogin();

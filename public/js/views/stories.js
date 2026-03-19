@@ -6,11 +6,14 @@
 
   window.openStoryDetailModal = function (storyId) {
     if (!storyId) return;
-    window.history.replaceState(null, "", "#/stories?story=" + encodeURIComponent(storyId));
+    // Solo se usa dentro del módulo Stories; conserva su comportamiento interno.
+    if (window.targetStackManager) {
+      window.targetStackManager.openTarget("story", storyId, {});
+    }
     if (typeof window._openStoryModalById === "function") {
       window._openStoryModalById(storyId, undefined);
-    } else {
-      window.location.hash = "#/stories?story=" + encodeURIComponent(storyId);
+    } else if (typeof window.openStoryViewModal === "function") {
+      window.openStoryViewModal(storyId, { includeStoriesLink: false });
     }
   };
 
@@ -21,6 +24,7 @@
     const projects = (projectsRes && projectsRes.success && projectsRes.data && projectsRes.data.items) ? projectsRes.data.items : [];
 
     var state = { projectId: "", featureId: "", page: 1, limit: 10, statusFilter: [], search: "", sort: "title", dir: "asc", sprintsList: [] };
+    var storyIdParam = null;
     var featuresList = [];
     var currentMeta = null;
     var currentItems = [];
@@ -145,9 +149,9 @@
       }
       html += '</select>';
       html += '<div class="d-flex flex-wrap gap-2 ms-auto">';
-      html += '<button type="button" id="stories-btn-export" class="btn btn-outline-secondary btn-sm"' + (!state.featureId ? " disabled" : "") + '>Exportar</button>';
+      html += '<button type="button" id="stories-btn-export" class="btn btn-outline-secondary btn-sm">Exportar</button>';
       html += '<input type="file" id="stories-import-input" class="d-none" accept=".json,application/json">';
-      html += '<button type="button" id="stories-btn-import" class="btn btn-outline-secondary btn-sm"' + (!state.featureId ? " disabled" : "") + '>Importar</button>';
+      html += '<button type="button" id="stories-btn-import" class="btn btn-outline-secondary btn-sm">Importar</button>';
       html += '<a href="#" id="stories-btn-new" class="btn btn-nexus-primary btn-sm">+ Nueva story</a>';
       html += "</div>";
       html += '</div>';
@@ -441,11 +445,14 @@
           e.preventDefault();
           var storyId = btn.getAttribute("data-story-id");
           if (!storyId) return;
+          if (window.targetStackManager) {
+            window.targetStackManager.openTarget("story", storyId, { projectId: state.projectId || null, featureId: state.featureId || null });
+          }
           if (typeof window.openStoryViewModal === "function") {
             window.openStoryViewModal(storyId, { projectIdHint: state.projectId, onStoryUpdated: loadStories, includeStoriesLink: false });
             bindStoryModalUrlCleanup(storyId);
           } else {
-            window.openNexusAlertModal({ title: "Stories", message: "El componente estándar de detalle de story no está disponible." });
+            openStoryModalById(storyId, loadStories);
           }
         };
       }
@@ -455,7 +462,7 @@
           window.openStoryViewModal(storyId, { projectIdHint: state.projectId, onStoryUpdated: onSaveCallback, includeStoriesLink: false });
           return;
         }
-        window.openNexusAlertModal({ title: "Stories", message: "El componente estándar de detalle de story no está disponible." });
+        openStoryModalById(storyId, onSaveCallback);
       };
       function openStoryModalById(storyId, onSaveCallback) {
       if (!storyId) return;
@@ -511,7 +518,7 @@
             });
             prioritySelectHtml += "</select>";
             var bodyHtml = '<div class="nexus-card p-4" style="max-width:100%">';
-            bodyHtml += '<ul class="nav nav-tabs mb-3" role="tablist"><li class="nav-item"><button type="button" class="nav-link active" id="story-detail-tab-vista" data-bs-toggle="tab" data-bs-target="#story-detail-panel-vista" aria-selected="true">Vista</button></li><li class="nav-item"><button type="button" class="nav-link" id="story-detail-tab-edicion" data-bs-toggle="tab" data-bs-target="#story-detail-panel-edicion" aria-selected="false">Edición</button></li></ul>';
+            bodyHtml += '<ul class="nav nav-tabs mb-3" role="tablist"><li class="nav-item"><button type="button" class="nav-link active" id="story-detail-tab-vista" data-bs-toggle="tab" data-bs-target="#story-detail-panel-vista" aria-selected="true">Vista</button></li><li class="nav-item"><button type="button" class="nav-link" id="story-detail-tab-edicion" data-bs-toggle="tab" data-bs-target="#story-detail-panel-edicion" aria-selected="false">Edición</button></li><li class="nav-item"><button type="button" class="nav-link" id="story-detail-tab-evidencia" data-bs-toggle="tab" data-bs-target="#story-detail-panel-evidencia" aria-selected="false">Evidencia</button></li></ul>';
             bodyHtml += '<div class="tab-content">';
             bodyHtml += '<div class="tab-pane fade show active" id="story-detail-panel-vista" role="tabpanel">';
             bodyHtml += '<div class="row g-3">';
@@ -576,7 +583,10 @@
               bodyHtml += '<div class="story-impl-criterion-row d-flex gap-2 align-items-center mb-2"><input type="text" class="form-control form-control-sm story-detail-impl-criteria-input" placeholder="Criterio ' + (j + 1) + '" value="' + esc(implCriteriaLines[j] || "") + '" aria-label="Criterio ' + (j + 1) + '"><button type="button" class="btn btn-outline-secondary btn-sm story-impl-criterion-remove" aria-label="Quitar criterio">&times;</button></div>';
             }
             bodyHtml += '</div><div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button type="button" id="story-detail-impl-criteria-add" class="btn btn-outline-secondary btn-sm">+ Añadir criterio</button><button type="button" id="story-detail-impl-criteria-save" class="btn btn-nexus-primary btn-sm">Guardar criterios</button><span id="story-detail-impl-criteria-msg" class="nexus-text-sm text-muted"></span></div></div>';
-            bodyHtml += '</div></div></div></div>';
+            bodyHtml += '</div></div>';
+            bodyHtml += '<div class="tab-pane fade" id="story-detail-panel-evidencia" role="tabpanel">';
+            bodyHtml += '<p class="nexus-text-sm text-muted mb-0">La pestaña de evidencia completa está disponible en el componente estándar de detalle de story. En este modo alternativo solo se muestran los datos principales.</p>';
+            bodyHtml += '</div></div></div>';
             var initialTitle = (s.title || "").trim();
             var initialDesc = (s.description || "").trim();
             var initialPriority = s.priority || "MEDIUM";
@@ -978,6 +988,7 @@
           var bodyHtml = '<div class="mb-3"><label class="form-label">Título de la story</label><input type="text" id="story-form-title" class="form-control" placeholder="Título de la story" required></div>';
           bodyHtml += '<div class="mb-3"><label class="form-label">Descripción</label><textarea id="story-form-desc" class="form-control" rows="3" placeholder="Descripción de la story" required></textarea></div>';
           bodyHtml += '<div class="mb-3"><label class="form-label">Prioridad</label><select id="story-form-priority" class="form-select"><option value="MEDIUM" selected>Media</option><option value="LOW">Baja</option><option value="HIGH">Alta</option><option value="CRITICAL">Crítica</option></select></div>';
+          bodyHtml += '<div class="mb-3"><label class="form-label">Story points</label><select id="story-form-points" class="form-select" aria-label="Puntos de historia"><option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="5">5</option><option value="8">8</option><option value="13">13</option><option value="21">21</option></select><small class="form-text text-muted">Estimación Scrum (opcional)</small></div>';
           bodyHtml += '<div class="mb-3"><label class="form-label">Sprint</label><select id="story-form-sprint" class="form-select"><option value="">Ninguno</option>';
           sprintList.forEach(function (sp) { bodyHtml += '<option value="' + (sp.id || "").replace(/"/g, "&quot;") + '">' + esc(sp.name || sp.id || "") + '</option>'; });
           bodyHtml += '</select><small class="form-text text-muted">Sprint del proyecto (opcional)</small></div>';
@@ -1063,6 +1074,7 @@
           var bodyHtml = '<div class="mb-3"><label class="form-label">Título de la story</label><input type="text" id="story-form-title" class="form-control" placeholder="Título de la story" required></div>';
           bodyHtml += '<div class="mb-3"><label class="form-label">Descripción</label><textarea id="story-form-desc" class="form-control" rows="3" placeholder="Descripción de la story" required></textarea></div>';
           bodyHtml += '<div class="mb-3"><label class="form-label">Prioridad</label><select id="story-form-priority" class="form-select"><option value="MEDIUM" selected>Media</option><option value="LOW">Baja</option><option value="HIGH">Alta</option><option value="CRITICAL">Crítica</option></select></div>';
+          bodyHtml += '<div class="mb-3"><label class="form-label">Story points</label><select id="story-form-points" class="form-select"><option value="">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="5">5</option><option value="8">8</option><option value="13">13</option><option value="21">21</option></select></div>';
           bodyHtml += '<div class="mb-3"><label class="form-label">Sprint</label><select id="story-form-sprint" class="form-select"><option value="">Ninguno</option></select><small class="form-text text-muted">Sprint del proyecto (opcional)</small></div>';
           bodyHtml += '<div class="mb-3"><label class="form-label">Asignado a</label><input type="hidden" id="story-form-assigned" value="">';
           bodyHtml += '<div class="position-relative"><button type="button" id="story-form-assigned-trigger" class="form-select form-control text-start d-block" style="cursor:pointer">Nadie (sin asignar)</button>';
@@ -1073,6 +1085,8 @@
             var title = (document.getElementById("story-form-title").value || "").trim();
             var desc = (document.getElementById("story-form-desc").value || "").trim();
             var priority = (document.getElementById("story-form-priority") && document.getElementById("story-form-priority").value) || "MEDIUM";
+            var pointsEl = document.getElementById("story-form-points");
+            var story_points = (pointsEl && pointsEl.value) ? parseInt(pointsEl.value, 10) : null;
             var assignedInput = document.getElementById("story-form-assigned");
             var sprintSel = document.getElementById("story-form-sprint");
             var sprint_id = (sprintSel && sprintSel.value) ? sprintSel.value : null;
@@ -1084,6 +1098,7 @@
             var payload = { title: title, description: desc, priority: priority };
             if (assigned_to) payload.assigned_to = assigned_to;
             if (sprint_id) payload.sprint_id = sprint_id;
+            if (story_points != null && !isNaN(story_points)) payload.story_points = story_points;
             return window.fetchApi("/features/" + state.featureId + "/stories", { method: "POST", body: JSON.stringify(payload) }).then(function (r) {
               if (r && r.success) { if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Story creada correctamente."); loadStories(); return true; }
               errEl.textContent = (r && r.error && r.error.message) || "Error."; errEl.classList.remove("d-none"); return false;
@@ -1245,15 +1260,7 @@
       var q = hashStr.indexOf("?");
       if (q !== -1) {
         var params = new URLSearchParams(hashStr.substring(q));
-        var storyIdParam = params.get("story");
-        if (storyIdParam) {
-          if (typeof window.openStoryViewModal === "function") {
-            window.openStoryViewModal(storyIdParam, { projectIdHint: state.projectId, onStoryUpdated: loadStories, includeStoriesLink: false });
-            bindStoryModalUrlCleanup(storyIdParam);
-          } else {
-            window.openNexusAlertModal({ title: "Stories", message: "El componente estándar de detalle de story no está disponible." });
-          }
-        }
+        storyIdParam = params.get("story");
       }
     }
 
@@ -1265,6 +1272,7 @@
         var kv = pair.split("=");
         if (kv[0] === "feature" && kv[1]) state.featureId = decodeURIComponent(kv[1]);
         if (kv[0] === "project" && kv[1]) state.projectId = decodeURIComponent(kv[1]);
+        if (kv[0] === "story" && kv[1]) storyIdParam = decodeURIComponent(kv[1]);
       });
     }
     if (segs[1] && segs[1].indexOf("?") !== 0) state.projectId = segs[1];
@@ -1279,6 +1287,13 @@
       var body = await window.fetchApi("/projects/" + state.projectId + "/features");
       featuresList = (body && body.success && body.data && body.data.items) ? body.data.items : [];
     }
+    if (window.targetStackManager) {
+      var baseStack = [{ entity_type: "view", entity_id: "stories", meta: { projectId: state.projectId || null, featureId: state.featureId || null } }];
+      if (storyIdParam) {
+        baseStack.push({ entity_type: "story", entity_id: storyIdParam, meta: { projectId: state.projectId || null, featureId: state.featureId || null } });
+      }
+      window.targetStackManager.reset(baseStack);
+    }
     window.setContent(renderList(null, null, !!(state.projectId && state.featureId)));
     bindStories();
     var selProject = document.getElementById("stories-sel-project");
@@ -1291,6 +1306,14 @@
       }
       setStoriesHash("");
       loadStories();
+      if (storyIdParam) {
+        if (typeof window.openStoryViewModal === "function") {
+          window.openStoryViewModal(storyIdParam, { projectIdHint: state.projectId, onStoryUpdated: loadStories, includeStoriesLink: false });
+          bindStoryModalUrlCleanup(storyIdParam);
+        } else if (typeof window._openStoryModalById === "function") {
+          window._openStoryModalById(storyIdParam, loadStories);
+        }
+      }
     }
   });
 })();

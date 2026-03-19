@@ -109,6 +109,16 @@ async function listSprintStoriesController(req, res, next) {
   }
 }
 
+async function getSprintSummaryController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const data = await sprintService.getSprintSummary(req.params.id, req.organizationId);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId || "no-request-id" }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 async function deleteSprintController(req, res, next) {
   try {
     assertRequestValid(req);
@@ -129,5 +139,6 @@ module.exports = {
   assignStoryController,
   unassignStoryController,
   listSprintStoriesController,
+  getSprintSummaryController,
   deleteSprintController
 };

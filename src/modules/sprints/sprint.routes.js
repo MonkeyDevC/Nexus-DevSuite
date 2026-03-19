@@ -11,6 +11,7 @@ const {
   assignStoryController,
   unassignStoryController,
   listSprintStoriesController,
+  getSprintSummaryController,
   deleteSprintController
 } = require("./sprint.controller");
 const {
@@ -31,6 +32,13 @@ router.get(
   authorizeMiddleware("MASTER", "EMPLOYEE"),
   sprintIdParamValidator,
   getSprintController
+);
+router.get(
+  "/:id/summary",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  sprintIdParamValidator,
+  getSprintSummaryController
 );
 router.delete(
   "/:id",
