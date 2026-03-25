@@ -124,6 +124,12 @@
     }
 
     let token = window.getToken();
+    const refreshToken = window.getRefreshToken ? window.getRefreshToken() : null;
+    if (!isAuthEndpoint && !token && !refreshToken) {
+      if (typeof window.clearUser === "function") window.clearUser();
+      if (window.redirectToLogin) window.redirectToLogin();
+      return { success: false, error: { code: "AUTH_UNAUTHORIZED", message: "Token de acceso requerido" } };
+    }
     if (!isAuthEndpoint && token && isTokenExpired(token)) {
       const refreshed = await tryRefreshWithLock(base);
       if (refreshed) token = window.getToken();

@@ -17,6 +17,7 @@
   };
 
   window.getMe = async function () {
+    if (!window.getToken()) return null;
     if (currentUser) return currentUser;
     const body = await window.fetchApi("/auth/me");
     if (body && body.success && body.data) {

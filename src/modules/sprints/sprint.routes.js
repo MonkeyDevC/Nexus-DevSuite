@@ -23,6 +23,7 @@ const {
 const { listSprintsQueryValidator } = require("./sprint.validator");
 const { authenticateMiddleware } = require("../../middlewares/authenticate.middleware");
 const { authorizeMiddleware } = require("../../middlewares/authorize.middleware");
+const { sprintsScopeLockMiddleware } = require("../../middlewares/scopeLock.middleware");
 
 const router = express.Router();
 
@@ -44,6 +45,7 @@ router.delete(
   "/:id",
   authenticateMiddleware,
   authorizeMiddleware("MASTER", "EMPLOYEE"),
+  sprintsScopeLockMiddleware,
   sprintIdParamValidator,
   deleteSprintController
 );
@@ -51,6 +53,7 @@ router.patch(
   "/:id/status",
   authenticateMiddleware,
   authorizeMiddleware("MASTER", "EMPLOYEE"),
+  sprintsScopeLockMiddleware,
   sprintIdParamValidator,
   patchSprintStatusValidator,
   patchSprintStatusController
@@ -59,6 +62,7 @@ router.patch(
   "/:id",
   authenticateMiddleware,
   authorizeMiddleware("MASTER", "EMPLOYEE"),
+  sprintsScopeLockMiddleware,
   sprintIdParamValidator,
   patchSprintValidator,
   patchSprintController
@@ -67,6 +71,7 @@ router.post(
   "/:id/stories/:storyId",
   authenticateMiddleware,
   authorizeMiddleware("MASTER", "EMPLOYEE"),
+  sprintsScopeLockMiddleware,
   sprintIdParamValidator,
   storyIdParamValidator,
   assignStoryController
@@ -75,6 +80,7 @@ router.delete(
   "/:id/stories/:storyId",
   authenticateMiddleware,
   authorizeMiddleware("MASTER", "EMPLOYEE"),
+  sprintsScopeLockMiddleware,
   sprintIdParamValidator,
   storyIdParamValidator,
   unassignStoryController

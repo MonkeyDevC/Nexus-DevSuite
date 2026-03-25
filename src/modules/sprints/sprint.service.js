@@ -9,6 +9,8 @@ const featureService = require("../backlog/feature.service");
 const userStoryRepository = require("../backlog/userStory.repository");
 const featureRepository = require("../backlog/feature.repository");
 const authRepository = require("../auth/auth.repository");
+const rulesEngineService = require("../rules-engine/rulesEngine.service");
+const { logStateTransition } = require("../orchestrator/stateTransitionLogger.service");
 const { validateSprintTransition } = require("./sprint.workflow.validator");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
@@ -46,6 +48,19 @@ function ensureAuditContext(context) {
     ip_address: ip || null,
     user_agent: userAgent || null
   };
+}
+
+function resolveExplicitRules(rules) {
+  if (rules == null) {
+    return null;
+  }
+  if (!Array.isArray(rules)) {
+    throw new AppError("rules debe ser un arreglo cuando se envía", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  return rules;
 }
 
 async function createSprint(projectId, payload, context) {
@@ -102,7 +117,7 @@ async function listSprints(projectId, params = {}, organizationId) {
   };
 }
 
-async function updateSprintStatus(sprintId, nextStatus, context) {
+async function updateSprintStatus(sprintId, nextStatus, context, rules = null) {
   const sprint = await sprintRepository.findById(sprintId);
   if (!sprint) {
     throw new AppError("Sprint no encontrado", {
@@ -120,21 +135,25 @@ async function updateSprintStatus(sprintId, nextStatus, context) {
     });
   }
   validateSprintTransition(currentStatus, nextStatus);
-
-  if (nextStatus === "IN_PROGRESS") {
-    const goalTrimmed = sprint.goal != null ? String(sprint.goal).trim() : "";
-    if (!goalTrimmed) {
-      throw new AppError(
-        "Para abrir el sprint oficialmente debe definir los objetivos del sprint. Edite el sprint y complete el campo Objetivo.",
-        { statusCode: 400, code: ERROR_CODES.SPRINT_OPEN_GOAL_REQUIRED }
-      );
-    }
-    const storyCount = await sprintRepository.countStoriesBySprintId(sprintId);
-    if (storyCount === 0) {
-      throw new AppError(
-        "Para abrir el sprint oficialmente debe incluir al menos una user story en el sprint. Asigne stories desde el listado anterior.",
-        { statusCode: 400, code: ERROR_CODES.SPRINT_OPEN_STORIES_REQUIRED }
-      );
+  const explicitRules = resolveExplicitRules(rules);
+  if (explicitRules) {
+    const rulesResult = await rulesEngineService.evaluateRules(
+      {
+        domain: "sprints",
+        entity: "sprint",
+        sprint_id: sprintId,
+        project_id: sprint.project_id,
+        from_status: currentStatus,
+        to_status: nextStatus
+      },
+        explicitRules
+    );
+    if (!rulesResult.allowed) {
+      throw new AppError("Transición de sprint bloqueada por rules engine", {
+        statusCode: 400,
+        code: ERROR_CODES.VALIDATION_ERROR,
+        details: { errors: rulesResult.errors, warnings: rulesResult.warnings }
+      });
     }
   }
 
@@ -181,6 +200,15 @@ async function updateSprintStatus(sprintId, nextStatus, context) {
     entity: "SPRINT",
     entity_id: sprintId,
     metadata: { from: currentStatus, to: nextStatus }
+  });
+  await logStateTransition({
+    entity: "SPRINT",
+    entityId: sprintId,
+    fromState: currentStatus,
+    toState: nextStatus,
+    requestId: context.requestId,
+    dedupKey: context.dedupKey,
+    metadata: { action: "STATUS_CHANGE" }
   });
 
   if (nextStatus === "CLOSED") {
@@ -270,13 +298,6 @@ async function assignStoryToSprint(sprintId, storyId, context) {
       code: ERROR_CODES.SPRINT_STORY_PROJECT_MISMATCH
     });
   }
-  if (story.status !== "READY") {
-    throw new AppError(
-      "Solo se pueden asignar al sprint stories en estado READY. La story está en estado " + story.status + ".",
-      { statusCode: 400, code: ERROR_CODES.STORY_NOT_READY_FOR_SPRINT }
-    );
-  }
-
   await userStoryRepository.update(storyId, { sprint_id: sprintId });
   const auditCtx = ensureAuditContext(context);
   await authRepository.createAuditLog({

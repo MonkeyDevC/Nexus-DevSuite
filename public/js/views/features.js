@@ -271,6 +271,12 @@
               statusSelect += '<option value="' + esc(st) + '"' + (f.status === st ? ' selected' : '') + '>' + esc(st) + '</option>';
             });
             statusSelect += '</select>';
+            var storiesHref = "#/stories?feature=" + encodeURIComponent(f.id) + (state.projectId ? "&project=" + encodeURIComponent(state.projectId) : "");
+            var featActionsHtml =
+              '<div class="nexus-table-actions d-flex flex-wrap gap-1 align-items-center">' +
+              '<a class="btn btn-sm btn-outline-secondary" href="' + esc(storiesHref) + '">Ver stories</a>' +
+              '<button type="button" class="btn btn-sm btn-outline-danger feat-delete-btn" data-feature-id="' + esc(f.id) + '" data-feature-title="' + esc((f.title || "").slice(0, 150)) + '" aria-label="Eliminar feature">Eliminar</button>' +
+              "</div>";
             return [
               '<span class="nexus-text-sm text-muted">' + esc(featureDisplayIdById[f.id] || ("FT-" + ((f && f.id) ? String(f.id).slice(0, 8) : "—"))) + "</span>",
               '<a href="#" class="feat-view-link" data-feature-id="' + esc(f.id || "") + '">' + esc(f.title || f.id) + "</a>",
@@ -278,7 +284,7 @@
               '<span class="nexus-text-sm">' + esc(f.priority || "—") + "</span>",
               statusSelect,
               String(count),
-              window.renderTableActions({ view: { href: "#/stories?feature=" + f.id + (state.projectId ? "&project=" + state.projectId : ""), label: "Stories" } })
+              featActionsHtml
             ];
           }
         });
@@ -1114,6 +1120,47 @@
             window.openFeatureDetailTarget(featureId, { projectId: state.projectId || null });
           } else {
             openFeatureDetailModal(featureId);
+          }
+        };
+      });
+      document.querySelectorAll("#content .feat-delete-btn").forEach(function (a) {
+        a.onclick = function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var featureId = a.getAttribute("data-feature-id");
+          var featTitle = a.getAttribute("data-feature-title") || "";
+          if (!featureId) return;
+          function doDelete(closeModal, showError) {
+            window.fetchApi("/features/" + featureId, { method: "DELETE" }).then(function (r) {
+              if (r && r.success) {
+                if (typeof closeModal === "function") closeModal();
+                try {
+                  localStorage.removeItem("nexus.feature.criteria." + featureId);
+                  localStorage.removeItem("nexus.feature.evidence." + featureId);
+                } catch (err) {}
+                if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Feature eliminada correctamente.");
+                loadFeatures();
+              } else if (typeof showError === "function") {
+                showError((r && r.error && r.error.message) || "No se pudo eliminar la feature.");
+              } else {
+                window.openNexusAlertModal({ title: "Error", message: (r && r.error && r.error.message) || "No se pudo eliminar la feature." });
+              }
+            });
+          }
+          if (typeof window.openNexusConfirmModal === "function") {
+            window.openNexusConfirmModal(
+              {
+                title: "Eliminar feature",
+                message: "¿Eliminar la feature \"" + featTitle + "\" y todas sus user stories? Esta acción no se puede deshacer.",
+                primaryLabel: "Eliminar",
+                primaryDanger: true
+              },
+              function (closeModal, showError) {
+                doDelete(closeModal, showError);
+              }
+            );
+          } else if (window.confirm("¿Eliminar esta feature y todas sus stories?")) {
+            doDelete();
           }
         };
       });

@@ -39,9 +39,16 @@
       var name = (project.name && String(project.name).trim()) ? String(project.name).trim() : (project.id || "—");
       return pid + " - " + name;
     }
+    function formatFeatureListLabel(f) {
+      if (!f) return "—";
+      var num = f.number != null && f.number !== "" ? String(f.number) : "";
+      var ref = num ? ("FT-" + num) : "";
+      var title = (f.title && String(f.title).trim()) ? String(f.title).trim() : (f.id || "—");
+      return ref ? (ref + " - " + title) : title;
+    }
     function getFeatureTitle(id) {
       var f = featuresList.find(function (x) { return x.id === id; });
-      return (f && f.title) || id;
+      return f ? formatFeatureListLabel(f) : id;
     }
 
     function buildQuery() {
@@ -105,6 +112,18 @@
     function displayId(s) {
       return "US-" + (s.number != null ? s.number : (s.id ? String(s.id).slice(0, 8) : ""));
     }
+    function renderStoryActionsCell(s) {
+      var sid = esc(s.id);
+      var labelRaw = (s.title || s.id || "").slice(0, 120);
+      var labelAttr = esc(labelRaw);
+      var ariaVer = esc("Ver story " + ((s.title || s.id || "").slice(0, 50)));
+      return (
+        '<div class="nexus-table-actions d-flex flex-wrap gap-1 align-items-center">' +
+        '<button type="button" class="btn btn-sm btn-outline-primary story-view-btn" data-story-id="' + sid + '" aria-label="' + ariaVer + '">Ver</button>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger story-delete-btn" data-story-id="' + sid + '" data-story-label="' + labelAttr + '" aria-label="Eliminar story">Eliminar</button>' +
+        "</div>"
+      );
+    }
     function getDisplayItems(rawItems) {
       var withDisplayId = (rawItems || []).map(function (s) {
         return Object.assign({}, s, { displayId: displayId(s) });
@@ -145,7 +164,7 @@
         html += '<option value="">Seleccione feature</option>';
       } else {
         html += '<option value="">Seleccione feature</option>';
-        featuresList.forEach(function (f) { html += '<option value="' + f.id + '">' + esc(f.title || f.id) + '</option>'; });
+        featuresList.forEach(function (f) { html += '<option value="' + f.id + '">' + esc(formatFeatureListLabel(f)) + '</option>'; });
       }
       html += '</select>';
       html += '<div class="d-flex flex-wrap gap-2 ms-auto">';
@@ -224,7 +243,7 @@
               '<span class="story-sprint-cell d-inline-flex align-items-center gap-1"><span class="story-sprint-display">' + (s.sprint ? esc(s.sprint.name) : "—") + '</span><a href="#" class="story-sprint-edit btn btn-link btn-sm p-0 ms-1 text-secondary" data-story-id="' + esc(s.id) + '" data-sprint-id="' + (s.sprint_id || "") + '" title="Asignar sprint" aria-label="Editar sprint">&#9998;</a></span>',
               (s.priority || "—"),
               (s.assignee ? ((s.assignee.name && String(s.assignee.name).trim()) ? String(s.assignee.name).trim() : (s.assignee.email || "—")) : "—"),
-              '<div class="nexus-table-actions"><a href="#" class="nexus-action-view story-view-btn" data-story-id="' + esc(s.id) + '" aria-label="Ver story ' + esc((s.title || s.id || "").slice(0, 50)) + '">Ver</a></div>'
+              renderStoryActionsCell(s)
             ];
           }
         });
@@ -303,7 +322,7 @@
           window.setContent(renderList(null, null, false));
           bindStories();
           var selFeat = document.getElementById("stories-sel-feature");
-          if (selFeat && featuresList.length) selFeat.innerHTML = "<option value=\"\">Seleccione feature</option>" + featuresList.map(function (f) { return "<option value=\"" + f.id + "\">" + (f.title || f.id) + "</option>"; }).join("");
+          if (selFeat && featuresList.length) selFeat.innerHTML = "<option value=\"\">Seleccione feature</option>" + featuresList.map(function (f) { return "<option value=\"" + f.id + "\">" + esc(formatFeatureListLabel(f)) + "</option>"; }).join("");
         };
       }
       if (selFeature) {
@@ -414,6 +433,44 @@
       var contentRoot = document.getElementById("content");
       if (contentRoot) {
         contentRoot.onclick = function (e) {
+          var delStory = e.target && e.target.closest && e.target.closest(".story-delete-btn");
+          if (delStory) {
+            e.preventDefault();
+            e.stopPropagation();
+            var delId = delStory.getAttribute("data-story-id");
+            var delLabel = delStory.getAttribute("data-story-label") || delId || "";
+            if (!delId) return;
+            if (typeof window.openNexusConfirmModal !== "function") {
+              if (!window.confirm("¿Eliminar esta story?")) return;
+              window.fetchApi("/stories/" + delId, { method: "DELETE" }).then(function (r) {
+                if (r && r.success) {
+                  if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Story eliminada correctamente.");
+                  loadStories();
+                } else window.openNexusAlertModal({ title: "Error", message: (r && r.error && r.error.message) || "No se pudo eliminar." });
+              });
+              return;
+            }
+            window.openNexusConfirmModal(
+              {
+                title: "Eliminar story",
+                message: "¿Eliminar la story \"" + delLabel + "\"? Esta acción no se puede deshacer.",
+                primaryLabel: "Eliminar",
+                primaryDanger: true
+              },
+              function (closeModal, showError) {
+                window.fetchApi("/stories/" + delId, { method: "DELETE" }).then(function (r) {
+                  if (r && r.success) {
+                    closeModal();
+                    if (typeof window.showSuccessMessage === "function") window.showSuccessMessage("Story eliminada correctamente.");
+                    loadStories();
+                  } else {
+                    showError((r && r.error && r.error.message) || "No se pudo eliminar la story.");
+                  }
+                });
+              }
+            );
+            return;
+          }
           var editBtn = e.target && e.target.closest && e.target.closest(".story-sprint-edit");
           if (editBtn) {
             e.preventDefault();
@@ -1304,7 +1361,7 @@
     if (state.projectId && state.featureId && featuresList.some(function (f) { return f.id === state.featureId; })) {
       var selFeature = document.getElementById("stories-sel-feature");
       if (selFeature) {
-        selFeature.innerHTML = "<option value=\"\">Seleccione feature</option>" + featuresList.map(function (f) { return "<option value=\"" + f.id + "\">" + (f.title || f.id) + "</option>"; }).join("");
+        selFeature.innerHTML = "<option value=\"\">Seleccione feature</option>" + featuresList.map(function (f) { return "<option value=\"" + f.id + "\">" + esc(formatFeatureListLabel(f)) + "</option>"; }).join("");
         selFeature.value = state.featureId;
       }
       setStoriesHash("");

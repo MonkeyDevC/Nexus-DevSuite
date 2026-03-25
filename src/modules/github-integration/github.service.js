@@ -2,13 +2,27 @@
  * GitHub Integration Service — Conexión con la API oficial de GitHub.
  * Prioridad: conexión OAuth por project_id (tabla github_connections) y fallback a GITHUB_TOKEN/env.
  * El token solo se usa en backend; nunca se expone al frontend.
+ *
+ * `isGitHubEnabled(projectId, userId)` (legacy): GITHUB_ENABLED=true **o** OAuth completo en BD.
+ * En resultados/outcomes: `available` = solo GITHUB_ENABLED; `integrated` = solo OAuth completo.
+ * `usable` = available && integrated && systemReady (control de ejecución API).
+ * `getConfigAsync` no lanza si GitHub está apagado: devuelve `null` (interno).
+ *
+ * **Controllers y módulos HTTP:** usar `github.capability.js` (contrato `{ available, data }`), no importar este archivo.
  */
 
 const axios = require("axios");
 const githubConnectionRepository = require("./githubConnection.repository");
+const { buildGithubConfigCacheKey, getGithubConfigCacheKeyPrefix } = require("./githubConfigCacheKey");
+const {
+  executeGithubRequest,
+  getGithubApiTimeoutMs,
+  normalizeGithubHttpError
+} = require("./githubRequest.executor");
+const { getGithubRequestStore } = require("./githubRequestContext");
 const logger = require("../../config/logger");
 const { AppError } = require("../../shared/errors/AppError");
-const { ERROR_CODES } = require("../../shared/errors/errorCodes");
+const { GITHUB_ERROR_CODES } = require("./github.errorCodes");
 
 const GITHUB_API_BASE = "https://api.github.com";
 
@@ -54,12 +68,77 @@ function getConfig() {
   return { token, owner, repo };
 }
 
-// Cache de config OAuth por (projectId, userId) para evitar N consultas y N logs en listFiles/compare.
-const CONFIG_CACHE_TTL_MS = 5000;
-const configCache = new Map();
+/** Solo entradas positivas (config resuelto). Nunca se cachea `null` (evita estado obsoleto sin invalidación explícita). */
+const positiveConfigCache = new Map();
+
+/** Dedupe concurrente cuando no hay AsyncLocalStorage (workers/scripts). */
+const inflightConfigWithoutStore = new Map();
+
+function getConfigCacheTtlMs() {
+  const n = parseInt(process.env.GITHUB_CONFIG_CACHE_TTL, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 5000;
+}
 
 function getConfigCacheKey(projectId, userId) {
   return `${projectId || ""}:${userId || ""}`;
+}
+
+function oauthUpdatedAtSegment(connRow) {
+  if (!connRow) return "none";
+  const c = connRow.toJSON ? connRow.toJSON() : connRow;
+  return c.updated_at != null ? String(c.updated_at) : "none";
+}
+
+function positiveConfigCacheKey(projectId, userId, connRow) {
+  return buildGithubConfigCacheKey({
+    projectId,
+    userId,
+    enabled: isGitHubEnvFlagEnabled() ? "1" : "0",
+    oauthUpdatedAt: oauthUpdatedAtSegment(connRow)
+  });
+}
+
+function logGithubFeatureOffOnce(projectId, userId) {
+  if (process.env.NODE_ENV === "production") {
+    const store = getGithubRequestStore();
+    if (store) store.featureOffLogged = true;
+    return;
+  }
+  const store = getGithubRequestStore();
+  if (store && store.featureOffLogged) return;
+  if (store) store.featureOffLogged = true;
+  logger.debug(
+    { event: "GITHUB_FEATURE_OFF", project_id: projectId || null, user_id: userId || null },
+    "GitHub no habilitado (sin GITHUB_ENABLED=true ni OAuth completo)"
+  );
+}
+
+function logGithubEnvIncompleteOnce(missing) {
+  const store = getGithubRequestStore();
+  if (store && store.envIncompleteLogged) return;
+  if (store) store.envIncompleteLogged = true;
+  logger.debug(
+    { event: "GITHUB_ENV_INCOMPLETE", missing },
+    "GitHub: variables de entorno incompletas; sin cliente por env"
+  );
+}
+
+/**
+ * Invalida cache positivo para un par proyecto/usuario (p. ej. tras guardar OAuth).
+ * @param {string} [projectId]
+ * @param {string} [userId]
+ */
+function invalidateGithubConfigCache(projectId, userId) {
+  const pid = projectId || "";
+  const uid = userId || "";
+  if (!pid && !uid) {
+    positiveConfigCache.clear();
+    return;
+  }
+  const prefix = getGithubConfigCacheKeyPrefix(pid, uid);
+  for (const k of positiveConfigCache.keys()) {
+    if (k.startsWith(prefix)) positiveConfigCache.delete(k);
+  }
 }
 
 function getEnvMissingVars(config) {
@@ -71,84 +150,173 @@ function getEnvMissingVars(config) {
 }
 
 function mapGitHubAxiosError(err, operation) {
-  const statusCode = err && err.response && err.response.status ? err.response.status : 500;
-  const ghData = err && err.response ? err.response.data : null;
-  const ghMessage = ghData && (ghData.message || ghData.error || ghData.errors);
-  const msg =
-    (typeof ghMessage === "string" && ghMessage.trim()) ||
-    (ghMessage && ghMessage.message && String(ghMessage.message).trim()) ||
-    err && err.message ? err.message : `Error GitHub en ${operation}`;
-
-  let code = ERROR_CODES.INTERNAL_SERVER_ERROR;
-  if (statusCode === 401) code = ERROR_CODES.AUTH_UNAUTHORIZED;
-  else if (statusCode === 403) code = ERROR_CODES.AUTH_FORBIDDEN;
-  else if (statusCode === 404) code = ERROR_CODES.NOT_FOUND;
-  else if (statusCode === 400) code = ERROR_CODES.VALIDATION_ERROR;
-
-  const details = ghData || null;
-  return new AppError(msg, { statusCode, code, details });
+  const n = normalizeGithubHttpError(err, operation);
+  const statusCode = n.statusCode != null ? n.statusCode : 500;
+  const details = err && err.response ? err.response.data : null;
+  return new AppError(n.message, { statusCode, code: n.code, details });
 }
 
-function validateGitHubEnvOrThrow() {
-  // IMPORTANT: El contrato exige activación real: no retornamos safe mode 503.
-  const enabled = String(process.env.GITHUB_ENABLED || "").toLowerCase() === "true";
-  if (!enabled) {
-    throw new AppError("GitHub integration no habilitada. Configura GITHUB_ENABLED=true", {
-      statusCode: 500,
-      code: ERROR_CODES.INTERNAL_SERVER_ERROR
-    });
-  }
+/** process.env.GITHUB_ENABLED === "true" */
+function isGitHubEnvFlagEnabled() {
+  return String(process.env.GITHUB_ENABLED || "").toLowerCase() === "true";
+}
 
+function oauthRowIsComplete(c) {
+  return !!(c && c.access_token && (c.repo_owner || c.repo_name));
+}
+
+async function hasOAuthGithubConfigInDb(projectId, userId) {
+  if (!projectId || !userId) return false;
+  const conn = await githubConnectionRepository.findByProjectId(projectId, userId);
+  if (!conn) return false;
+  const c = conn.toJSON ? conn.toJSON() : conn;
+  return oauthRowIsComplete(c);
+}
+
+/**
+ * Fuente de verdad: GITHUB_ENABLED=true o fila OAuth completa en BD.
+ * @param {{ oauthLookupDone?: boolean, connectionRow?: object|null }} [opts]
+ *        Si oauthLookupDone=true, usa connectionRow del find ya hecho (evita doble query).
+ */
+async function isGitHubEnabled(projectId, userId, opts = {}) {
+  if (isGitHubEnvFlagEnabled()) return true;
+  if (opts.oauthLookupDone) {
+    const row = opts.connectionRow;
+    if (!row) return false;
+    const c = row.toJSON ? row.toJSON() : row;
+    return oauthRowIsComplete(c);
+  }
+  return hasOAuthGithubConfigInDb(projectId, userId);
+}
+
+/** Config env sin lanzar (lecturas). */
+function tryLoadEnvGitHubConfig() {
   const cfg = getConfig();
   const missing = getEnvMissingVars(cfg);
   if (missing.length) {
-    throw new AppError("Faltan variables de GitHub: " + missing.join(", "), {
-      statusCode: 500,
-      code: ERROR_CODES.INTERNAL_SERVER_ERROR
-    });
+    logGithubEnvIncompleteOnce(missing);
+    return null;
   }
   return cfg;
 }
 
+/** Env listo por configuración (independiente del feature flag). */
+function envGithubConfigReady() {
+  const cfg = getConfig();
+  return getEnvMissingVars(cfg).length === 0;
+}
+
 /**
- * Obtiene config (token, owner, repo): primero conexión OAuth del usuario para el proyecto, luego env.
- * userId asegura que cada usuario (Master o Developer) use su propia conexión.
- * Cache de pocos segundos para evitar repetición de logs y DB en listFiles (N archivos = N+1 llamadas).
+ * `available`: únicamente feature flag GITHUB_ENABLED.
+ * `integrated`: fila OAuth completa (independiente de env/flag).
+ * @param {object|null} connRow
  */
-async function getConfigAsync(projectId, userId) {
-  const key = getConfigCacheKey(projectId, userId);
-  const now = Date.now();
-  const hit = configCache.get(key);
-  if (hit && now - hit.at < CONFIG_CACHE_TTL_MS) {
-    return hit.config;
+function computeGithubIntegrationFlags(connRow) {
+  const available = isGitHubEnvFlagEnabled();
+  let integrated = false;
+  if (connRow) {
+    const c = connRow.toJSON ? connRow.toJSON() : connRow;
+    if (oauthRowIsComplete(c)) integrated = true;
+  }
+  return { available, integrated };
+}
+
+/**
+ * Resolución real de config: cache positivo (TTL) + OAuth/env.
+ * `fromCache === true` solo si el objeto config salió del Map positivo (TTL vigente).
+ * Tras persistir OAuth, llamar `invalidateGithubConfigCache(projectId, userId)`.
+ * Siempre preserva `config` si existe (OAuth/env), aunque `available` sea false.
+ * @returns {Promise<{ config: object|null, fromCache: boolean, available: boolean, integrated: boolean, usable: boolean, systemReady: boolean }>}
+ */
+async function resolveGithubConfigResolution(projectId, userId) {
+  let connRow = null;
+  const ttl = getConfigCacheTtlMs();
+
+  if (projectId && userId) {
+    connRow = await githubConnectionRepository.findByProjectId(projectId, userId);
   }
 
-  // First try: OAuth connection in DB (access_token + repo info).
-  let config;
+  const { available, integrated } = computeGithubIntegrationFlags(connRow);
+  const systemReady = envGithubConfigReady();
+  const usable = available && integrated && systemReady;
+
   if (projectId && userId) {
-    const conn = await githubConnectionRepository.findByProjectId(projectId, userId);
-    if (conn) {
-      const c = conn.toJSON ? conn.toJSON() : conn;
-      if (c.access_token && (c.repo_owner || c.repo_name)) {
-        config = {
-          token: c.access_token,
-          owner: c.repo_owner,
-          repo: c.repo_name
-        };
-        logger.debug(
-          { event: "GITHUB_CONNECTION_LOADED", project_id: projectId, repo: `${c.repo_owner}/${c.repo_name}` },
-          "Using GitHub OAuth connection for project"
-        );
-        configCache.set(key, { config, at: now });
-        return config;
-      }
+    const cacheKey = positiveConfigCacheKey(projectId, userId, connRow);
+    const cached = positiveConfigCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < ttl) {
+      return {
+        config: cached.config,
+        fromCache: true,
+        available,
+        integrated,
+        usable,
+        systemReady
+      };
     }
   }
 
-  // Second try: env configuration (real GitHub client).
-  config = validateGitHubEnvOrThrow();
-  if (projectId || userId) configCache.set(key, { config, at: now });
-  return config;
+  if (projectId && userId && connRow) {
+    const c = connRow.toJSON ? connRow.toJSON() : connRow;
+    if (oauthRowIsComplete(c)) {
+      const config = {
+        token: c.access_token,
+        owner: c.repo_owner,
+        repo: c.repo_name
+      };
+      logger.debug(
+        { event: "GITHUB_CONNECTION_LOADED", project_id: projectId, repo: `${c.repo_owner}/${c.repo_name}` },
+        "Using GitHub OAuth connection for project"
+      );
+      const cacheKey = positiveConfigCacheKey(projectId, userId, connRow);
+      positiveConfigCache.set(cacheKey, { config, at: Date.now() });
+      if (!available) logGithubFeatureOffOnce(projectId, userId);
+      return { config, fromCache: false, available, integrated, usable, systemReady };
+    }
+  }
+
+  const fromEnv = tryLoadEnvGitHubConfig();
+  if (!fromEnv) {
+    if (!available) logGithubFeatureOffOnce(projectId, userId);
+    return { config: null, fromCache: false, available, integrated, usable, systemReady };
+  }
+
+  if (projectId && userId) {
+    const cacheKey = positiveConfigCacheKey(projectId, userId, connRow);
+    positiveConfigCache.set(cacheKey, { config: fromEnv, at: Date.now() });
+  }
+  if (!available) logGithubFeatureOffOnce(projectId, userId);
+  return { config: fromEnv, fromCache: false, available, integrated, usable, systemReady };
+}
+
+/**
+ * Igual que getConfigAsync pero expone si el config vino del cache positivo (TTL).
+ * Memo por request (ALS) o inflight global.
+ */
+async function getGithubConfigResolutionAsync(projectId, userId) {
+  const memoKey = getConfigCacheKey(projectId, userId);
+  const store = getGithubRequestStore();
+  if (store) {
+    if (!store.memoGetConfig.has(memoKey)) {
+      store.memoGetConfig.set(memoKey, resolveGithubConfigResolution(projectId, userId));
+    }
+    return store.memoGetConfig.get(memoKey);
+  }
+  if (inflightConfigWithoutStore.has(memoKey)) {
+    return inflightConfigWithoutStore.get(memoKey);
+  }
+  const p = resolveGithubConfigResolution(projectId, userId).finally(() => {
+    inflightConfigWithoutStore.delete(memoKey);
+  });
+  inflightConfigWithoutStore.set(memoKey, p);
+  return p;
+}
+
+/**
+ * Config (token, owner, repo): OAuth por proyecto/usuario, luego env.
+ */
+async function getConfigAsync(projectId, userId) {
+  const r = await getGithubConfigResolutionAsync(projectId, userId);
+  return r.config;
 }
 
 /**
@@ -158,6 +326,7 @@ function createClient(config) {
   const c = config || getConfig();
   return axios.create({
     baseURL: GITHUB_API_BASE,
+    timeout: getGithubApiTimeoutMs(),
     headers: {
       Accept: "application/vnd.github+json",
       ...(c.token ? { Authorization: `Bearer ${c.token}` } : {})
@@ -174,248 +343,641 @@ function normalizeBranchForGitHub(branch) {
 }
 
 async function getRepoFullName(projectId, userId) {
-  const cfg = projectId && userId ? await getConfigAsync(projectId, userId) : getConfig();
-  return cfg.owner && cfg.repo ? `${cfg.owner}/${cfg.repo}` : null;
+  if (projectId && userId) {
+    const { config: cfg, fromCache, available, integrated } = await getGithubConfigResolutionAsync(projectId, userId);
+    if (cfg && cfg.owner && cfg.repo) {
+      return {
+        available,
+        integrated,
+        full_name: `${cfg.owner}/${cfg.repo}`,
+        fromCache,
+        githubApiExecuted: false
+      };
+    }
+    return { available, integrated, full_name: null, githubApiExecuted: false };
+  }
+  const available = isGitHubEnvFlagEnabled();
+  const integrated = false;
+  const c = getConfig();
+  if (c.owner && c.repo) {
+    return {
+      available,
+      integrated,
+      full_name: `${c.owner}/${c.repo}`,
+      githubApiExecuted: false
+    };
+  }
+  return { available, integrated: false, full_name: null, githubApiExecuted: false };
 }
 
 /**
- * Obtiene la rama por defecto del repositorio (main/master). projectId y userId para conexión OAuth por usuario.
+ * Resultado estructurado (sin throw por fallo HTTP tras reintentos).
+ */
+async function getDefaultBranchResult(projectId, userId) {
+  const { config, fromCache, available, integrated, usable } = await getGithubConfigResolutionAsync(projectId, userId);
+  if (!usable || !config || !config.owner || !config.repo) {
+    return {
+      integrated,
+      available,
+      data: null,
+      error: {
+        code: GITHUB_ERROR_CODES.VALIDATION,
+        message:
+          "GitHub no configurado: conecta OAuth del proyecto o habilita GITHUB_ENABLED y variables de entorno.",
+        statusCode: 400
+      },
+      githubApiExecuted: false
+    };
+  }
+  const client = createClient(config);
+  const exec = await executeGithubRequest(
+    () => client.get(`/repos/${config.owner}/${config.repo}`),
+    { operation: "getDefaultBranch", projectId, userId }
+  );
+  if (!exec.ok) {
+    return {
+      integrated,
+      available,
+      data: null,
+      error: exec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: exec.retryCount
+    };
+  }
+  const data = exec.data;
+  if (!data) {
+    return {
+      integrated,
+      available,
+      data: null,
+      error: { code: GITHUB_ERROR_CODES.UNKNOWN, message: "No se pudo obtener la rama por defecto de GitHub" },
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: exec.retryCount
+    };
+  }
+  return {
+    integrated,
+    available,
+    data: data.default_branch || "main",
+    fromCache,
+    githubApiExecuted: true,
+    retryCount: exec.retryCount
+  };
+}
+
+/**
+ * @deprecated Preferir getDefaultBranchResult; mantiene throw para llamadas legacy.
  */
 async function getDefaultBranch(projectId, userId) {
-  const config = await getConfigAsync(projectId, userId);
-  const repoFull = config.owner && config.repo ? `${config.owner}/${config.repo}` : null;
-  if (!repoFull) throw new Error("GitHub repo no configurado (conexión OAuth o GITHUB_REPO/OWNER/NAME)");
-  const client = createClient(config);
-  let data;
-  try {
-    const resp = await client.get(`/repos/${config.owner}/${config.repo}`);
-    data = resp && resp.data ? resp.data : null;
-  } catch (err) {
-    throw mapGitHubAxiosError(err, "getDefaultBranch");
+  const r = await getDefaultBranchResult(projectId, userId);
+  if (!r.integrated && r.error) {
+    throw new AppError(r.error.message, { statusCode: r.error.statusCode || 400, code: r.error.code });
   }
-  if (!data) throw new AppError("No se pudo obtener la rama por defecto de GitHub", { code: ERROR_CODES.INTERNAL_SERVER_ERROR });
-  return data.default_branch || "main";
+  if (r.error) {
+    throw new AppError(r.error.message, {
+      statusCode: r.error.statusCode || 502,
+      code: r.error.code,
+      details: null
+    });
+  }
+  return r.data;
 }
 
 /**
- * Crea una rama desde baseBranch con el nombre newBranch. projectId y userId para conexión OAuth por usuario.
+ * Crea rama — contrato escritura normalizado (sin throw).
  */
-async function createBranch(baseBranch, newBranch, projectId, userId) {
-  const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
+async function createBranchOutcome(baseBranch, newBranch, projectId, userId) {
+  const { config, fromCache, available, integrated, usable } = await getGithubConfigResolutionAsync(projectId, userId);
+  if (!usable || !config || !config.owner || !config.repo) {
+    return {
+      available,
+      integrated,
+      data: null,
+      error: {
+        code: GITHUB_ERROR_CODES.VALIDATION,
+        message: "GitHub no configurado para este proyecto.",
+        statusCode: 400
+      },
+      githubApiExecuted: false
+    };
+  }
   const client = createClient(config);
-  let refRes = null;
-  try {
-    refRes = await client.get(`/repos/${config.owner}/${config.repo}/git/ref/heads/${baseBranch}`);
-  } catch (err) {
-    if (err && err.response && err.response.status === 404) refRes = null;
-    else throw mapGitHubAxiosError(err, "createBranch");
+  const refExec = await executeGithubRequest(
+    () => client.get(`/repos/${config.owner}/${config.repo}/git/ref/heads/${baseBranch}`),
+    { operation: "createBranch_getRef", projectId, userId }
+  );
+  if (!refExec.ok) {
+    if (refExec.error && refExec.error.statusCode === 404) {
+      return {
+        available,
+        integrated,
+        data: null,
+        error: {
+          code: GITHUB_ERROR_CODES.VALIDATION,
+          message: `No se pudo obtener el SHA de la rama ${baseBranch}`,
+          statusCode: 400
+        },
+        fromCache,
+        githubApiExecuted: true,
+        retryCount: refExec.retryCount
+      };
+    }
+    return {
+      available,
+      integrated,
+      data: null,
+      error: refExec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: refExec.retryCount
+    };
   }
-  if (!refRes || !refRes.data || !refRes.data.object || !refRes.data.object.sha) {
-    throw new Error(`No se pudo obtener el SHA de la rama ${baseBranch}`);
+  const refRes = refExec.data;
+  if (!refRes || !refRes.object || !refRes.object.sha) {
+    return {
+      available,
+      integrated,
+      data: null,
+      error: {
+        code: GITHUB_ERROR_CODES.VALIDATION,
+        message: `No se pudo obtener el SHA de la rama ${baseBranch}`,
+        statusCode: 400
+      },
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: refExec.retryCount
+    };
   }
-  const sha = refRes.data.object.sha;
+  const sha = refRes.object.sha;
   const refName = newBranch.startsWith("refs/") ? newBranch : `refs/heads/${newBranch}`;
-  try {
-    await client.post(`/repos/${config.owner}/${config.repo}/git/refs`, { ref: refName, sha });
-  } catch (err) {
-    throw mapGitHubAxiosError(err, "createBranch");
+  const postExec = await executeGithubRequest(
+    () => client.post(`/repos/${config.owner}/${config.repo}/git/refs`, { ref: refName, sha }),
+    { operation: "createBranch_postRef", projectId, userId }
+  );
+  if (!postExec.ok) {
+    return {
+      available,
+      integrated,
+      data: null,
+      error: postExec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: Math.max(refExec.retryCount, postExec.retryCount)
+    };
   }
-  return { branch: newBranch, sha };
+  return {
+    available,
+    integrated,
+    data: { branch: newBranch, sha },
+    fromCache,
+    githubApiExecuted: true,
+    retryCount: Math.max(refExec.retryCount, postExec.retryCount)
+  };
+}
+
+/** @deprecated Usar createBranchOutcome; lanza AppError para compatibilidad. */
+async function createBranch(baseBranch, newBranch, projectId, userId) {
+  const o = await createBranchOutcome(baseBranch, newBranch, projectId, userId);
+  if (o.error) {
+    throw new AppError(o.error.message, { statusCode: o.error.statusCode || 400, code: o.error.code });
+  }
+  return o.data;
 }
 
 /**
  * Crea un commit en una rama. projectId y userId para conexión OAuth por usuario.
  */
-async function createCommit(branch, message, files, projectId, userId) {
-  const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
+async function createCommitOutcome(branch, message, files, projectId, userId) {
+  const { config, fromCache, available, integrated, usable } = await getGithubConfigResolutionAsync(projectId, userId);
+  if (!usable || !config || !config.owner || !config.repo) {
+    return {
+      available,
+      integrated,
+      data: null,
+      error: {
+        code: GITHUB_ERROR_CODES.VALIDATION,
+        message: "GitHub no configurado para este proyecto.",
+        statusCode: 400
+      },
+      githubApiExecuted: false
+    };
+  }
   const client = createClient(config);
-  let refRes = null;
-  try {
-    const resp = await client.get(`/repos/${config.owner}/${config.repo}/git/ref/heads/${branch}`);
-    refRes = resp && resp.data ? resp : null;
-  } catch (err) {
-    if (err && err.response && err.response.status === 404) refRes = null;
-    else throw mapGitHubAxiosError(err, "createCommit");
+  const refExec = await executeGithubRequest(
+    () => client.get(`/repos/${config.owner}/${config.repo}/git/ref/heads/${branch}`),
+    { operation: "createCommit_getRef", projectId, userId }
+  );
+  if (!refExec.ok) {
+    if (refExec.error && refExec.error.statusCode === 404) {
+      return {
+        available,
+        integrated,
+        data: null,
+        error: { code: GITHUB_ERROR_CODES.VALIDATION, message: `Rama ${branch} no encontrada`, statusCode: 400 },
+        fromCache,
+        githubApiExecuted: true,
+        retryCount: refExec.retryCount
+      };
+    }
+    return {
+      available,
+      integrated,
+      data: null,
+      error: refExec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: refExec.retryCount
+    };
   }
-  if (!refRes || !refRes.data || !refRes.data.object || !refRes.data.object.sha) {
-    throw new Error(`Rama ${branch} no encontrada`);
+  const refBody = refExec.data;
+  if (!refBody || !refBody.object || !refBody.object.sha) {
+    return {
+      available,
+      integrated,
+      data: null,
+      error: { code: GITHUB_ERROR_CODES.VALIDATION, message: `Rama ${branch} no encontrada`, statusCode: 400 },
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: refExec.retryCount
+    };
   }
-  const baseSha = refRes.data.object.sha;
-  let commitRes;
-  try {
-    const resp = await client.get(`/repos/${config.owner}/${config.repo}/git/commits/${baseSha}`);
-    commitRes = resp && resp.data ? resp : null;
-  } catch (err) {
-    throw mapGitHubAxiosError(err, "createCommit");
+  const baseSha = refBody.object.sha;
+  const commitExec = await executeGithubRequest(
+    () => client.get(`/repos/${config.owner}/${config.repo}/git/commits/${baseSha}`),
+    { operation: "createCommit_getCommit", projectId, userId }
+  );
+  if (!commitExec.ok) {
+    return {
+      available,
+      integrated,
+      data: null,
+      error: commitExec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: commitExec.retryCount
+    };
   }
-  const baseTreeSha = commitRes.data.tree.sha;
+  const commitRes = commitExec.data;
+  if (!commitRes || !commitRes.tree || !commitRes.tree.sha) {
+    return {
+      available,
+      integrated,
+      data: null,
+      error: { code: GITHUB_ERROR_CODES.UNKNOWN, message: "No se pudo leer el commit base" },
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: commitExec.retryCount
+    };
+  }
+  const baseTreeSha = commitRes.tree.sha;
   const blobShas = [];
   for (const f of files || []) {
-    // Si el archivo viene como binario, `contentBase64` debe ser base64 directo de bytes.
-    // Si viene como texto, usamos `content` (utf8) y lo convertimos a base64.
     const contentBase64 = f.contentBase64;
     const blobContentBase64 =
       contentBase64 != null && contentBase64 !== ""
         ? String(contentBase64)
         : Buffer.from(f.content || "", "utf8").toString("base64");
-    let blobRes;
-    try {
-      const resp = await client.post(`/repos/${config.owner}/${config.repo}/git/blobs`, {
-        content: blobContentBase64,
-        encoding: "base64"
-      });
-      blobRes = resp && resp.data ? resp : null;
-    } catch (err) {
-      throw mapGitHubAxiosError(err, "createCommit");
+    const blobExec = await executeGithubRequest(
+      () =>
+        client.post(`/repos/${config.owner}/${config.repo}/git/blobs`, {
+          content: blobContentBase64,
+          encoding: "base64"
+        }),
+      { operation: "createCommit_blob", projectId, userId }
+    );
+    if (!blobExec.ok) {
+      return {
+        available,
+        integrated,
+        data: null,
+        error: blobExec.error,
+        fromCache,
+        githubApiExecuted: true,
+        retryCount: blobExec.retryCount
+      };
     }
-    blobShas.push({ path: f.path, sha: blobRes.data.sha });
+    blobShas.push({ path: f.path, sha: blobExec.data.sha });
   }
   const tree = blobShas.map(({ path, sha }) => ({ path, sha, mode: "100644", type: "blob" }));
-  let treeRes;
-  try {
-    const resp = await client.post(`/repos/${config.owner}/${config.repo}/git/trees`, {
-      base_tree: baseTreeSha,
-      tree
-    });
-    treeRes = resp && resp.data ? resp : null;
-  } catch (err) {
-    throw mapGitHubAxiosError(err, "createCommit");
+  const treeExec = await executeGithubRequest(
+    () =>
+      client.post(`/repos/${config.owner}/${config.repo}/git/trees`, {
+        base_tree: baseTreeSha,
+        tree
+      }),
+    { operation: "createCommit_tree", projectId, userId }
+  );
+  if (!treeExec.ok) {
+    return {
+      available,
+      integrated,
+      data: null,
+      error: treeExec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: treeExec.retryCount
+    };
   }
-  let commitRes2;
-  try {
-    const resp = await client.post(`/repos/${config.owner}/${config.repo}/git/commits`, {
-      message,
-      tree: treeRes.data.sha,
-      parents: [baseSha]
-    });
-    commitRes2 = resp && resp.data ? resp : null;
-  } catch (err) {
-    throw mapGitHubAxiosError(err, "createCommit");
+  const commit2Exec = await executeGithubRequest(
+    () =>
+      client.post(`/repos/${config.owner}/${config.repo}/git/commits`, {
+        message,
+        tree: treeExec.data.sha,
+        parents: [baseSha]
+      }),
+    { operation: "createCommit_commit", projectId, userId }
+  );
+  if (!commit2Exec.ok) {
+    return {
+      available,
+      integrated,
+      data: null,
+      error: commit2Exec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: commit2Exec.retryCount
+    };
   }
-  try {
-    await client.patch(`/repos/${config.owner}/${config.repo}/git/refs/heads/${branch}`, {
-      sha: commitRes2.data.sha
-    });
-  } catch (err) {
-    throw mapGitHubAxiosError(err, "createCommit");
+  const patchExec = await executeGithubRequest(
+    () =>
+      client.patch(`/repos/${config.owner}/${config.repo}/git/refs/heads/${branch}`, {
+        sha: commit2Exec.data.sha
+      }),
+    { operation: "createCommit_patchRef", projectId, userId }
+  );
+  if (!patchExec.ok) {
+    return {
+      available,
+      integrated,
+      data: null,
+      error: patchExec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: patchExec.retryCount
+    };
   }
-  return { sha: commitRes2.data.sha };
-}
-
-/**
- * Crea un Pull Request. projectId y userId para conexión OAuth por usuario.
- */
-async function createPullRequest(title, headBranch, baseBranch, body, projectId, userId) {
-  const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
-  const client = createClient(config);
-
-  const normalizedHead = normalizeBranchForGitHub(headBranch);
-  const normalizedBase = normalizeBranchForGitHub(baseBranch || "main");
-
-  try {
-    const resp = await client.post(`/repos/${config.owner}/${config.repo}/pulls`, {
-      title: title || "PR from Nexus DevSuite",
-      head: normalizedHead,
-      base: normalizedBase,
-      body: body || ""
-    });
-    return resp && resp.data ? resp.data : null;
-  } catch (err) {
-    throw mapGitHubAxiosError(err, "createPullRequest");
-  }
-}
-
-/**
- * Lista ramas del repositorio. projectId y userId para conexión OAuth por usuario.
- */
-async function getBranches(projectId, userId) {
-  const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
-  const client = createClient(config);
-  let data;
-  try {
-    const resp = await client.get(`/repos/${config.owner}/${config.repo}/branches`, { params: { per_page: 100 } });
-    data = resp && resp.data ? resp.data : null;
-  } catch (err) {
-    throw mapGitHubAxiosError(err, "getBranches");
-  }
-  return Array.isArray(data) ? data : [];
-}
-
-/**
- * Lista Pull Requests. projectId y userId para conexión OAuth por usuario.
- */
-async function getPullRequests(state = "open", projectId, userId) {
-  const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
-  const client = createClient(config);
-  let data;
-  try {
-    const resp = await client.get(`/repos/${config.owner}/${config.repo}/pulls`, {
-      params: { state, per_page: 100 }
-    });
-    data = resp && resp.data ? resp.data : null;
-  } catch (err) {
-    throw mapGitHubAxiosError(err, "getPullRequests");
-  }
-  return Array.isArray(data) ? data : [];
-}
-
-/**
- * Obtiene el estado de un PR por número. projectId y userId para conexión OAuth por usuario.
- */
-async function getPullRequestStatus(prNumber, projectId, userId) {
-  const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
-  const client = createClient(config);
-  let data;
-  try {
-    const resp = await client.get(`/repos/${config.owner}/${config.repo}/pulls/${prNumber}`);
-    data = resp && resp.data ? resp.data : null;
-  } catch (err) {
-    throw mapGitHubAxiosError(err, "getPullRequestStatus");
-  }
-  if (!data) throw new AppError("No se pudo obtener el estado del Pull Request", { statusCode: 404, code: ERROR_CODES.NOT_FOUND });
   return {
-    number: data.number,
-    state: data.state,
-    title: data.title,
-    head: data.head?.ref,
-    base: data.base?.ref,
-    html_url: data.html_url,
-    merged_at: data.merged_at,
-    user: data.user?.login
+    available,
+    integrated,
+    data: { sha: commit2Exec.data.sha },
+    fromCache,
+    githubApiExecuted: true,
+    retryCount: patchExec.retryCount
   };
 }
 
-/**
- * Lista commits recientes del repositorio. projectId y userId para OAuth.
- */
-async function getCommits(projectId, userId, limit = 20) {
-  const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
-  const client = createClient(config);
-  let data;
-  try {
-    const resp = await client.get(`/repos/${config.owner}/${config.repo}/commits`, {
-      params: { per_page: Math.min(100, Math.max(1, limit)) }
-    });
-    data = resp && resp.data ? resp.data : null;
-  } catch (err) {
-    throw mapGitHubAxiosError(err, "getCommits");
+async function createCommit(branch, message, files, projectId, userId) {
+  const o = await createCommitOutcome(branch, message, files, projectId, userId);
+  if (o.error) {
+    throw new AppError(o.error.message, { statusCode: o.error.statusCode || 400, code: o.error.code });
   }
-  const list = Array.isArray(data) ? data : [];
-  return list.map((c) => ({
+  return o.data;
+}
+
+async function createPullRequestOutcome(title, headBranch, baseBranch, body, projectId, userId) {
+  const { config, fromCache, available, integrated, usable } = await getGithubConfigResolutionAsync(projectId, userId);
+  if (!usable || !config || !config.owner || !config.repo) {
+    return {
+      available,
+      integrated,
+      data: null,
+      error: {
+        code: GITHUB_ERROR_CODES.VALIDATION,
+        message: "GitHub no configurado para este proyecto.",
+        statusCode: 400
+      },
+      githubApiExecuted: false
+    };
+  }
+  const client = createClient(config);
+  const normalizedHead = normalizeBranchForGitHub(headBranch);
+  const normalizedBase = normalizeBranchForGitHub(baseBranch || "main");
+  const exec = await executeGithubRequest(
+    () =>
+      client.post(`/repos/${config.owner}/${config.repo}/pulls`, {
+        title: title || "PR from Nexus DevSuite",
+        head: normalizedHead,
+        base: normalizedBase,
+        body: body || ""
+      }),
+    { operation: "createPullRequest", projectId, userId }
+  );
+  if (!exec.ok) {
+    return {
+      available,
+      integrated,
+      data: null,
+      error: exec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: exec.retryCount
+    };
+  }
+  return {
+    available,
+    integrated,
+    data: exec.data || null,
+    fromCache,
+    githubApiExecuted: true,
+    retryCount: exec.retryCount
+  };
+}
+
+async function createPullRequest(title, headBranch, baseBranch, body, projectId, userId) {
+  const o = await createPullRequestOutcome(title, headBranch, baseBranch, body, projectId, userId);
+  if (o.error) {
+    throw new AppError(o.error.message, { statusCode: o.error.statusCode || 400, code: o.error.code });
+  }
+  return o.data;
+}
+
+async function getBranchesResult(projectId, userId) {
+  const { config, fromCache, available, integrated, usable } = await getGithubConfigResolutionAsync(projectId, userId);
+  if (!usable || !config || !config.owner || !config.repo) {
+    return { integrated, available, items: [], githubApiExecuted: false };
+  }
+  const client = createClient(config);
+  const exec = await executeGithubRequest(
+    () => client.get(`/repos/${config.owner}/${config.repo}/branches`, { params: { per_page: 100 } }),
+    { operation: "getBranches", projectId, userId }
+  );
+  if (!exec.ok) {
+    return {
+      integrated,
+      available,
+      items: [],
+      error: exec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: exec.retryCount
+    };
+  }
+  const data = exec.data;
+  const items = Array.isArray(data) ? data : [];
+  return {
+    integrated,
+    available,
+    items,
+    fromCache,
+    githubApiExecuted: true,
+    retryCount: exec.retryCount
+  };
+}
+
+async function getBranches(projectId, userId) {
+  const r = await getBranchesResult(projectId, userId);
+  return r.items;
+}
+
+async function getPullRequestsResult(state = "open", projectId, userId) {
+  const { config, fromCache, available, integrated, usable } = await getGithubConfigResolutionAsync(projectId, userId);
+  if (!usable || !config || !config.owner || !config.repo) {
+    return { integrated, available, items: [], githubApiExecuted: false };
+  }
+  const client = createClient(config);
+  const exec = await executeGithubRequest(
+    () =>
+      client.get(`/repos/${config.owner}/${config.repo}/pulls`, {
+        params: { state, per_page: 100 }
+      }),
+    { operation: "getPullRequests", projectId, userId }
+  );
+  if (!exec.ok) {
+    return {
+      integrated,
+      available,
+      items: [],
+      error: exec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: exec.retryCount
+    };
+  }
+  const data = exec.data;
+  const items = Array.isArray(data) ? data : [];
+  return {
+    integrated,
+    available,
+    items,
+    fromCache,
+    githubApiExecuted: true,
+    retryCount: exec.retryCount
+  };
+}
+
+async function getPullRequests(state = "open", projectId, userId) {
+  const r = await getPullRequestsResult(state, projectId, userId);
+  return r.items;
+}
+
+async function getPullRequestStatus(prNumber, projectId, userId) {
+  const { config, fromCache, available, integrated, usable } = await getGithubConfigResolutionAsync(projectId, userId);
+  if (!usable || !config || !config.owner || !config.repo) {
+    return { available, integrated, pull_request: null, githubApiExecuted: false };
+  }
+  const client = createClient(config);
+  const exec = await executeGithubRequest(
+    () => client.get(`/repos/${config.owner}/${config.repo}/pulls/${prNumber}`),
+    { operation: "getPullRequestStatus", projectId, userId }
+  );
+  if (!exec.ok) {
+    return {
+      available,
+      integrated,
+      pull_request: null,
+      error: exec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: exec.retryCount
+    };
+  }
+  const data = exec.data;
+  if (!data) {
+    return {
+      available,
+      integrated,
+      pull_request: null,
+      error: {
+        code: GITHUB_ERROR_CODES.NOT_FOUND,
+        message: "No se pudo obtener el estado del Pull Request",
+        statusCode: 404
+      },
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: exec.retryCount
+    };
+  }
+  return {
+    available,
+    integrated,
+    pull_request: {
+      number: data.number,
+      state: data.state,
+      title: data.title,
+      head: data.head?.ref,
+      base: data.base?.ref,
+      html_url: data.html_url,
+      merged_at: data.merged_at,
+      user: data.user?.login
+    },
+    fromCache,
+    githubApiExecuted: true,
+    retryCount: exec.retryCount
+  };
+}
+
+function mapCommitRow(c) {
+  return {
     sha: c.sha,
     message: c.commit?.message ? c.commit.message.split("\n")[0] : "",
     author: c.commit?.author?.name || c.author?.login || "",
     date: c.commit?.author?.date || null,
     branch: null,
     url: c.html_url || null
-  }));
+  };
+}
+
+async function getCommitsResult(projectId, userId, limit = 20) {
+  const { config, fromCache, available, integrated, usable } = await getGithubConfigResolutionAsync(projectId, userId);
+  if (!usable || !config || !config.owner || !config.repo) {
+    return { integrated, available, items: [], githubApiExecuted: false };
+  }
+  const client = createClient(config);
+  const exec = await executeGithubRequest(
+    () =>
+      client.get(`/repos/${config.owner}/${config.repo}/commits`, {
+        params: { per_page: Math.min(100, Math.max(1, limit)) }
+      }),
+    { operation: "getCommits", projectId, userId }
+  );
+  if (!exec.ok) {
+    return {
+      integrated,
+      available,
+      items: [],
+      error: exec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: exec.retryCount
+    };
+  }
+  const data = exec.data;
+  const list = Array.isArray(data) ? data : [];
+  return {
+    integrated,
+    available,
+    items: list.map(mapCommitRow),
+    fromCache,
+    githubApiExecuted: true,
+    retryCount: exec.retryCount
+  };
+}
+
+async function getCommits(projectId, userId, limit = 20) {
+  const r = await getCommitsResult(projectId, userId, limit);
+  return r.items;
 }
 
 /**
@@ -424,7 +986,7 @@ async function getCommits(projectId, userId, limit = 20) {
  */
 async function getReleases(projectId, userId) {
   const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
+  if (!config || !config.owner || !config.repo) return [];
   const client = createClient(config);
   let data;
   try {
@@ -474,7 +1036,7 @@ function normalizeRelease(ghRelease) {
  */
 async function getRepositoryTags(projectId, userId) {
   const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
+  if (!config || !config.owner || !config.repo) return [];
   const client = createClient(config);
   let data;
   try {
@@ -504,7 +1066,9 @@ async function getRepositoryTags(projectId, userId) {
  */
 async function createTag(tagName, sha, projectId, userId) {
   const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
+  if (!config || !config.owner || !config.repo) {
+    throw new AppError("GitHub no configurado para este proyecto.", { statusCode: 400, code: GITHUB_ERROR_CODES.VALIDATION });
+  }
   const ref = tagName.startsWith("refs/tags/") ? tagName : `refs/tags/${tagName}`;
   const client = createClient(config);
   const { data } = await client.post(`/repos/${config.owner}/${config.repo}/git/refs`, {
@@ -519,7 +1083,9 @@ async function createTag(tagName, sha, projectId, userId) {
  */
 async function getBranchSha(branch, projectId, userId) {
   const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
+  if (!config || !config.owner || !config.repo) {
+    throw new AppError("GitHub no configurado para este proyecto.", { statusCode: 400, code: GITHUB_ERROR_CODES.VALIDATION });
+  }
   const client = createClient(config);
   const refName = branch.startsWith("refs/") ? branch : `heads/${branch}`;
   const { data } = await client.get(`/repos/${config.owner}/${config.repo}/git/ref/${refName}`);
@@ -532,42 +1098,67 @@ async function getBranchSha(branch, projectId, userId) {
  */
 async function createGitHubRelease(payload, projectId, userId) {
   const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
+  if (!config || !config.owner || !config.repo) {
+    throw new AppError("GitHub no configurado para este proyecto.", { statusCode: 400, code: GITHUB_ERROR_CODES.VALIDATION });
+  }
   const client = createClient(config);
   const { data } = await client.post(`/repos/${config.owner}/${config.repo}/releases`, payload);
   return data;
 }
 
-/**
- * Lista contribuidores del repositorio. projectId y userId para OAuth.
- */
-async function getContributors(projectId, userId) {
-  const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
-  const client = createClient(config);
-  let data;
-  try {
-    const resp = await client.get(`/repos/${config.owner}/${config.repo}/contributors`, {
-      params: { per_page: 100 }
-    });
-    data = resp && resp.data ? resp.data : null;
-  } catch (err) {
-    throw mapGitHubAxiosError(err, "getContributors");
+function mapContributorRow(cc) {
+  let avatar = cc.avatar_url || null;
+  if (avatar && !/^https?:\/\//i.test(avatar)) {
+    avatar = cc.id ? `https://avatars.githubusercontent.com/u/${cc.id}?v=4` : null;
   }
-  const list = Array.isArray(data) ? data : [];
-  return list.map((cc) => {
-    let avatar = cc.avatar_url || null;
-    if (avatar && !/^https?:\/\//i.test(avatar)) {
-      avatar = cc.id ? `https://avatars.githubusercontent.com/u/${cc.id}?v=4` : null;
-    }
+  return {
+    login: cc.login,
+    id: cc.id,
+    avatar: avatar,
+    commits: cc.contributions != null ? cc.contributions : 0,
+    profile_url: cc.html_url || (cc.login ? `https://github.com/${cc.login}` : null)
+  };
+}
+
+async function getContributorsResult(projectId, userId) {
+  const { config, fromCache, available, integrated, usable } = await getGithubConfigResolutionAsync(projectId, userId);
+  if (!usable || !config || !config.owner || !config.repo) {
+    return { integrated, available, items: [], githubApiExecuted: false };
+  }
+  const client = createClient(config);
+  const exec = await executeGithubRequest(
+    () =>
+      client.get(`/repos/${config.owner}/${config.repo}/contributors`, {
+        params: { per_page: 100 }
+      }),
+    { operation: "getContributors", projectId, userId }
+  );
+  if (!exec.ok) {
     return {
-      login: cc.login,
-      id: cc.id,
-      avatar: avatar,
-      commits: cc.contributions != null ? cc.contributions : 0,
-      profile_url: cc.html_url || (cc.login ? `https://github.com/${cc.login}` : null)
+      integrated,
+      available,
+      items: [],
+      error: exec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: exec.retryCount
     };
-  });
+  }
+  const data = exec.data;
+  const list = Array.isArray(data) ? data : [];
+  return {
+    integrated,
+    available,
+    items: list.map(mapContributorRow),
+    fromCache,
+    githubApiExecuted: true,
+    retryCount: exec.retryCount
+  };
+}
+
+async function getContributors(projectId, userId) {
+  const r = await getContributorsResult(projectId, userId);
+  return r.items;
 }
 
 /**
@@ -594,46 +1185,134 @@ async function getRepositoryStats(projectId, userId) {
 }
 
 /**
- * Obtiene el contenido de un archivo en un ref (rama/tag/sha) por path.
- * Usa la Contents API (base64). Devuelve { content, sha } o null si no existe.
+ * Contenido de archivo vía Contents API (base64).
+ * Contrato estable: siempre objeto { available, found, content, sha }.
  */
 async function getFileContentByPath(path, ref, projectId, userId) {
-  const config = await getConfigAsync(projectId, userId);
-  if (!config.owner || !config.repo) throw new Error("GitHub repo no configurado");
+  const { config, fromCache, available, integrated, usable } = await getGithubConfigResolutionAsync(projectId, userId);
+  if (!usable || !config || !config.owner || !config.repo) {
+    return {
+      available,
+      integrated,
+      found: false,
+      content: "",
+      sha: null,
+      githubApiExecuted: false
+    };
+  }
   const client = createClient(config);
   const safePath = String(path || "").replace(/^\/+/, "");
-  if (!safePath) throw new Error("Path inválido");
-  const url = `/repos/${config.owner}/${config.repo}/contents/${encodeURIComponent(safePath).replace(/%2F/g, "/")}`;
-  let res;
-  try {
-    res = await client.get(url, { params: ref ? { ref } : undefined });
-  } catch (e) {
-    if (e && e.response && e.response.status === 404) res = null;
-    else throw mapGitHubAxiosError(e, "getFileContentByPath");
+  if (!safePath) {
+    return { available, integrated, found: false, content: "", sha: null, githubApiExecuted: false };
   }
-  if (!res || !res.data) return null;
-  if (Array.isArray(res.data)) return null;
-  if (res.data && res.data.type && res.data.type !== "file") return null;
-  const b64 = res.data.content ? String(res.data.content).replace(/\n/g, "") : "";
+  const url = `/repos/${config.owner}/${config.repo}/contents/${encodeURIComponent(safePath).replace(/%2F/g, "/")}`;
+  const exec = await executeGithubRequest(
+    () => client.get(url, { params: ref ? { ref } : undefined }),
+    { operation: "getFileContentByPath", projectId, userId }
+  );
+  if (!exec.ok) {
+    if (exec.error && exec.error.statusCode === 404) {
+      return {
+        available,
+        integrated,
+        found: false,
+        content: "",
+        sha: null,
+        fromCache,
+        githubApiExecuted: true,
+        retryCount: exec.retryCount
+      };
+    }
+    return {
+      available,
+      integrated,
+      found: false,
+      content: "",
+      sha: null,
+      error: exec.error,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: exec.retryCount
+    };
+  }
+  const body = exec.data;
+  if (!body) {
+    return {
+      available,
+      integrated,
+      found: false,
+      content: "",
+      sha: null,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: exec.retryCount
+    };
+  }
+  if (Array.isArray(body)) {
+    return {
+      available,
+      integrated,
+      found: false,
+      content: "",
+      sha: null,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: exec.retryCount
+    };
+  }
+  if (body.type && body.type !== "file") {
+    return {
+      available,
+      integrated,
+      found: false,
+      content: "",
+      sha: null,
+      fromCache,
+      githubApiExecuted: true,
+      retryCount: exec.retryCount
+    };
+  }
+  const b64 = body.content ? String(body.content).replace(/\n/g, "") : "";
   const content = b64 ? Buffer.from(b64, "base64").toString("utf8") : "";
-  return { content, sha: res.data.sha || null };
+  return {
+    available,
+    integrated,
+    found: true,
+    content,
+    sha: body.sha || null,
+    fromCache,
+    githubApiExecuted: true,
+    retryCount: exec.retryCount
+  };
 }
 
 module.exports = {
+  isGitHubEnabled,
+  isGitHubEnvFlagEnabled,
+  invalidateGithubConfigCache,
   getConfig,
   getConfigAsync,
+  getGithubConfigResolutionAsync,
   getRepoFullName,
   createClient,
   getDefaultBranch,
+  getDefaultBranchResult,
   createBranch,
+  createBranchOutcome,
   createCommit,
+  createCommitOutcome,
   createPullRequest,
+  createPullRequestOutcome,
   getBranches,
+  getBranchesResult,
   getPullRequests,
+  getPullRequestsResult,
   getPullRequestStatus,
   getCommits,
+  getCommitsResult,
   getFileContentByPath,
   getContributors,
+  getContributorsResult,
   getRepositoryStats,
   getReleases,
   normalizeRelease,

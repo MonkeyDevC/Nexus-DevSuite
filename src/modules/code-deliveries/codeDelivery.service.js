@@ -7,8 +7,11 @@ const codeDeliveryRepository = require("./codeDelivery.repository");
 const taskRepository = require("../tasks/task.repository");
 const projectsRepository = require("../backlog/projects.repository");
 const userStoryRepository = require("../backlog/userStory.repository");
+const sprintRepository = require("../sprints/sprint.repository");
+const workOrderRepository = require("../work-orders/workOrder.repository");
 const featureService = require("../backlog/feature.service");
 const authRepository = require("../auth/auth.repository");
+const rulesOrchestratorService = require("../rules-engine/rulesOrchestrator.service");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
 const logger = require("../../config/logger");
@@ -73,6 +76,78 @@ function prepareCodeDelivery(taskNumber, deliveryType, title) {
 
 function getEventSource(context) {
   return context && context.meta && context.meta.source ? context.meta.source : "core";
+}
+
+function resolveExplicitRules(rules) {
+  if (rules == null) {
+    return null;
+  }
+  if (!Array.isArray(rules)) {
+    throw new AppError("rules debe ser un arreglo cuando se envía", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  return rules;
+}
+
+async function assertStartDevelopmentRulesForDelivery(delivery, context = {}) {
+  // START_DEVELOPMENT mapping:
+  // Story -> IN_PROGRESS
+  // WorkOrder -> IN_PROGRESS
+  // CodeDelivery -> READY
+  const plain = typeof delivery.toJSON === "function" ? delivery.toJSON() : delivery;
+  if (!plain || !plain.user_story_id) {
+    throw new AppError("Contexto incompleto para iniciar desarrollo: delivery sin user_story_id", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  const story = await userStoryRepository.findById(plain.user_story_id);
+  if (!story || !story.sprint_id) {
+    throw new AppError("Contexto incompleto para iniciar desarrollo: story sin sprint asignado", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  const sprint = await sprintRepository.findById(story.sprint_id);
+  if (!sprint) {
+    throw new AppError("Contexto incompleto para iniciar desarrollo: sprint no encontrado", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  const startContext = {
+    sprint: { status: sprint.status },
+    story: { status: story.status }
+  };
+  if (!startContext.sprint || !startContext.story) {
+    throw new AppError("Invalid context for rule evaluation", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  const ruleResult = await rulesOrchestratorService.execute({
+    entityType: "delivery",
+    entityId: plain.id,
+    action: "START_DEVELOPMENT",
+    context: startContext,
+    workflowId: context.workflowId || null,
+    requestContext: context
+  });
+  if (!ruleResult.allowed) {
+    throw new AppError(ruleResult.rule.userMessage, {
+      statusCode: 400,
+      code: "RULE_BLOCKED",
+      details: {
+        executionId: ruleResult.executionId,
+        guidance: ruleResult.rule.guidance,
+        errors: ruleResult.errors,
+        warnings: ruleResult.warnings
+      }
+    });
+  }
+  return ruleResult;
 }
 
 async function createCodeDelivery(projectId, taskId, payload, context) {
@@ -204,7 +279,7 @@ async function listCodeDeliveries(projectId, params, organizationId) {
   };
 }
 
-async function updateCodeDelivery(id, projectId, payload, context) {
+async function updateCodeDelivery(id, projectId, payload, context, rules = null) {
   const delivery = await codeDeliveryRepository.findByIdAndProject(id, projectId);
   if (!delivery) {
     throw new AppError("Code delivery no encontrada", {
@@ -216,6 +291,8 @@ async function updateCodeDelivery(id, projectId, payload, context) {
   if (project) featureService.ensureProjectInOrg(project, context.organizationId);
 
   const updatePayload = {};
+  let statusRuleWarnings = [];
+  let statusRuleExecutionId = null;
   const previousStatus = delivery.status;
   const statusEvents = { COMMITTED: "DELIVERY_COMMITTED", PR_CREATED: "DELIVERY_PR_CREATED", MERGED: "DELIVERY_MERGED" };
 
@@ -226,7 +303,51 @@ async function updateCodeDelivery(id, projectId, payload, context) {
   if (payload.pull_request_url !== undefined) updatePayload.pull_request_url = payload.pull_request_url;
   if (payload.delivery_type !== undefined && DELIVERY_TYPES.includes(payload.delivery_type))
     updatePayload.delivery_type = payload.delivery_type;
-  if (payload.status !== undefined && DELIVERY_STATUSES.includes(payload.status)) updatePayload.status = payload.status;
+  if (payload.status !== undefined && DELIVERY_STATUSES.includes(payload.status)) {
+    if (payload.status === "READY") {
+      const statusRuleResult = await assertStartDevelopmentRulesForDelivery(delivery, context);
+      statusRuleExecutionId = statusRuleResult.executionId;
+      if (statusRuleResult.allowed && statusRuleResult.warnings.length > 0) {
+        statusRuleWarnings = statusRuleResult.warnings;
+      }
+    }
+    const explicitRules = resolveExplicitRules(rules);
+    if (explicitRules) {
+      const customRuleResult = await rulesOrchestratorService.execute({
+        entityType: "delivery",
+        entityId: id,
+        action: "DELIVERY_STATUS_UPDATE",
+        context: {
+          domain: "code-deliveries",
+          entity: "code_delivery",
+          delivery_id: id,
+          project_id: projectId,
+          from_status: previousStatus,
+          to_status: payload.status
+        },
+        requestContext: context,
+        rulesOverride: explicitRules,
+        userMessageOverride: "Cambio de estado de delivery bloqueado por rules engine"
+      });
+      if (!customRuleResult.allowed) {
+        throw new AppError(customRuleResult.rule.userMessage, {
+          statusCode: 400,
+          code: "RULE_BLOCKED",
+          details: {
+            executionId: customRuleResult.executionId,
+            guidance: customRuleResult.rule.guidance,
+            errors: customRuleResult.errors,
+            warnings: customRuleResult.warnings
+          }
+        });
+      }
+      statusRuleExecutionId = customRuleResult.executionId;
+      if (customRuleResult.warnings.length > 0) {
+        statusRuleWarnings = [...statusRuleWarnings, ...customRuleResult.warnings];
+      }
+    }
+    updatePayload.status = payload.status;
+  }
 
   const previousWorkOrderId = delivery.work_order_id ?? null;
 
@@ -267,7 +388,14 @@ async function updateCodeDelivery(id, projectId, payload, context) {
     );
   }
 
-  return updatedPlain;
+  return {
+    success: true,
+    data: updatedPlain,
+    rule: {
+      executionId: statusRuleExecutionId,
+      warnings: statusRuleWarnings
+    }
+  };
 }
 
 module.exports = {

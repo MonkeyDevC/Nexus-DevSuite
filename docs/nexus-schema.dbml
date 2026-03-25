@@ -1,0 +1,608 @@
+// NEXUS DevSuite — DBML para dbdiagram.io (MySQL)
+// Corregido: Project block, sin longtext, sin indexes inline problemáticos,
+// sin FK circular work_orders <-> code_deliveries (delivery_id sin ref).
+
+Project NEXUS_DevSuite {
+  database_type: 'MySQL'
+  Note: 'Esquema lógico NEXUS DevSuite — revisar enums en notas de columna'
+}
+
+TableGroup identity {
+  organizations
+  roles
+  users
+  refresh_tokens
+  audit_logs
+}
+
+Table organizations {
+  id uuid [pk]
+  name varchar(255) [not null]
+  slug varchar(100) [not null, unique]
+  settings json
+  plan varchar(50)
+  billing_email varchar(255)
+  next_billing_date date
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table roles {
+  id uuid [pk]
+  name varchar(50) [not null, unique]
+  description varchar(255)
+}
+
+Table users {
+  id uuid [pk]
+  email varchar(255) [not null, unique]
+  name varchar(255)
+  profile_photo_url varchar(512)
+  password_hash varchar(255) [not null]
+  role_id uuid [not null, ref: > roles.id]
+  organization_id uuid [ref: > organizations.id]
+  is_active boolean [not null, default: true]
+  deleted_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table refresh_tokens {
+  id uuid [pk]
+  user_id uuid [not null, unique, ref: - users.id]
+  token_hash varchar(255) [not null]
+  expires_at datetime [not null]
+  revoked_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table audit_logs {
+  id uuid [pk]
+  user_id uuid [ref: > users.id]
+  action varchar(100) [not null]
+  entity varchar(100) [not null]
+  entity_id varchar(255)
+  metadata json
+  request_id varchar(36)
+  ip_address varchar(64)
+  user_agent varchar(255)
+  created_at datetime [not null]
+}
+
+TableGroup backlog_execution {
+  projects
+  features
+  user_stories
+  sprints
+  releases
+  release_features
+  change_requests
+}
+
+Table projects {
+  id uuid [pk]
+  number int [not null, unique, note: 'UNSIGNED en MySQL']
+  organization_id uuid [ref: > organizations.id]
+  name varchar(255) [not null]
+  description text [not null]
+  status varchar(32) [not null, default: 'ACTIVE', note: 'ACTIVE|ARCHIVED']
+  created_by uuid [not null, ref: > users.id]
+  archived_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table releases {
+  id uuid [pk]
+  version varchar(50) [not null, unique]
+  status varchar(32) [not null, default: 'PLANNED']
+  description text
+  created_by uuid [not null, ref: > users.id]
+  organization_id uuid [ref: > organizations.id]
+  released_at datetime
+  deleted_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table sprints {
+  id uuid [pk]
+  project_id uuid [not null, ref: > projects.id]
+  name varchar(255) [not null]
+  goal text
+  start_date date
+  end_date date
+  status varchar(32) [not null, default: 'PLANNED', note: 'PLANNED|IN_PROGRESS|CLOSED']
+  created_by uuid [not null, ref: > users.id]
+  closed_by uuid [ref: > users.id]
+  closed_at datetime
+  deleted_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table features {
+  id uuid [pk]
+  project_id uuid [not null, ref: > projects.id]
+  number int [not null, note: 'UNSIGNED']
+  title varchar(500) [not null]
+  description text [not null]
+  status varchar(32) [not null, default: 'DRAFT']
+  priority varchar(32) [not null, default: 'MEDIUM']
+  created_by uuid [not null, ref: > users.id]
+  approved_by uuid [ref: > users.id]
+  approved_at datetime
+  closed_at datetime
+  release_id uuid [ref: > releases.id]
+  backlog_position int
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table user_stories {
+  id uuid [pk]
+  feature_id uuid [not null, ref: > features.id]
+  number int [not null]
+  title varchar(500) [not null]
+  description text [not null]
+  acceptance_criteria json
+  implementation_criteria json
+  status varchar(32) [not null, default: 'DRAFT']
+  priority varchar(32) [not null, default: 'MEDIUM']
+  assigned_to uuid [ref: > users.id]
+  created_by uuid [not null, ref: > users.id]
+  approved_by uuid [ref: > users.id]
+  closed_at datetime
+  sprint_id uuid [ref: > sprints.id]
+  story_points int
+  backlog_position int
+  labels json
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table release_features {
+  id uuid [pk]
+  release_id uuid [not null, ref: > releases.id]
+  feature_id uuid [not null, ref: > features.id]
+  created_at datetime [not null]
+}
+
+Table change_requests {
+  id uuid [pk]
+  code varchar(50) [not null, unique]
+  title varchar(255)
+  description text
+  type varchar(32)
+  impact_level varchar(32)
+  status varchar(32) [not null, default: 'DRAFT']
+  requested_by uuid [not null, ref: > users.id]
+  approved_by uuid [ref: > users.id]
+  entity_type varchar(32) [not null, note: 'FEATURE|RELEASE']
+  entity_id uuid [not null, note: 'FK polimórfico a features o releases']
+  approved_at datetime
+  implemented_at datetime
+  deleted_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+TableGroup quality_docs {
+  incidents
+  improvements
+  documents
+  document_versions
+  documentation_contents
+}
+
+Table incidents {
+  id uuid [pk]
+  project_id uuid [not null, ref: > projects.id]
+  title varchar(255) [not null]
+  description text
+  severity varchar(32) [not null, default: 'MEDIUM']
+  status varchar(32) [not null, default: 'OPEN']
+  root_cause_analysis text
+  reported_by uuid [not null, ref: > users.id]
+  assigned_to uuid [ref: > users.id]
+  closed_by uuid [ref: > users.id]
+  closed_at datetime
+  deleted_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table improvements {
+  id uuid [pk]
+  project_id uuid [ref: > projects.id]
+  incident_id uuid [ref: > incidents.id]
+  title varchar(255) [not null]
+  description text
+  status varchar(32) [not null, default: 'DRAFT']
+  proposed_by uuid [not null, ref: > users.id]
+  approved_by uuid [ref: > users.id]
+  approved_at datetime
+  implemented_at datetime
+  deleted_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table documents {
+  id uuid [pk]
+  code varchar(50) [not null, unique]
+  title varchar(255) [not null]
+  description text
+  project_id uuid [ref: > projects.id]
+  created_by uuid [not null, ref: > users.id]
+  deleted_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table document_versions {
+  id uuid [pk]
+  document_id uuid [not null, ref: > documents.id]
+  version_number int [not null]
+  status varchar(32) [not null, default: 'DRAFT', note: 'DRAFT|APPROVED|ARCHIVED']
+  change_reason text
+  content text
+  created_by uuid [not null, ref: > users.id]
+  approved_by uuid [ref: > users.id]
+  approved_at datetime
+  deleted_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table documentation_contents {
+  id uuid [pk]
+  organization_id uuid [not null, ref: > organizations.id]
+  project_id uuid [ref: > projects.id]
+  type varchar(32) [not null, note: 'functional|technical']
+  format varchar(32) [not null, default: 'html', note: 'html|markdown']
+  content text [not null, note: 'En MySQL puede ser LONGTEXT']
+  title varchar(255)
+  status varchar(32) [not null, default: 'ACTIVE', note: 'ACTIVE|ARCHIVED']
+  updated_by_user_id uuid [ref: > users.id]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+TableGroup delivery_git {
+  work_orders
+  tasks
+  implementation_steps
+  code_deliveries
+  delivery_files
+  delivery_commits
+  delivery_reviews
+  review_comments
+  github_connections
+  github_oauth_states
+}
+
+Table work_orders {
+  id uuid [pk]
+  ot_number int [not null]
+  project_id uuid [not null, ref: > projects.id]
+  user_story_id uuid [not null, ref: > user_stories.id]
+  title varchar(500) [not null]
+  description text
+  status varchar(32) [not null, default: 'PENDING']
+  priority varchar(32) [not null, default: 'MEDIUM']
+  assigned_to_user_id uuid [ref: > users.id]
+  delivery_id uuid [note: 'FK lógica a code_deliveries.id — sin ref para evitar ciclo con work_order_id']
+  created_by_user_id uuid [not null, ref: > users.id]
+  version int [not null, default: 0]
+  deleted_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table tasks {
+  id uuid [pk]
+  task_number int [not null]
+  project_id uuid [not null, ref: > projects.id]
+  user_story_id uuid [not null, ref: > user_stories.id]
+  work_order_id uuid [ref: > work_orders.id]
+  title varchar(500) [not null]
+  description text
+  status varchar(32) [not null, default: 'PENDING']
+  assigned_to_user_id uuid [ref: > users.id]
+  priority varchar(32) [not null, default: 'MEDIUM']
+  estimated_hours int
+  created_by_user_id uuid [not null, ref: > users.id]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table implementation_steps {
+  id uuid [pk]
+  project_id uuid [not null, ref: > projects.id]
+  task_id uuid [not null, ref: > tasks.id]
+  work_order_id uuid [not null, ref: > work_orders.id]
+  step_number int [not null]
+  title varchar(500) [not null]
+  description text
+  status varchar(32) [not null, default: 'PENDING']
+  started_at datetime
+  completed_at datetime
+  retry_count int [not null, default: 0]
+  cursor_execution_id varchar(255)
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table code_deliveries {
+  id uuid [pk]
+  delivery_number int [not null]
+  project_id uuid [not null, ref: > projects.id]
+  task_id uuid [not null, ref: > tasks.id]
+  work_order_id uuid [ref: > work_orders.id]
+  user_story_id uuid [not null, ref: > user_stories.id]
+  title varchar(500) [not null]
+  description text
+  branch_name varchar(255)
+  commit_hash varchar(64)
+  base_commit_hash varchar(64)
+  pull_request_url varchar(500)
+  delivery_type varchar(32) [not null, default: 'FEATURE']
+  status varchar(32) [not null, default: 'PREPARING']
+  created_by_user_id uuid [not null, ref: > users.id]
+  git_snapshot_json text
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table delivery_files {
+  id uuid [pk]
+  project_id uuid [not null, ref: > projects.id]
+  delivery_id uuid [not null, ref: > code_deliveries.id]
+  file_path varchar(1024) [not null]
+  old_file_path varchar(1024)
+  content text
+  content_base64 text
+  status varchar(32) [not null, default: 'ADDED']
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table delivery_commits {
+  id uuid [pk]
+  project_id uuid [not null, ref: > projects.id]
+  delivery_id uuid [not null, ref: > code_deliveries.id]
+  work_order_id uuid [ref: > work_orders.id]
+  commit_sha varchar(64) [not null]
+  commit_message text
+  author varchar(255)
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table delivery_reviews {
+  id uuid [pk]
+  project_id uuid [not null, ref: > projects.id]
+  delivery_id uuid [not null, ref: > code_deliveries.id]
+  reviewer_id uuid [not null, ref: > users.id]
+  status varchar(32) [not null, default: 'PENDING']
+  submitted_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table review_comments {
+  id uuid [pk]
+  project_id uuid [not null, ref: > projects.id]
+  delivery_id uuid [not null, ref: > code_deliveries.id]
+  author_id uuid [not null, ref: > users.id]
+  file_path varchar(1024) [not null]
+  line_number int
+  body text [not null]
+  parent_id uuid
+  created_at datetime [not null]
+}
+
+Ref: review_comments.parent_id > review_comments.id
+
+Table github_connections {
+  id uuid [pk]
+  user_id uuid [not null, ref: > users.id]
+  project_id uuid [ref: > projects.id]
+  repo_owner varchar(255)
+  repo_name varchar(255)
+  access_token text [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table github_oauth_states {
+  id uuid [pk]
+  user_id uuid [not null, ref: > users.id]
+  project_id uuid [ref: > projects.id]
+  return_url varchar(500)
+  created_at datetime [not null]
+}
+
+TableGroup rules_workflow_orchestrator {
+  automation_rules
+  automation_rule_executions
+  workflow_definitions
+  workflow_nodes
+  workflow_edges
+  workflow_rules
+  rule_executions
+  idempotency_keys
+  commit_ledger
+  outbox_events
+  state_transition_logs
+  scope_locks
+  ledger_replay_state
+}
+
+Table automation_rules {
+  id uuid [pk]
+  tenant_id uuid [not null, ref: > organizations.id]
+  name varchar(200) [not null]
+  description text
+  event_type varchar(100) [not null]
+  conditions json
+  actions json [not null]
+  is_active boolean [not null, default: true]
+  priority int [not null, default: 0]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table automation_rule_executions {
+  id uuid [pk]
+  rule_id uuid [not null, ref: > automation_rules.id]
+  event_type varchar(100) [not null]
+  success boolean [not null, default: true]
+  error_message text
+  execution_time_ms int [not null, default: 0]
+  created_at datetime [not null]
+}
+
+Table workflow_definitions {
+  id uuid [pk]
+  name varchar(255) [not null]
+  version int [not null, default: 1]
+  status varchar(16) [not null, default: 'draft', note: 'draft|active']
+  activated_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table workflow_nodes {
+  id uuid [pk]
+  workflow_id uuid [not null, ref: > workflow_definitions.id]
+  type varchar(32) [not null, note: 'task|validation|condition']
+  name varchar(255) [not null]
+  is_start boolean [not null, default: false]
+  config json [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table workflow_edges {
+  id uuid [pk]
+  from_node_id uuid [not null, ref: > workflow_nodes.id]
+  to_node_id uuid [not null, ref: > workflow_nodes.id]
+  condition json
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table workflow_rules {
+  id uuid [pk]
+  node_id uuid [not null, ref: > workflow_nodes.id]
+  rule_type varchar(16) [not null, note: 'block|warn']
+  conditions json [not null]
+  message varchar(500) [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table rule_executions {
+  id uuid [pk]
+  execution_id uuid [not null]
+  action varchar(100) [not null]
+  entity_type varchar(32) [not null, note: 'story|work_order|delivery']
+  entity_id uuid [not null]
+  tenant_id uuid [not null, ref: > organizations.id]
+  profile_id uuid
+  target_entity varchar(64) [not null]
+  trigger_event varchar(64) [not null]
+  dry_run boolean [not null, default: false]
+  blocked boolean [not null, default: false]
+  request_id varchar(100)
+  actor_user_id uuid [ref: > users.id]
+  evaluation_json json [not null]
+  rule_name varchar(100) [not null]
+  allowed boolean [not null]
+  errors json [not null]
+  warnings json [not null]
+  created_at datetime [not null]
+}
+
+Table idempotency_keys {
+  id uuid [pk]
+  dedup_key varchar(255) [not null, unique]
+  method varchar(16) [not null]
+  path varchar(512) [not null]
+  request_hash varchar(64) [not null]
+  status varchar(32) [not null, default: 'PROCESSING']
+  response_status int
+  response_body json
+  completed_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table commit_ledger {
+  id uuid [pk]
+  commit_seq bigint [not null, unique, note: 'MySQL: BIGINT UNSIGNED AUTO_INCREMENT']
+  dedup_key varchar(255) [not null, unique]
+  request_id varchar(128) [not null]
+  before_hash varchar(64) [not null]
+  after_hash varchar(64)
+  status varchar(32) [not null, default: 'PREPARED']
+  signature text
+  metadata json
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table outbox_events {
+  id uuid [pk]
+  dedup_key varchar(255) [not null]
+  commit_ledger_id uuid [ref: > commit_ledger.id]
+  event_type varchar(120) [not null]
+  payload json [not null]
+  status varchar(32) [not null, default: 'PENDING']
+  retry_count int [not null, default: 0]
+  next_retry_at datetime
+  processed_at datetime
+  last_error text
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table state_transition_logs {
+  id uuid [pk]
+  entity varchar(80) [not null]
+  entity_id varchar(80) [not null]
+  transition_version int [not null]
+  from_state varchar(80)
+  to_state varchar(80) [not null]
+  request_id varchar(128) [not null]
+  dedup_key varchar(255)
+  metadata json
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table scope_locks {
+  id uuid [pk]
+  scope_key varchar(255) [not null, unique]
+  scope_table varchar(80) [not null]
+  row_id varchar(80)
+  tenant_id varchar(80)
+  owner_request_id varchar(128) [not null]
+  owner_dedup_key varchar(255)
+  expires_at datetime [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table ledger_replay_state {
+  id uuid [pk]
+  commit_seq bigint [not null, unique]
+  dedup_key varchar(255) [not null]
+  request_id varchar(128) [not null]
+  after_hash varchar(64) [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}

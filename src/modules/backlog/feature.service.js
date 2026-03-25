@@ -9,6 +9,7 @@ const userStoryRepository = require("./userStory.repository");
 const changeRequestService = require("../changeRequests/changeRequest.service");
 const { validateTransition, ENTITY_TYPES } = require("./workflow.validator");
 const authRepository = require("../auth/auth.repository");
+const rulesEngineService = require("../rules-engine/rulesEngine.service");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
 
@@ -60,6 +61,19 @@ function ensureProjectInOrg(project, organizationId) {
       code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
     });
   }
+}
+
+function resolveExplicitRules(rules) {
+  if (rules == null) {
+    return null;
+  }
+  if (!Array.isArray(rules)) {
+    throw new AppError("rules debe ser un arreglo cuando se envía", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  return rules;
 }
 
 async function createFeature(projectId, payload, context = {}) {
@@ -177,7 +191,7 @@ async function updateFeature(id, payload, context = {}) {
   return toPlain(updated);
 }
 
-async function updateFeatureStatus(id, nextStatus, context, changeRequestId = null) {
+async function updateFeatureStatus(id, nextStatus, context, changeRequestId = null, rules = null) {
   const feature = await featureRepository.findById(id);
   if (!feature) {
     throw new AppError("Feature no encontrada", {
@@ -197,6 +211,27 @@ async function updateFeatureStatus(id, nextStatus, context, changeRequestId = nu
     }
   }
   validateTransition(ENTITY_TYPES.FEATURE, currentStatus, nextStatus);
+  const explicitRules = resolveExplicitRules(rules);
+  if (explicitRules) {
+    const rulesResult = await rulesEngineService.evaluateRules(
+      {
+        domain: "backlog",
+        entity: "feature",
+        from_status: currentStatus,
+        to_status: nextStatus,
+        feature_id: id,
+        project_id: feature.project_id
+      },
+      explicitRules
+    );
+    if (!rulesResult.allowed) {
+      throw new AppError("Transición de feature bloqueada por rules engine", {
+        statusCode: 400,
+        code: ERROR_CODES.VALIDATION_ERROR,
+        details: { errors: rulesResult.errors, warnings: rulesResult.warnings }
+      });
+    }
+  }
 
   const updatePayload = { status: nextStatus };
   if (nextStatus === "APPROVED") {

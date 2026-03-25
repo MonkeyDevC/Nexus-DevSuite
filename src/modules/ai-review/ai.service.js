@@ -5,6 +5,7 @@
  */
 
 const logger = require("../../config/logger");
+const { buildFeatureDisabledResponse } = require("../../config/optionalModules");
 
 const SENSITIVE_PATTERNS = [
   { pattern: /(?:password|passwd|pwd|secret)\s*[:=]\s*["']?[^"'\s]+/gi, replace: "[REDACTED_PASSWORD]" },
@@ -27,6 +28,17 @@ function maskSensitiveContent(text) {
  * Si no hay API key configurada, devuelve un resultado mock para desarrollo.
  */
 async function complete(prompt, options = {}) {
+  void prompt;
+  void options;
+  return buildFeatureDisabledResponse("ai-review", {
+    content: "",
+    model_used: "disabled",
+    tokens_used: 0,
+    duration_ms: 0
+  });
+}
+
+async function completeLegacy(prompt, options = {}) {
   const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
   const apiUrl = process.env.AI_API_URL || process.env.OPENAI_API_URL || "https://api.openai.com/v1/chat/completions";
   const model = options.model || process.env.AI_REVIEW_MODEL || "gpt-4o-mini";
@@ -92,5 +104,6 @@ async function complete(prompt, options = {}) {
 
 module.exports = {
   complete,
+  completeLegacy,
   maskSensitiveContent
 };

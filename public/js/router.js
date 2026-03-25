@@ -12,9 +12,11 @@
     const hash = window.location.hash.slice(1) || "/";
     const pathOnly = hash.split("?")[0];
     const path = pathOnly.startsWith("/") ? pathOnly : "/" + pathOnly;
+    if (path === "/rules" || path === "/workflow-builder") return "under-construction";
     const projectScoped = path.match(/^\/projects\/[^/]+\/(.+)$/);
     if (projectScoped) {
       const tail = projectScoped[1] || "";
+      if (tail === "releases" || /^releases\/[^/]+$/.test(tail)) return "project-releases";
       if (tail === "repository") return "repository";
       if (tail === "deliveries") return "deliveries";
       if (/^deliveries\/[^/]+\/workspace$/.test(tail)) return "delivery-workspace";
@@ -42,7 +44,11 @@
       return;
     }
     if (!window.requireAuth()) return;
-    if (name === "admin" || name === "settings") {
+    if (name === "under-construction" && window.location.hash.indexOf("#/under-construction") !== 0) {
+      window.location.hash = "#/under-construction";
+      return;
+    }
+    if (name === "admin" || name === "settings" || name === "workflow-builder") {
       var user = await window.getMe();
       if (!user || user.role !== "MASTER") {
         window.location.hash = "#/dashboard";

@@ -9,6 +9,7 @@ const projectsRepository = require("./projects.repository");
 const featureService = require("./feature.service");
 const usersRepository = require("../users/users.repository");
 const sprintRepository = require("../sprints/sprint.repository");
+const rulesOrchestratorService = require("../rules-engine/rulesOrchestrator.service");
 const { validateTransition, ENTITY_TYPES } = require("./workflow.validator");
 const authRepository = require("../auth/auth.repository");
 const { AppError } = require("../../shared/errors/AppError");
@@ -151,12 +152,71 @@ async function updateStoryStatus(id, nextStatus, context) {
     if (project) featureService.ensureProjectInOrg(project, context.organizationId);
   }
   const currentStatus = story.status;
+  let statusRuleWarnings = [];
+  let statusRuleExecutionId = null;
   if (currentStatus === "DRAFT" && nextStatus === "READY") {
     if (context?.user?.role !== "MASTER") {
       throw new AppError("Solo MASTER puede aprobar una story (READY)", {
         statusCode: 403,
         code: ERROR_CODES.INVALID_ASSIGNMENT
       });
+    }
+  }
+  if (nextStatus === "IN_PROGRESS") {
+    // START_DEVELOPMENT mapping:
+    // Story -> IN_PROGRESS
+    // WorkOrder -> IN_PROGRESS
+    // CodeDelivery -> READY
+    if (!story.sprint_id) {
+      throw new AppError("Contexto incompleto para iniciar desarrollo: story sin sprint asignado", {
+        statusCode: 400,
+        code: ERROR_CODES.VALIDATION_ERROR
+      });
+    }
+    const sprint = await sprintRepository.findById(story.sprint_id);
+    if (!sprint) {
+      throw new AppError("Contexto incompleto para iniciar desarrollo: sprint no encontrado", {
+        statusCode: 400,
+        code: ERROR_CODES.VALIDATION_ERROR
+      });
+    }
+    const startContext = {
+      sprint: {
+        status: sprint.status
+      },
+      story: {
+        status: story.status
+      }
+    };
+    if (!startContext.sprint || !startContext.story) {
+      throw new AppError("Invalid context for rule evaluation", {
+        statusCode: 400,
+        code: ERROR_CODES.VALIDATION_ERROR
+      });
+    }
+    const ruleResult = await rulesOrchestratorService.execute({
+      entityType: "story",
+      entityId: story.id,
+      action: "START_DEVELOPMENT",
+      context: startContext,
+      workflowId: context.workflowId || null,
+      requestContext: context
+    });
+    if (!ruleResult.allowed) {
+      throw new AppError(ruleResult.rule.userMessage, {
+        statusCode: 400,
+        code: "RULE_BLOCKED",
+        details: {
+          executionId: ruleResult.executionId,
+          guidance: ruleResult.rule.guidance,
+          errors: ruleResult.errors,
+          warnings: ruleResult.warnings
+        }
+      });
+    }
+    statusRuleExecutionId = ruleResult.executionId;
+    if (ruleResult.warnings.length > 0) {
+      statusRuleWarnings = ruleResult.warnings;
     }
   }
   validateTransition(ENTITY_TYPES.STORY, currentStatus, nextStatus);
@@ -178,7 +238,15 @@ async function updateStoryStatus(id, nextStatus, context) {
     entity_id: id,
     metadata: { from: currentStatus, to: nextStatus }
   });
-  return toPlain(updated);
+  const plainUpdated = toPlain(updated);
+  return {
+    success: true,
+    data: plainUpdated,
+    rule: {
+      executionId: statusRuleExecutionId,
+      warnings: statusRuleWarnings
+    }
+  };
 }
 
 async function assignStory(id, assignedToUserId, context) {

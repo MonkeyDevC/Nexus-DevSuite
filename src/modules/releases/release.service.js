@@ -7,6 +7,8 @@ const releaseRepository = require("./release.repository");
 const featureRepository = require("../backlog/feature.repository");
 const authRepository = require("../auth/auth.repository");
 const changeRequestService = require("../changeRequests/changeRequest.service");
+const rulesEngineService = require("../rules-engine/rulesEngine.service");
+const { logStateTransition } = require("../orchestrator/stateTransitionLogger.service");
 const { validateSemVer, compareSemVer, parseSemVer } = require("./semver.validator");
 const { validateReleaseTransition } = require("./release.workflow.validator");
 const { AppError } = require("../../shared/errors/AppError");
@@ -51,6 +53,19 @@ function rejectVersionInPayload(payload) {
       code: ERROR_CODES.RELEASE_VERSION_IMMUTABLE
     });
   }
+}
+
+function resolveExplicitRules(rules) {
+  if (rules == null) {
+    return null;
+  }
+  if (!Array.isArray(rules)) {
+    throw new AppError("rules debe ser un arreglo cuando se envía", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  return rules;
 }
 
 async function createRelease(payload, context = {}) {
@@ -129,7 +144,7 @@ async function listReleases(options = {}) {
   };
 }
 
-async function updateStatus(id, nextStatus, context) {
+async function updateStatus(id, nextStatus, context, rules = null) {
   await getReleaseById(id, context.organizationId);
   const changeRequestId = context.changeRequestId;
   const validatedCr = await changeRequestService.validateAndConsumeChangeRequest(changeRequestId, "RELEASE", id, context);
@@ -148,6 +163,27 @@ async function updateStatus(id, nextStatus, context) {
     });
   }
   validateReleaseTransition(release.status, nextStatus);
+  const explicitRules = resolveExplicitRules(rules);
+  if (explicitRules) {
+    const rulesResult = await rulesEngineService.evaluateRules(
+      {
+        domain: "releases",
+        entity: "release",
+        release_id: id,
+        organization_id: release.organization_id,
+        from_status: release.status,
+        to_status: nextStatus
+      },
+        explicitRules
+    );
+    if (!rulesResult.allowed) {
+      throw new AppError("Transición de release bloqueada por rules engine", {
+        statusCode: 400,
+        code: ERROR_CODES.VALIDATION_ERROR,
+        details: { errors: rulesResult.errors, warnings: rulesResult.warnings }
+      });
+    }
+  }
 
   if (nextStatus === "RELEASED") {
     const count = await releaseRepository.countFeaturesByReleaseId(id);
@@ -156,20 +192,6 @@ async function updateStatus(id, nextStatus, context) {
         statusCode: 400,
         code: ERROR_CODES.RELEASE_EMPTY
       });
-    }
-    const { getModels } = require("../../infrastructure/db/loadModels");
-    const { Feature } = getModels();
-    const features = await Feature.findAll({
-      where: { release_id: id },
-      attributes: ["id", "title", "status"]
-    });
-    const notDone = features.filter((f) => f.status !== "DONE");
-    if (notDone.length > 0) {
-      const titles = notDone.map((f) => (f.title || f.id).slice(0, 50)).join(", ");
-      throw new AppError(
-        "No se puede publicar la release: todas las features deben estar en estado DONE. Features no completadas: " + titles,
-        { statusCode: 400, code: ERROR_CODES.RELEASE_FEATURES_NOT_DONE }
-      );
     }
   }
 
@@ -186,6 +208,15 @@ async function updateStatus(id, nextStatus, context) {
     entity: "RELEASE",
     entity_id: id,
     metadata: { from: release.status, to: nextStatus }
+  });
+  await logStateTransition({
+    entity: "RELEASE",
+    entityId: id,
+    fromState: release.status,
+    toState: nextStatus,
+    requestId: context.requestId,
+    dedupKey: context.dedupKey,
+    metadata: { action: "STATUS_CHANGE" }
   });
   await changeRequestService.markAsImplemented(changeRequestId || validatedCr.id, context);
   return toPlain(updated);
@@ -215,20 +246,19 @@ async function assignFeatureToRelease(releaseId, featureId, context) {
       code: ERROR_CODES.FEATURE_NOT_FOUND
     });
   }
+  const changeRequestId = context.changeRequestId;
+  const validatedCr = await changeRequestService.validateAndConsumeChangeRequest(changeRequestId, "RELEASE", releaseId, context);
+
   if (feature.release_id != null && feature.release_id !== releaseId) {
     throw new AppError("La feature ya está asignada a otra release", {
       statusCode: 400,
       code: ERROR_CODES.FEATURE_ALREADY_IN_RELEASE
     });
   }
-  if (feature.release_id === releaseId) {
-    return toPlain(release);
+
+  if (feature.release_id !== releaseId) {
+    await featureRepository.update(featureId, { release_id: releaseId });
   }
-
-  const changeRequestId = context.changeRequestId;
-  const validatedCr = await changeRequestService.validateAndConsumeChangeRequest(changeRequestId, "FEATURE", featureId, context);
-
-  await featureRepository.update(featureId, { release_id: releaseId });
   const auditCtx = ensureAuditContext(context);
   await authRepository.createAuditLog({
     ...auditCtx,
@@ -237,8 +267,7 @@ async function assignFeatureToRelease(releaseId, featureId, context) {
     entity_id: featureId,
     metadata: { release_id: releaseId, feature_id: featureId }
   });
-  // Regla de negocio: asociar feature a release valida CR, pero no lo consume todavía.
-  // El CR no debe pasar a IMPLEMENTED en esta etapa previa de planificación/ensamble.
+  await changeRequestService.markAsImplemented(changeRequestId || validatedCr.id, context);
   return toPlain(await releaseRepository.findById(releaseId));
 }
 

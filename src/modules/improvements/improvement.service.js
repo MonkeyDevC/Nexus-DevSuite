@@ -9,6 +9,7 @@ const projectsRepository = require("../backlog/projects.repository");
 const featureService = require("../backlog/feature.service");
 const authRepository = require("../auth/auth.repository");
 const { validateImprovementTransition } = require("./improvement.workflow.validator");
+const { logStateTransition } = require("../orchestrator/stateTransitionLogger.service");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
 
@@ -200,6 +201,15 @@ async function updateImprovementStatus(improvementId, nextStatus, context) {
     entity: "IMPROVEMENT",
     entity_id: improvementId,
     metadata: { from: currentStatus, to: nextStatus }
+  });
+  await logStateTransition({
+    entity: "IMPROVEMENT",
+    entityId: improvementId,
+    fromState: currentStatus,
+    toState: nextStatus,
+    requestId: context.requestId,
+    dedupKey: context.dedupKey,
+    metadata: { action: "STATUS_CHANGE" }
   });
 
   if (nextStatus === "APPROVED") {

@@ -56,6 +56,11 @@
       const el = document.getElementById(id);
       if (el) el.style.display = isMaster ? "" : "none";
     });
+    var helpBtn = document.getElementById("nav-help");
+    if (helpBtn) helpBtn.style.display = isMaster ? "" : "none";
+    if (isMaster && typeof window.initNexusHelpSystem === "function") {
+      window.initNexusHelpSystem();
+    }
     const btnLogout = document.getElementById("btn-logout");
     if (btnLogout && !btnLogout.onclick) btnLogout.onclick = function () { window.logout(); };
     const btnEditUser = document.getElementById("btn-edit-current-user");

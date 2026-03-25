@@ -20,6 +20,7 @@ function buildContext(req) {
   return {
     user: req.user,
     requestId: req.requestId || "no-request-id",
+    dedupKey: req.idempotencyContext?.dedup_key || null,
     ip,
     ipAddress: ip,
     userAgent: req.get("user-agent") || null

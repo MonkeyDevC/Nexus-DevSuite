@@ -14,9 +14,11 @@ const defineWorkOrderModels = require("../../modules/work-orders/models");
 const defineImplementationStepModels = require("../../modules/implementation-steps/models");
 const defineGitHubConnectionModel = require("../../modules/github-integration/models/githubConnection.model");
 const defineGithubOauthStateModel = require("../../modules/github-integration/models/githubOauthState.model");
-const defineAiReviewModels = require("../../modules/ai-review/models");
 const defineAutomationRuleModel = require("../../modules/automation/automation.rule.model");
 const defineAutomationRuleExecutionModel = require("../../modules/automation/automation.ruleExecution.model");
+const { defineWorkflowModels } = require("../../modules/workflow/workflow.model");
+const { defineOrchestratorModels } = require("../../modules/orchestrator/orchestrator.model");
+const defineRuleExecutionModels = require("../../modules/rules-executions/models");
 
 let cachedModels = null;
 
@@ -213,13 +215,6 @@ function loadModels(sequelize) {
   ReviewComment.belongsTo(ReviewComment, { foreignKey: "parent_id", as: "parent" });
   ReviewComment.hasMany(ReviewComment, { foreignKey: "parent_id", as: "replies" });
 
-  const aiReviewModels = defineAiReviewModels(sequelize);
-  const { CodeReview } = aiReviewModels;
-  Project.hasMany(CodeReview, { foreignKey: "project_id", as: "code_reviews" });
-  CodeReview.belongsTo(Project, { foreignKey: "project_id", as: "project" });
-  CodeDelivery.hasMany(CodeReview, { foreignKey: "delivery_id", as: "code_reviews" });
-  CodeReview.belongsTo(CodeDelivery, { foreignKey: "delivery_id", as: "code_delivery" });
-
   const GitHubConnection = defineGitHubConnectionModel(sequelize);
   const GithubOauthState = defineGithubOauthStateModel(sequelize);
   User.hasMany(GitHubConnection, { foreignKey: "user_id", as: "github_connections" });
@@ -234,9 +229,26 @@ function loadModels(sequelize) {
   const AutomationRule = defineAutomationRuleModel(sequelize);
   const AutomationRuleExecution = defineAutomationRuleExecutionModel(sequelize);
 
+  const workflowModels = defineWorkflowModels(sequelize);
+  const { WorkflowDefinition, WorkflowNode, WorkflowEdge, WorkflowRule } = workflowModels;
+  const orchestratorModels = defineOrchestratorModels(sequelize);
+  const { CommitLedger, OutboxEvent } = orchestratorModels;
+  const ruleExecutionModels = defineRuleExecutionModels(sequelize);
+
   // Asociaciones mínimas para navegación y consistencia.
   AutomationRule.hasMany(AutomationRuleExecution, { foreignKey: "rule_id", as: "executions" });
   AutomationRuleExecution.belongsTo(AutomationRule, { foreignKey: "rule_id", as: "rule" });
+
+  WorkflowDefinition.hasMany(WorkflowNode, { foreignKey: "workflow_id", as: "nodes" });
+  WorkflowNode.belongsTo(WorkflowDefinition, { foreignKey: "workflow_id", as: "workflow" });
+  WorkflowNode.hasMany(WorkflowEdge, { foreignKey: "from_node_id", as: "outgoing_edges" });
+  WorkflowEdge.belongsTo(WorkflowNode, { foreignKey: "from_node_id", as: "from_node" });
+  WorkflowNode.hasMany(WorkflowEdge, { foreignKey: "to_node_id", as: "incoming_edges" });
+  WorkflowEdge.belongsTo(WorkflowNode, { foreignKey: "to_node_id", as: "to_node" });
+  WorkflowNode.hasMany(WorkflowRule, { foreignKey: "node_id", as: "rules" });
+  WorkflowRule.belongsTo(WorkflowNode, { foreignKey: "node_id", as: "node" });
+  CommitLedger.hasMany(OutboxEvent, { foreignKey: "commit_ledger_id", as: "outbox_events" });
+  OutboxEvent.belongsTo(CommitLedger, { foreignKey: "commit_ledger_id", as: "commit_ledger" });
 
   cachedModels = {
     ...authModels,
@@ -253,7 +265,9 @@ function loadModels(sequelize) {
     ...taskModels,
     ...implementationStepModels,
     ...codeDeliveryModels,
-    ...aiReviewModels,
+    ...workflowModels,
+    ...ruleExecutionModels,
+    ...orchestratorModels,
     AutomationRule,
     AutomationRuleExecution,
     GitHubConnection,

@@ -51,13 +51,13 @@
 
 | # | Caso | Pasos / qué verificar | ☑ |
 |---|------|------------------------|---|
-| D1 | Carga sin error | #/dashboard carga; breadcrumb "Panel"; no pantalla en blanco ni errores en consola. | |
-| D2 | Tarjetas métricas | Se muestran tarjetas (Proyectos activos, Stories, Progreso del sprint, Incidentes críticos) con datos o "—"/0 según API; enlaces "Ver proyectos", "Ver sprints", etc. funcionan. | |
-| D3 | Estado de los proyectos | Tabla con proyectos (o "No hay proyectos"); nombre del proyecto enlaza a #/projects/:id; progreso y estado coherentes. | |
-| D4 | Sprint activo | Si hay sprint activo: nombre, barra de progreso, botón "Ver detalle del sprint" → #/sprints/:id. Si no hay: mensaje "No hay sprint activo" y "Ver sprints". | |
-| D5 | Mis asignaciones | Si hay asignaciones: tabla con ID, tipo, título, prioridad, estado; botón "Ver" en cada fila → abre detalle de la story (#/stories?story=:id). Si no hay: "No hay asignaciones". | |
-| D6 | Actividad reciente | Lista de actividad (o "No hay actividad reciente"); datos proceden de API. | |
-| D7 | Proyectos recientes | Lista de proyectos con enlace a #/projects/:id; "Ver todos los proyectos" → #/projects. | |
+| D1 | Carga sin error | #/dashboard carga; breadcrumb "Panel"; no pantalla en blanco ni errores en consola. | | OK ☑
+| D2 | Tarjetas métricas | Se muestran tarjetas (Proyectos activos, Stories, Progreso del sprint, Incidentes críticos) con datos o "—"/0 según API; enlaces "Ver proyectos", "Ver sprints", etc. funcionan. | | OK ☑
+| D3 | Estado de los proyectos | Tabla con proyectos (o "No hay proyectos"); nombre del proyecto enlaza a #/projects/:id; progreso y estado coherentes. | |  OK ☑
+| D4 | Sprint activo | Si hay sprint activo: nombre, barra de progreso, botón "Ver detalle del sprint" → #/sprints/:id. Si no hay: mensaje "No hay sprint activo" y "Ver sprints". | | pendiente 
+| D5 | Mis asignaciones | Si hay asignaciones: tabla con ID, tipo, título, prioridad, estado; botón "Ver" en cada fila → abre detalle de la story (#/stories?story=:id). Si no hay: "No hay asignaciones". |  OK ☑
+| D6 | Actividad reciente | Lista de actividad (o "No hay actividad reciente"); datos proceden de API. | |  OK ☑
+| D7 | Proyectos recientes | Lista de proyectos con enlace a #/projects/:id; "Ver todos los proyectos" → #/projects. | |  OK ☑
 
 ---
 
@@ -65,9 +65,8 @@
 
 | # | Caso | Pasos / qué verificar | ☑ |
 |---|------|------------------------|---|
-| P1 | Listado carga | Lista de proyectos o empty state "Aún no hay proyectos"; sin error en consola. | |
-| P2 | Selector "Ver por página" | Cambiar a 25 o 50 → lista se actualiza con el nuevo tamaño de página. | |
-| P3 | Filtros y búsqueda | Filtrar por estado o buscar por nombre (si existe) → resultados coherentes. | |
+| P1 | Listado carga | Lista de proyectos o empty state "Aún no hay proyectos"; sin error en consola. | | OK ☑
+| P3 | Filtros y búsqueda | Filtrar por estado o buscar por nombre (si existe) → resultados coherentes. | | OK ☑
 | P4 | Empty state con CTA (MASTER) | Con cero proyectos, botón visible "Crear proyecto" que abre el flujo de creación. | |
 | P5 | Crear proyecto (MASTER) | Botón "Nuevo proyecto" → modal con nombre (obligatorio) y descripción → Guardar → proyecto aparece en lista o mensaje de éxito. | |
 | P6 | Detalle de proyecto | Clic en fila o "Ver" → #/projects/:id; breadcrumb; datos del proyecto; enlaces a Features, Sprints, Incidentes. | |

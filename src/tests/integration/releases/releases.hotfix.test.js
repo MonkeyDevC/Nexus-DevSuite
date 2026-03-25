@@ -98,10 +98,11 @@ describe("Releases - Hotfix", () => {
   }
 
   test("Hotfix sobre release IN_PROGRESS devuelve 400 y RELEASE_HOTFIX_NOT_ALLOWED", async () => {
+    const version = `${baseMajor}.0.${100000 + (Date.now() % 800000)}`;
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: BASE_VERSION, description: "D" })
+      .send({ version, description: "D" })
       .expect(201);
     const releaseId = releaseRes.body.data.id;
     const crId = await createApprovedCRForRelease(releaseId);
@@ -133,10 +134,11 @@ describe("Releases - Hotfix", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ title: "F", description: "D" })
       .expect(201);
+    const version = `${baseMajor}.1.${100000 + (Date.now() % 800000)}`;
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.0.1`, description: "R" })
+      .send({ version, description: "R" })
       .expect(201);
     const releaseId = releaseRes.body.data.id;
     let crId = await createApprovedCRForRelease(releaseId);

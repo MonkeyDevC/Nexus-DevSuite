@@ -1,0 +1,214 @@
+---
+description: Plantilla universal para redactar prompts técnicos con estándar Nexus
+alwaysApply: true
+---
+# Plantilla Universal de Prompts — Estándar NEXUS (Nivel Profesional)
+Usa esta estructura para redactar prompts claros, auditables y ejecutables sin ambigüedad.
+
+## GUÍA V2 — MEJORA REAL (NIVEL PRO)
+
+Objetivo de esta V2:
+- Eliminar ambigüedad de implementación
+- Reducir reprocesos por validaciones mal ubicadas
+- Asegurar comportamiento correcto por estados/modos del sistema
+- Exigir contratos explícitos de dominio
+
+## 1) ROL
+Define el rol con nivel exacto y stack.
+Formato:
+```text
+ROL: [nivel exacto + stack]
+Ejemplo: Principal Software Architect (Node.js + Express + SPA)
+```
+## 2) OBJETIVO (MEJORADO — CON INVARIANTES)
+Declara exactamente el resultado esperado y el estado final del sistema.
+Debe ser:
+- concreto
+- verificable
+- sin interpretación abierta
+
+Agregar obligatoriamente:
+
+```text
+INVARIANTES DE DOMINIO:
+- [Regla 1 que nunca puede romperse]
+- [Regla 2 que nunca puede romperse]
+- [Regla 3 que nunca puede romperse]
+```
+
+Ejemplo (workflows):
+- Un workflow ACTIVE no puede modificarse
+- No puede haber ciclos en el grafo
+- Debe existir máximo un start node (en ejecución)
+- `version` es inmutable
+
+Ejemplo:
+```text
+OBJETIVO:
+Dejar el sistema sin errores, sin warnings, con frontend estable y listo para iniciar Fase 2.
+```
+## 3) DECISIÓN ARQUITECTÓNICA (MEJORADO — ANTI-AMBIGÜEDAD)
+Define una sola estrategia técnica y descarta las alternativas.
+Ejemplo:
+- Eliminar módulos incompletos del runtime
+- NO usar stubs
+- NO usar FEATURE_DISABLED
+- NO usar safeRequire
+
+Si aplica, agregar obligatoriamente:
+
+```text
+MODOS DEL SISTEMA:
+- Modo construcción: [qué valida y qué no]
+- Modo ejecución: [qué valida y qué no]
+
+DÓNDE SE EJECUTA CADA MODO:
+- [método/endpoint A] => modo construcción
+- [método/endpoint B] => modo ejecución
+```
+
+## 4) ALCANCE CONTROLADO
+Define exactamente qué módulos/capas se tocan.
+Ejemplo:
+- `ai-review`
+- `rules-engine`
+- `workflow-intelligence`
+No permitir cambios fuera de alcance.
+
+Reglas adicionales obligatorias:
+- Prohibido inferir cambios fuera del alcance aunque parezcan lógicos
+- Si algo falta para completar el alcance, se reporta como gap y no se implementa sin autorización
+
+## 5) TAREAS ESTRUCTURADAS POR CAPAS
+Divide siempre por bloques:
+1. **Backend**: rutas, services, controllers, dependencias, modelos
+2. **Frontend**: `index.html`, router, vistas, assets
+3. **Contratos**: APIs, shape de respuestas, consistencia entre capas
+4. **Base de datos (si aplica)**: modelos, migraciones, relaciones
+Cada bloque debe contener instrucciones accionables y concretas.
+
+### 5.5) REGLAS DE EJECUCIÓN (NUEVO BLOQUE CRÍTICO)
+Definir explícitamente:
+- Cuándo se ejecutan validaciones
+- En qué métodos se ejecutan
+- Qué métodos no deben ejecutar validaciones estrictas
+
+Ejemplo:
+- `addNode` => NO validación estricta
+- `addEdge` => solo validación estructural
+- `validateWorkflow` => validación completa
+- `activateWorkflow` => siempre valida antes de transición
+
+## 6) RESTRICCIONES (muy importante)
+Declara explícitamente lo que no se puede hacer.
+Ejemplo:
+- NO implementar nuevas funcionalidades
+- NO refactorizar fuera del alcance
+- NO cambiar arquitectura innecesariamente
+- NO agregar dependencias nuevas
+- NO anticipar fases futuras
+- NO implementar lógica "por si acaso"
+- NO endurecer validaciones fuera del contexto definido
+
+## 7) VALIDACIÓN OBLIGATORIA
+Incluye pruebas obligatorias al final de la ejecución.
+Backend:
+- `npm run dev`
+- sin errores
+- sin warnings
+Frontend:
+- consola sin errores
+- network sin 404
+- navegación SPA funcional
+Sistema:
+- endpoints críticos respondiendo correctamente
+- login funcional
+- rutas protegidas funcionando
+
+Agregar obligatoriamente:
+
+```text
+VALIDACIÓN POR ESCENARIOS:
+- Happy path
+- Casos negativos
+- Casos límite (edge cases)
+```
+
+Ejemplo:
+- crear workflow vacío
+- construir incrementalmente
+- validar completo
+- intentar activar inválido
+- intentar modificar ACTIVE
+
+## 8) CRITERIOS DE ACEPTACIÓN (MEJORADO — POR MODOS)
+La tarea solo cierra si todas las condiciones son verdaderas:
+- ✔ Construcción funciona
+- ✔ Ejecución valida correctamente
+- ✔ No hay conflictos entre modos
+- ✔ No hay validaciones contradictorias
+No aceptar resultados parciales.
+
+## 9) OUTPUT OBLIGATORIO
+La respuesta final debe incluir siempre:
+1. Lista exacta de archivos modificados
+2. Problemas encontrados
+3. Cambios aplicados
+4. Validación ejecutada (evidencia real)
+5. Confirmación final explícita:
+   - `OBJETIVO COMPLETADO`, o
+   - `FASE X CERRADA`
+
+## 10) CONTRATOS DE DOMINIO (NUEVO BLOQUE CRÍTICO)
+Agregar siempre cuando aplique lógica de dominio:
+
+```text
+CONTRATOS DE DOMINIO:
+- Endpoint de validación estricta (ej. /validate)
+- Endpoint de transición de estado (ej. /activate)
+```
+
+Reglas obligatorias:
+- No debe existir lógica crítica sin endpoint explícito
+- No debe haber validación estricta implícita en operaciones de construcción
+
+## 11) ORDEN DE IMPLEMENTACIÓN (NUEVO BLOQUE ANTI-REPROCESOS)
+Definir orden obligatorio:
+1. Persistencia (DB)
+2. Modelo
+3. Service base
+4. Validaciones estructurales
+5. Validaciones de dominio
+6. Modos (si aplica)
+7. Endpoints de dominio
+
+## 12) CHECKLIST DE HARDENING FINAL (NUEVO BLOQUE)
+Antes de cerrar fase, verificar explícitamente:
+- ✔ Validaciones ubicadas correctamente (no en controller)
+- ✔ No hay lógica duplicada
+- ✔ No hay validaciones contradictorias
+- ✔ No hay reglas implícitas no expuestas
+- ✔ No hay acoplamiento indebido
+- ✔ Contratos API completos
+
+## Conclusión (crítica)
+La V1 era útil para construir.
+
+La V2 es:
+- determinista
+- sin ambigüedad
+- orientada a dominio real
+- resistente a reprocesos
+
+La mejora clave:
+- Pasar de "qué construir"
+- a "cómo debe comportarse el sistema en todos sus estados"
+
+## Reglas de oro (resumen)
+- Definir una sola estrategia
+- Incluir validación obligatoria
+- Usar criterios binarios de aceptación
+- Limitar alcance de forma estricta
+- Exigir evidencia real de ejecución
+- No generar saltos de línea vacíos en el prompt final (formato continuo y compacto)
+Si falta alguno de estos puntos, el prompt no está listo.

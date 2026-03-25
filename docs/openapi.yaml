@@ -21,6 +21,12 @@ tags:
     description: Sistema y métricas (MASTER)
   - name: change-requests
     description: Change Control ISO (ETAPA 3)
+  - name: documentation
+    description: |
+      Contenido documental de plataforma (`documentation_contents`). Mutaciones APEX: cabecera `x-dedup-key` obligatoria.
+      No confundir con documentación ISO en `/documents`.
+  - name: docs-export
+    description: Exportación de documentación a Word (DOCX) para consumo desde frontend.
 
 paths:
   /health:
@@ -891,6 +897,366 @@ paths:
               example:
                 error: { code: CHANGE_REQUEST_ALREADY_IMPLEMENTED }
 
+  /documentation:
+    get:
+      tags: [documentation]
+      summary: Listar contenidos documentales del tenant
+      description: Solo lectura. Filtra por proyecto, tipo y estado.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: project_id, in: query, schema: { type: string, format: uuid } }
+        - { name: type, in: query, schema: { type: string, enum: [functional, technical] } }
+        - { name: status, in: query, schema: { type: string, enum: [ACTIVE, ARCHIVED] } }
+        - { name: include_archived, in: query, schema: { type: boolean } }
+      responses:
+        "200":
+          description: Lista paginada (Response Layer v1; data contiene data, meta de paginación)
+          headers:
+            X-Response-Version: { schema: { type: string, example: "1" } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+              example:
+                success: true
+                data:
+                  data:
+                    - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      type: functional
+                      format: html
+                      title: Guía
+                      status: ACTIVE
+                      content: "<p>Intro</p>"
+                      organization_id: "00000000-0000-0000-0000-000000000001"
+                      project_id: null
+                      updated_by_user_id: null
+                      created_at: "2026-03-23T12:00:00.000Z"
+                      updated_at: "2026-03-23T12:00:00.000Z"
+                  meta: { total: 1, page: 1, limit: 20, totalPages: 1 }
+                meta:
+                  request_id: "req-uuid-ejemplo"
+                  timestamp: "2026-03-23T12:00:00.000Z"
+        "400":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    post:
+      tags: [documentation]
+      summary: Crear contenido documental (idempotente)
+      description: |
+        Requiere `x-dedup-key`. Opcional `x-expected-global-hash` (validación de estado global tras éxito 2xx).
+        Idempotencia: misma clave + mismo cuerpo → replay de la misma respuesta (cabecera `X-Idempotent-Replay` en replay).
+        Errores 4xx se almacenan para replay; 5xx permiten reintento.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: x-dedup-key
+          in: header
+          required: true
+          schema: { type: string }
+          description: Clave de deduplicación obligatoria para mutaciones.
+        - name: x-expected-global-hash
+          in: header
+          required: false
+          schema: { type: string }
+          description: Hash global esperado; si no coincide tras 2xx, el sistema registra fallo crítico en ledger.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentationContentCreate" }
+            example:
+              type: functional
+              format: html
+              title: Guía de arquitectura NEXUS
+              content: "<p>Versión inicial del documento.</p>"
+      responses:
+        "201":
+          description: Creado (primera ejecución); en replay idempotente puede devolverse 200/201 con cabecera X-Idempotent-Replay
+          headers:
+            X-Response-Version: { schema: { type: string, example: "1" } }
+            X-Idempotent-Replay:
+              schema: { type: string, example: "true" }
+              description: Presente solo cuando la respuesta es replay almacenado (misma x-dedup-key y mismo cuerpo).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+              example:
+                success: true
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  type: functional
+                  format: html
+                  title: Guía de arquitectura NEXUS
+                  status: ACTIVE
+                  content: "<p>Versión inicial del documento.</p>"
+                  organization_id: "00000000-0000-0000-0000-000000000001"
+                  project_id: null
+                  updated_by_user_id: null
+                  created_at: "2026-03-23T12:00:00.000Z"
+                  updated_at: "2026-03-23T12:00:00.000Z"
+                meta:
+                  request_id: "req-uuid-ejemplo"
+                  timestamp: "2026-03-23T12:00:00.000Z"
+        "400":
+          description: Validación, `DEDUP_KEY_REQUIRED` (sin cabecera), `DOCUMENTATION_CONTENT_TOO_LARGE`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              examples:
+                dedup_required:
+                  summary: Falta x-dedup-key
+                  value:
+                    success: false
+                    error:
+                      code: DEDUP_KEY_REQUIRED
+                      message: Cabecera x-dedup-key obligatoria para esta operación
+                      details: null
+                    meta:
+                      request_id: "req-uuid-ejemplo"
+                      timestamp: "2026-03-23T12:00:00.000Z"
+                content_too_large:
+                  summary: content supera 500000 caracteres
+                  value:
+                    success: false
+                    error:
+                      code: DOCUMENTATION_CONTENT_TOO_LARGE
+                      message: content supera el tamaño máximo permitido
+                      details: { max_length: 500000, length: 500001 }
+                    meta:
+                      request_id: "req-uuid-ejemplo"
+                      timestamp: "2026-03-23T12:00:00.000Z"
+        "409":
+          description: Conflicto de alcance+tipo activo, idempotencia en curso o clave reutilizada con otro body
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              examples:
+                documentation_conflict:
+                  summary: Ya existe ACTIVE para mismo type y project_id
+                  value:
+                    success: false
+                    error:
+                      code: DOCUMENTATION_CONFLICT
+                      message: Ya existe contenido activo para este alcance y tipo
+                      details: null
+                    meta:
+                      request_id: "req-uuid-ejemplo"
+                      timestamp: "2026-03-23T12:00:00.000Z"
+        "401":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /documentation/{id}:
+    get:
+      tags: [documentation]
+      summary: Obtener por id
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          headers:
+            X-Response-Version: { schema: { type: string, example: "1" } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+              example:
+                success: true
+                data:
+                  id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  type: technical
+                  format: markdown
+                  title: API
+                  status: ACTIVE
+                  content: "# Título"
+                  organization_id: "00000000-0000-0000-0000-000000000001"
+                  project_id: null
+                  updated_by_user_id: null
+                  created_at: "2026-03-23T12:00:00.000Z"
+                  updated_at: "2026-03-23T12:05:00.000Z"
+                meta:
+                  request_id: "req-uuid-ejemplo"
+                  timestamp: "2026-03-23T12:05:00.000Z"
+        "404":
+          description: DOCUMENTATION_NOT_FOUND
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                success: false
+                error:
+                  code: DOCUMENTATION_NOT_FOUND
+                  message: Contenido documental no encontrado
+                  details: null
+                meta:
+                  request_id: "req-uuid-ejemplo"
+                  timestamp: "2026-03-23T12:00:00.000Z"
+        "401":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    patch:
+      tags: [documentation]
+      summary: Actualizar (idempotente)
+      description: |
+        Requiere al menos un campo permitido en el body; body vacío → `DOCUMENTATION_PATCH_EMPTY`.
+        Cabeceras de mutación igual que POST.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - name: x-dedup-key
+          in: header
+          required: true
+          schema: { type: string }
+        - name: x-expected-global-hash
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentationContentPatch" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+        "400":
+          description: VALIDATION_ERROR, DOCUMENTATION_PATCH_EMPTY, DOCUMENTATION_CONTENT_TOO_LARGE
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: DOCUMENTATION_NOT_FOUND
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: DOCUMENTATION_CONFLICT, SCOPE_LOCK_CONFLICT, idempotencia
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [documentation]
+      summary: Eliminar (idempotente, borrado físico)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - name: x-dedup-key
+          in: header
+          required: true
+          schema: { type: string }
+        - name: x-expected-global-hash
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          headers:
+            X-Response-Version: { schema: { type: string, example: "1" } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+              example:
+                success: true
+                data: { id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890", deleted: true }
+                meta:
+                  request_id: "req-uuid-ejemplo"
+                  timestamp: "2026-03-23T12:00:00.000Z"
+        "404":
+          description: DOCUMENTATION_NOT_FOUND
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: SCOPE_LOCK_CONFLICT, idempotencia
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /docs/export:
+    post:
+      tags: [docs-export]
+      summary: Exportar documentación a DOCX
+      description: |
+        Genera y descarga un archivo Word (.docx).
+        Requiere autenticación y rol MASTER o EMPLOYEE.
+        Respuesta binaria (no usa Response Layer JSON en éxito).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type:
+                  type: string
+                  enum: [functional, technical, all]
+                  description: Tipo de exportación.
+                projectId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Proyecto opcional para filtrar contenido fuente.
+                deliveryId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Entrega opcional para enriquecer resumen ejecutivo del DOCX.
+                contentHtml:
+                  type: string
+                  description: Override opcional para exportación single-type.
+                contentHtmlFunctional:
+                  type: string
+                  description: Override opcional para sección funcional cuando type=all.
+                contentHtmlTechnical:
+                  type: string
+                  description: Override opcional para sección técnica cuando type=all.
+      responses:
+        "200":
+          description: Archivo DOCX generado correctamente
+          headers:
+            X-Response-Version: { schema: { type: string, example: "1" } }
+            Content-Type:
+              schema: { type: string, example: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }
+            Content-Disposition:
+              schema: { type: string, example: "attachment; filename=\"nexus-documentation.docx\"" }
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: VALIDATION_ERROR
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   /system/metrics:
     get:
       tags: [system]
@@ -937,6 +1303,32 @@ components:
         email: { type: string }
         role: { type: string, nullable: true }
 
+    DocumentationContentCreate:
+      type: object
+      required: [type, content]
+      description: |
+        Campo `type` = tipo documental (functional | technical), equivalente semántico a documentation_type en dominio.
+      properties:
+        type: { type: string, enum: [functional, technical], description: Tipo documental (functional o technical) }
+        format: { type: string, enum: [html, markdown], default: html }
+        content:
+          type: string
+          description: Texto o HTML/Markdown; máximo 500000 caracteres; se aplica mitigación XSS en servidor.
+        title: { type: string, maxLength: 255, nullable: true }
+        project_id: { type: string, format: uuid, nullable: true }
+
+    DocumentationContentPatch:
+      type: object
+      minProperties: 1
+      description: Al menos uno de los campos debe estar presente.
+      properties:
+        content: { type: string, maxLength: 500000 }
+        title: { type: string, maxLength: 255, nullable: true }
+        format: { type: string, enum: [html, markdown] }
+        type: { type: string, enum: [functional, technical] }
+        project_id: { type: string, format: uuid, nullable: true }
+        status: { type: string, enum: [ACTIVE, ARCHIVED] }
+
     SuccessResponse:
       type: object
       required: [success, meta]
@@ -949,6 +1341,19 @@ components:
           properties:
             request_id: { type: string }
             timestamp: { type: string, format: date-time }
+            source:
+              type: string
+              description: |
+                Ruta semántica de ejecución de integración GitHub.
+                `disabled` = integración no usable (falla available/integrated/systemReady),
+                `internal` = usable sin llamada a GitHub API,
+                `cache`/`live` = llamada a GitHub API (con o sin cache de config).
+            systemReady:
+              type: boolean
+              description: Indicates whether system-level GitHub configuration is ready
+            usable:
+              type: boolean
+              description: True when available && integrated && systemReady
 
     ErrorResponse:
       type: object
@@ -1017,6 +1422,14 @@ components:
                 - DOCUMENT_VERSION_IMMUTABLE
                 - DOCUMENT_APPROVE_MASTER_ONLY
                 - DOCUMENT_CHANGE_REASON_REQUIRED
+                - IDEMPOTENCY_IN_PROGRESS
+                - IDEMPOTENCY_KEY_REUSED
+                - SCOPE_LOCK_CONFLICT
+                - DEDUP_KEY_REQUIRED
+                - DOCUMENTATION_NOT_FOUND
+                - DOCUMENTATION_CONFLICT
+                - DOCUMENTATION_PATCH_EMPTY
+                - DOCUMENTATION_CONTENT_TOO_LARGE
             message: { type: string }
             details: { type: object, nullable: true }
         meta:
@@ -1025,3 +1438,16 @@ components:
           properties:
             request_id: { type: string }
             timestamp: { type: string, format: date-time }
+            source:
+              type: string
+              description: |
+                Ruta semántica de ejecución de integración GitHub.
+                `disabled` = integración no usable (falla available/integrated/systemReady),
+                `internal` = usable sin llamada a GitHub API,
+                `cache`/`live` = llamada a GitHub API (con o sin cache de config).
+            systemReady:
+              type: boolean
+              description: Indicates whether system-level GitHub configuration is ready
+            usable:
+              type: boolean
+              description: True when available && integrated && systemReady

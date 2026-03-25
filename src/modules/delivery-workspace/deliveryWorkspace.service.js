@@ -11,14 +11,34 @@ const reviewCommentRepository = require("./reviewComment.repository");
 const codeDeliveryRepository = require("../code-deliveries/codeDelivery.repository");
 const workOrderRepository = require("../work-orders/workOrder.repository");
 const githubCommitService = require("../github-integration/github-commit.service");
-const githubService = require("../github-integration/github.service");
+const githubCapability = require("../github-integration/github.capability");
 const githubRepositoryService = require("../github-integration/github.repository.service");
 const gitService = require("./git.service");
-const aiService = require("../ai-review/ai.service");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
 const logger = require("../../config/logger");
 const gitDiffService = require("../deliveries/services/gitDiff.service");
+
+function generateCommitLineFallback(deliveryType) {
+  if (deliveryType === "BUGFIX") return "fix: resolve issue";
+  if (deliveryType === "HOTFIX") return "fix: hotfix";
+  return "feat: delivery update";
+}
+
+function generateReleaseNotesFallback(newList, deletedList, modifiedList) {
+  return `## Changes\n- New files: ${newList}\n- Deleted: ${deletedList}\n- Modified: ${modifiedList}`;
+}
+
+/**
+ * Rama por defecto desde github.capability (envelope); `fallback` si no hay integración o hay error.
+ * @param {{ available: boolean, data?: string|null, error?: object }} capResult
+ */
+function githubDefaultBranchString(capResult, fallback) {
+  if (capResult && capResult.available && capResult.data != null && !capResult.error) {
+    return capResult.data;
+  }
+  return fallback;
+}
 
 /** FASE 5: Si el archivo supera este tamaño (bytes), no se guarda contenido en snapshot y se marca large_file. */
 const MAX_FILE_SIZE_FOR_DIFF = 512 * 1024; // 512 KB
@@ -46,7 +66,8 @@ function getMasterContent(projectId, userId, baseBranch, path) {
   }
   if (mapEntry.map.has(path)) return Promise.resolve(mapEntry.map.get(path));
   return githubRepositoryService.getFileContent(projectId, userId, path, baseBranch).then((r) => {
-    const content = r ? r.content : null;
+    const filePayload = r && r.data ? r.data : null;
+    const content = filePayload && filePayload.found ? filePayload.content : null;
     mapEntry.map.set(path, content);
     return content;
   });
@@ -101,7 +122,7 @@ async function listFiles(projectId, deliveryId, organizationId, context) {
   if (userId && rows.length) {
     try {
       // Usa la rama por defecto real del repo (evita reclasificar con "master" fijo)
-      baseBranch = await githubService.getDefaultBranch(projectId, userId).catch(() => baseBranch);
+      baseBranch = githubDefaultBranchString(await githubCapability.getDefaultBranch(projectId, userId), baseBranch);
       const cacheKey = getMasterPathsCacheKey(projectId, baseBranch);
       const hit = masterPathsCache.get(cacheKey);
       if (hit && Date.now() - hit.at <= DIFF_CACHE_TTL_MS) {
@@ -112,7 +133,7 @@ async function listFiles(projectId, deliveryId, organizationId, context) {
           tree = await githubRepositoryService.getRepositoryTree(projectId, userId, baseBranch);
         } catch (_) {
           // Fallback: rama por defecto (por si el branch actual no está disponible)
-          baseBranch = await githubService.getDefaultBranch(projectId, userId).catch(() => "main");
+          baseBranch = githubDefaultBranchString(await githubCapability.getDefaultBranch(projectId, userId), "main");
           tree = await githubRepositoryService.getRepositoryTree(projectId, userId, baseBranch);
         }
         masterPathsSet = new Set((tree && tree.paths) ? tree.paths : []);
@@ -171,9 +192,9 @@ async function addFile(projectId, deliveryId, payload, context) {
     const userId = context.user?.id;
     if (userId) {
       try {
-        const baseBranch = await githubService.getDefaultBranch(projectId, userId).catch(() => "main");
-        const gh = await githubService.getFileContentByPath(file_path.trim(), baseBranch, projectId, userId);
-        if (gh) statusVal = "MODIFIED";
+        const baseBranch = githubDefaultBranchString(await githubCapability.getDefaultBranch(projectId, userId), "main");
+        const ghEnv = await githubCapability.getFileContentByPath(file_path.trim(), baseBranch, projectId, userId);
+        if (ghEnv.available && ghEnv.data && ghEnv.data.found) statusVal = "MODIFIED";
       } catch (_) {
         // Sin repo o error: mantener ADDED
       }
@@ -322,20 +343,33 @@ async function commitDelivery(projectId, deliveryId, payload, context) {
 
   if (payload.create_pr === true) {
     try {
-      const baseBranch = await githubService.getDefaultBranch(projectId, userId).catch(() => "main");
+      const baseBranch = githubDefaultBranchString(await githubCapability.getDefaultBranch(projectId, userId), "main");
       const prBody = (plain.description || "").trim() || commitMessage;
-      const pr = await githubService.createPullRequest(commitMessage, branch.trim(), baseBranch, prBody, projectId, userId);
-      prUrl = pr.html_url || pr.url || null;
-      updatePayload.pull_request_url = prUrl;
-      updatePayload.status = "PR_CREATED";
-      logger.info(
-        { event: "PR_CREATED", project_id: projectId, delivery_id: deliveryId, pr_url: prUrl, pr_number: pr.number },
-        "Pull Request created"
-      );
-      try {
-        await createInitialDeliveryReview(deliveryId, projectId, userId);
-      } catch (er) {
-        logger.warn({ event: "INITIAL_REVIEW_CREATE_FAILED", delivery_id: deliveryId }, "Could not create initial delivery review");
+      const prOut = await githubCapability.createPullRequest(commitMessage, branch.trim(), baseBranch, prBody, projectId, userId);
+      if (prOut.available && !prOut.error && prOut.data) {
+        const pr = prOut.data;
+        prUrl = pr.html_url || pr.url || null;
+        updatePayload.pull_request_url = prUrl;
+        updatePayload.status = "PR_CREATED";
+        logger.info(
+          { event: "PR_CREATED", project_id: projectId, delivery_id: deliveryId, pr_url: prUrl, pr_number: pr.number },
+          "Pull Request created"
+        );
+        try {
+          await createInitialDeliveryReview(deliveryId, projectId, userId);
+        } catch (er) {
+          logger.warn({ event: "INITIAL_REVIEW_CREATE_FAILED", delivery_id: deliveryId }, "Could not create initial delivery review");
+        }
+      } else {
+        logger.warn(
+          {
+            event: "PR_CREATE_FAILED",
+            project_id: projectId,
+            delivery_id: deliveryId,
+            error: (prOut.error && prOut.error.message) || "outcome_invalid"
+          },
+          "Could not create PR after commit"
+        );
       }
     } catch (e) {
       logger.warn(
@@ -440,19 +474,8 @@ ${fileList}
 
 Reply with ONLY the single commit line, nothing else. Example: feat(auth): add login validation`;
 
-  try {
-    const res = await aiService.complete(prompt, { max_tokens: 150 });
-    let raw = (res.content || "").trim().split(/\n/)[0].trim().slice(0, 200);
-    if (raw && !/^(feat|fix|chore|refactor|docs)(\([^)]*\))?:\s*.+/.test(raw)) {
-      raw = (deliveryType === "BUGFIX" || deliveryType === "HOTFIX" ? "fix" : "feat") + (raw.indexOf(":") >= 0 ? "" : ": ") + raw.replace(/^(feat|fix|chore|refactor|docs)(\([^)]*\))?:\s*/i, "");
-    }
-    const commit_message = raw || (deliveryType === "BUGFIX" ? "fix: resolve issue" : deliveryType === "HOTFIX" ? "fix: hotfix" : "feat: delivery update");
-    return { commit_message };
-  } catch (e) {
-    logger.warn({ event: "COMMIT_MESSAGE_SUGGEST_FAILED", project_id: projectId, delivery_id: deliveryId }, "AI suggest failed");
-    const fallback = deliveryType === "BUGFIX" ? "fix: resolve issue" : deliveryType === "HOTFIX" ? "fix: hotfix" : "feat: delivery update";
-    return { commit_message: fallback };
-  }
+  void prompt;
+  return { commit_message: generateCommitLineFallback(deliveryType) };
 }
 
 async function listCommits(projectId, deliveryId, organizationId, { limit } = {}) {
@@ -715,7 +738,7 @@ async function getDiffClassification(projectId, deliveryId, context) {
     throw new AppError("Usuario no autenticado", { statusCode: 401, code: "UNAUTHORIZED" });
   }
 
-  const baseBranch = await githubService.getDefaultBranch(projectId, userId).catch(() => "main");
+  const baseBranch = githubDefaultBranchString(await githubCapability.getDefaultBranch(projectId, userId), "main");
   const cacheKey = getMasterPathsCacheKey(projectId, baseBranch);
 
   let masterPathsSet = null;
@@ -816,12 +839,20 @@ async function compareFileWithGitHub(fileId, projectId, deliveryId, context) {
   const isBinary = gitService.isBinaryPath(f.file_path);
   if (isBinary) {
     let baseBranchForBinary = "main";
-    try {
-      baseBranchForBinary = await githubService.getDefaultBranch(projectId, userId);
-    } catch (err) {
-      // Si GitHub falla, el Diff Viewer ya no puede computar diff real; registramos el motivo.
+    const defBin = await githubCapability.getDefaultBranch(projectId, userId);
+    const resolvedBin = githubDefaultBranchString(defBin, null);
+    if (resolvedBin != null) {
+      baseBranchForBinary = resolvedBin;
+    } else {
       logger.warn(
-        { event: "GITHUB_DEFAULT_BRANCH_FAILED_FOR_BINARY", project_id: projectId, delivery_id: deliveryId, file_id: fileId, file_path: f.file_path, err: err && err.message ? err.message : String(err) },
+        {
+          event: "GITHUB_DEFAULT_BRANCH_FAILED_FOR_BINARY",
+          project_id: projectId,
+          delivery_id: deliveryId,
+          file_id: fileId,
+          file_path: f.file_path,
+          err: (defBin.error && defBin.error.message) || "default_branch_unavailable"
+        },
         "GitHub falló al obtener default branch (binario)"
       );
       baseBranchForBinary = "unavailable";
@@ -849,23 +880,45 @@ async function compareFileWithGitHub(fileId, projectId, deliveryId, context) {
   let baseBranch = "main";
   let gh = null;
   let githubUnavailable = false;
-  try {
-    baseBranch = await githubService.getDefaultBranch(projectId, userId);
-    gh = await githubService.getFileContentByPath(f.file_path, baseBranch, projectId, userId);
-  } catch (error) {
-    // Fallback explícito: si GitHub falla (HTTP real, auth, token, red, etc),
-    // evitamos romper el Diff Viewer y marcamos github_unavailable=true.
+  const defBranch = await githubCapability.getDefaultBranch(projectId, userId);
+  const resolvedBase = githubDefaultBranchString(defBranch, null);
+  if (resolvedBase == null) {
     githubUnavailable = true;
     baseBranch = "unavailable";
     gh = null;
     logger.warn(
-      { event: "GITHUB_FILE_CONTENT_FAILED", project_id: projectId, delivery_id: deliveryId, file_id: fileId, file_path: f.file_path, err: error && error.message ? error.message : String(error) },
-      "GitHub falló al obtener contenido para diff"
+      {
+        event: "GITHUB_FILE_CONTENT_FAILED",
+        project_id: projectId,
+        delivery_id: deliveryId,
+        file_id: fileId,
+        file_path: f.file_path,
+        err: (defBranch.error && defBranch.error.message) || "default_branch_unavailable"
+      },
+      "GitHub falló al resolver rama base para diff"
     );
+  } else {
+    baseBranch = resolvedBase;
+    gh = await githubCapability.getFileContentByPath(f.file_path, baseBranch, projectId, userId);
+    if (!gh || !gh.available) {
+      githubUnavailable = true;
+      logger.warn(
+        {
+          event: "GITHUB_FILE_CONTENT_FAILED",
+          project_id: projectId,
+          delivery_id: deliveryId,
+          file_id: fileId,
+          file_path: f.file_path,
+          err: "file_content_unavailable"
+        },
+        "GitHub falló al obtener contenido para diff"
+      );
+    }
   }
-  let baseContent = gh ? gh.content : null;
+  const ghFound = gh && gh.available && gh.data && gh.data.found;
+  let baseContent = ghFound ? gh.data.content : null;
   let status = "ADDED";
-  if (gh) {
+  if (ghFound) {
     if ((baseContent || "") === (workspaceContent || "")) status = "UNCHANGED";
     else status = "MODIFIED";
   }
@@ -883,8 +936,8 @@ async function compareFileWithGitHub(fileId, projectId, deliveryId, context) {
     base_branch: baseBranch,
     workspace_content: workspaceContent,
     github_content: baseContent,
-    github_sha: gh ? gh.sha : null,
-    github_exists: !!gh,
+    github_sha: ghFound ? gh.data.sha : null,
+    github_exists: !!ghFound,
     status,
     github_unavailable: githubUnavailable
   };
@@ -894,15 +947,16 @@ async function getMasterFileContentForDeleted(projectId, deliveryId, filePath, c
   await ensureDeliveryBelongsToProject(deliveryId, projectId, context.organizationId);
   const userId = context.user?.id;
   if (!userId) throw new AppError("Usuario no autenticado", { statusCode: 401, code: "UNAUTHORIZED" });
-  const baseBranch = await githubService.getDefaultBranch(projectId, userId).catch(() => "main");
-  const gh = await githubRepositoryService.getFileContent(projectId, userId, filePath, baseBranch);
-  const content = gh ? gh.content : "";
+  const baseBranch = githubDefaultBranchString(await githubCapability.getDefaultBranch(projectId, userId), "main");
+  const ghEnv = await githubRepositoryService.getFileContent(projectId, userId, filePath, baseBranch);
+  const ghFound = ghEnv.available && ghEnv.data && ghEnv.data.found;
+  const content = ghFound ? ghEnv.data.content : "";
   return {
     file_path: filePath,
     base_branch: baseBranch,
     workspace_content: "",
     github_content: content,
-    github_exists: !!gh,
+    github_exists: !!ghFound,
     status: "DELETED"
   };
 }
@@ -962,7 +1016,7 @@ async function getGitHubChangedFiles(projectId, deliveryId, context) {
   try {
     cmp = await githubRepositoryService.getCompareFiles(projectId, userId, baseBranch, headBranch);
   } catch (_) {
-    baseBranch = await githubService.getDefaultBranch(projectId, userId).catch(() => "main");
+    baseBranch = githubDefaultBranchString(await githubCapability.getDefaultBranch(projectId, userId), "main");
     cmp = await githubRepositoryService.getCompareFiles(projectId, userId, baseBranch, headBranch);
   }
 
@@ -1449,19 +1503,13 @@ Modified files: ${modifiedList}
 
 Output a concise markdown list with sections: ## Features / changes, ## Fixes (if any). Use 2-5 bullets. No preamble.`;
 
-  try {
-    const res = await aiService.complete(prompt, { max_tokens: 400 });
-    const release_notes = (res.content || "").trim() || "## Changes\n- No summary generated.";
-    logger.info(
-      { event: "RELEASE_NOTES_GENERATED", project_id: projectId, current_delivery_id: currentDeliveryId, base_delivery_id: baseDeliveryId },
-      "Release notes generated"
-    );
-    return { release_notes, comparison: { new_count: newFiles.length, deleted_count: deletedFiles.length, modified_count: modifiedFiles.length } };
-  } catch (e) {
-    logger.warn({ event: "RELEASE_NOTES_FAILED", project_id: projectId }, "AI release notes failed");
-    const release_notes = `## Changes\n- New files: ${newList}\n- Deleted: ${deletedList}\n- Modified: ${modifiedList}`;
-    return { release_notes, comparison: { new_count: newFiles.length, deleted_count: deletedFiles.length, modified_count: modifiedFiles.length } };
-  }
+  void prompt;
+  const release_notes = generateReleaseNotesFallback(newList, deletedList, modifiedList);
+  logger.info(
+    { event: "RELEASE_NOTES_GENERATED", project_id: projectId, current_delivery_id: currentDeliveryId, base_delivery_id: baseDeliveryId },
+    "Release notes generated"
+  );
+  return { release_notes, comparison: { new_count: newFiles.length, deleted_count: deletedFiles.length, modified_count: modifiedFiles.length } };
 }
 
 module.exports = {

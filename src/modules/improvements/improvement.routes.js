@@ -17,6 +17,7 @@ const {
 } = require("./improvement.validator");
 const { authenticateMiddleware } = require("../../middlewares/authenticate.middleware");
 const { authorizeMiddleware } = require("../../middlewares/authorize.middleware");
+const { improvementsScopeLockMiddleware } = require("../../middlewares/scopeLock.middleware");
 
 const router = express.Router();
 
@@ -24,6 +25,7 @@ router.post(
   "/",
   authenticateMiddleware,
   authorizeMiddleware("MASTER", "EMPLOYEE"),
+  improvementsScopeLockMiddleware,
   createImprovementValidator,
   createImprovementController
 );
@@ -45,6 +47,7 @@ router.patch(
   "/:id/status",
   authenticateMiddleware,
   authorizeMiddleware("MASTER", "EMPLOYEE"),
+  improvementsScopeLockMiddleware,
   improvementIdParamValidator,
   patchImprovementStatusValidator,
   patchImprovementStatusController

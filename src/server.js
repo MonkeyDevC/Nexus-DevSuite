@@ -3,6 +3,7 @@ const { app, env } = require("./app");
 const { connectDatabase, sequelize } = require("./config/database");
 const logger = require("./config/logger");
 const { loadModels } = require("./infrastructure/db/loadModels");
+const { startOutboxDispatcher, stopOutboxDispatcher } = require("./modules/orchestrator/outboxDispatcher.service");
 const { getIsShuttingDown, setIsShuttingDown } = require("./shared/shutdownState");
 
 let serverInstance = null;
@@ -53,6 +54,7 @@ async function shutdown(signal, exitCode) {
   }, timeoutMs);
 
   await closeHttpServer();
+  stopOutboxDispatcher();
   await closeDatabase();
 
   clearTimeout(forceExitTimer);
@@ -91,6 +93,9 @@ async function bootstrap() {
 
     serverInstance.on("listening", () => {
       isServerListening = true;
+      if (env.NODE_ENV !== "test") {
+        startOutboxDispatcher();
+      }
       logger.info({ port: env.PORT }, "Servidor iniciado correctamente");
     });
 

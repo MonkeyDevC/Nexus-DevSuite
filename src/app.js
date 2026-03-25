@@ -8,6 +8,8 @@ const { responseVersionMiddleware } = require("./middlewares/responseVersion.mid
 const { shutdownGuardMiddleware } = require("./middlewares/shutdownGuard.middleware");
 const { metricsMiddleware } = require("./middlewares/metrics.middleware");
 const { auditLoggerMiddleware } = require("./middlewares/auditLogger.middleware");
+const { idempotencyMiddleware } = require("./middlewares/idempotency.middleware");
+const { atomicCommitMiddleware } = require("./middlewares/atomicCommit.middleware");
 const { notFoundMiddleware } = require("./middlewares/notFound.middleware");
 const { errorHandlerMiddleware } = require("./middlewares/errorHandler.middleware");
 const { env } = require("./config/env");
@@ -83,12 +85,14 @@ app.use(
     credentials: env.CORS_ALLOW_CREDENTIALS
   })
 );
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 app.use(requestContextMiddleware);
 app.use(responseVersionMiddleware);
 app.use(shutdownGuardMiddleware);
 app.use(metricsMiddleware);
 app.use(auditLoggerMiddleware);
+app.use(idempotencyMiddleware);
+app.use(atomicCommitMiddleware);
 app.use(globalRateLimitMiddleware);
 app.use(express.static("public"));
 app.get("/favicon.ico", (req, res) => res.status(204).end());

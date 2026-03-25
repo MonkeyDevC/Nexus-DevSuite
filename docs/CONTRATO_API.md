@@ -105,8 +105,70 @@ Convención: **MAYÚSCULAS_SNAKE_CASE**. Códigos estables contractualmente.
 | `ORGANIZATION_NOT_FOUND` | Organización no encontrada (GET/PATCH /organizations/:id) |
 | `TENANT_REQUIRED` | Petición sin tenant válido cuando la política lo exige (opcional según diseño) |
 | `RESOURCE_OTHER_ORGANIZATION` | Recurso pertenece a otra organización; acceso denegado (403) |
+| `DEDUP_KEY_REQUIRED` | Mutación APEX sin cabecera `x-dedup-key` (400) |
+| `DOCUMENTATION_NOT_FOUND` | Registro `documentation_contents` inexistente o fuera del tenant (404) |
+| `DOCUMENTATION_CONFLICT` | Ya existe contenido ACTIVE para el mismo alcance (org + `project_id` + `type`) (409) |
+| `DOCUMENTATION_PATCH_EMPTY` | PATCH sin ningún campo permitido (`content`, `title`, `format`, `type`, `project_id`, `status`) (400) |
+| `DOCUMENTATION_CONTENT_TOO_LARGE` | Campo `content` supera el máximo contractual (400; límite 500000 caracteres) |
+| `IDEMPOTENCY_IN_PROGRESS` | Misma `dedup_key` en ejecución concurrente (409) |
+| `IDEMPOTENCY_KEY_REUSED` | Misma `dedup_key` con cuerpo o ruta distinta al registrado (409) |
+| `SCOPE_LOCK_CONFLICT` | Conflicto de bloqueo de concurrencia por scope (409) |
 
 **Nota:** `INTERNAL_SERVER_ERROR` está reservado exclusivamente para errores no operacionales no controlados; no debe usarse para validaciones de negocio.
+
+## Documentación de plataforma (`/api/v1/documentation`)
+
+Recurso **`documentation_contents`** (contenido documental operativo de la plataforma). **No** es el módulo ISO de documentos (`/api/v1/documents`).
+
+En JSON se usa el campo **`type`** con valores `functional` | `technical` (tipo documental); en texto de dominio puede citarse como *documentation_type*.
+
+### Cabeceras (mutaciones)
+
+| Cabecera | Obligatoria | Descripción |
+|----------|-------------|-------------|
+| `x-dedup-key` | Sí (POST, PATCH, DELETE) | Idempotencia APEX; sin ella → `DEDUP_KEY_REQUIRED` (400). |
+| `x-expected-global-hash` | No | Tras respuesta **2xx**, el middleware valida coherencia con el hash global; discrepancia → fallo crítico en ledger (ver OpenAPI). |
+
+### Idempotencia y atomic commit
+
+- **Replay:** misma `x-dedup-key` y mismo request canónico (método + `originalUrl` + body + query) → misma respuesta almacenada; en replay puede enviarse `X-Idempotent-Replay: true`.
+- **4xx:** la respuesta se guarda como completada en idempotency (**replay del error**); **no** se encola outbox `HTTP_MUTATION_COMMITTED` ni se valida hash global.
+- **2xx:** se valida hash global (si aplica), se actualiza ledger en fase `COMMIT_VALIDATED` y se encola outbox.
+- **5xx:** idempotency en estado `FAILED`; el cliente puede **reintentar** con la misma clave.
+
+### Validación y seguridad
+
+- `content`: longitud máxima **500000** caracteres; mitigación XSS en servidor (eliminación de `script`, `iframe`, handlers `on*`, URLs `javascript:` / `data:text/html` peligrosas). El consumidor debe seguir aplicando escape/CSP al renderizar.
+- **PATCH:** al menos un campo permitido; de lo contrario `DOCUMENTATION_PATCH_EMPTY`.
+
+### Tabla de errores por endpoint
+
+| Método | Ruta | Códigos típicos (además de AUTH_*) |
+|--------|------|-------------------------------------|
+| GET | `/documentation` | `VALIDATION_ERROR` |
+| GET | `/documentation/:id` | `DOCUMENTATION_NOT_FOUND` |
+| POST | `/documentation` | `DEDUP_KEY_REQUIRED`, `VALIDATION_ERROR`, `DOCUMENTATION_CONTENT_TOO_LARGE`, `PROJECT_NOT_FOUND`, `DOCUMENTATION_CONFLICT`, `IDEMPOTENCY_*`, `SCOPE_LOCK_CONFLICT` |
+| PATCH | `/documentation/:id` | `DEDUP_KEY_REQUIRED`, `VALIDATION_ERROR`, `DOCUMENTATION_PATCH_EMPTY`, `DOCUMENTATION_CONTENT_TOO_LARGE`, `DOCUMENTATION_NOT_FOUND`, `DOCUMENTATION_CONFLICT`, `IDEMPOTENCY_*`, `SCOPE_LOCK_CONFLICT` |
+| DELETE | `/documentation/:id` | `DEDUP_KEY_REQUIRED`, `DOCUMENTATION_NOT_FOUND`, `IDEMPOTENCY_*`, `SCOPE_LOCK_CONFLICT` |
+
+Contrato OpenAPI: `docs/openapi.yaml` (tag `documentation`).
+
+## Exportación DOCX (`/api/v1/docs/export`)
+
+Endpoint para generar archivo Word desde contenido documental funcional/técnico.
+
+### Reglas de contrato
+
+- Método: `POST /api/v1/docs/export`
+- Auth/RBAC: requiere sesión válida (`bearer`) y rol `MASTER` o `EMPLOYEE`.
+- Body mínimo: `{ "type": "functional" | "technical" | "all" }`.
+- Body opcional:
+  - `projectId` (uuid),
+  - `contentHtml`,
+  - `contentHtmlFunctional`,
+  - `contentHtmlTechnical`.
+- Respuesta de éxito: **binaria** (`application/vnd.openxmlformats-officedocument.wordprocessingml.document`) con `Content-Disposition: attachment`.
+- En éxito no aplica envelope JSON de Response Layer; errores sí usan Response Layer v1 (`VALIDATION_ERROR`, `AUTH_UNAUTHORIZED`, `AUTH_FORBIDDEN`, etc.).
 
 ## Multi-tenant y organizaciones (ETAPA 10)
 
@@ -211,6 +273,69 @@ Endpoints de solo lectura para reportes y auditoría. Códigos reutilizados: `PR
 | GET | `/api/v1/system/metrics` | Solo MASTER | Snapshot de métricas de instancia (total_requests, total_errors, auth_failures, refresh_failures, scope: "instance"). Response Layer v1. |
 
 Documentación completa del sistema de calidad: `docs/SISTEMA_CALIDAD_INTERNO.md`.
+
+---
+
+## Integración GitHub — ejemplos de `meta.source`
+
+Para las respuestas de capability GitHub, `meta` incluye:
+- `usable`: `available && integrated && systemReady`
+- `systemReady`: estado de configuración de sistema (variables requeridas)
+- `source`: `disabled | internal | cache | live`
+
+### `disabled`
+
+Caso: cualquier condición de usabilidad falla (`available=false` o `integrated=false` o `systemReady=false`).
+
+```json
+{
+  "available": false,
+  "integrated": false,
+  "data": null,
+  "error": { "code": "GITHUB_VALIDATION", "message": "GitHub no configurado para este proyecto." },
+  "meta": { "usable": false, "systemReady": true, "source": "disabled" }
+}
+```
+
+### `internal`
+
+Caso: integración usable, pero sin llamada a GitHub API (p. ej. respuesta resuelta internamente).
+
+```json
+{
+  "available": true,
+  "integrated": true,
+  "data": "main",
+  "error": null,
+  "meta": { "usable": true, "systemReady": true, "source": "internal" }
+}
+```
+
+### `cache`
+
+Caso: hubo ejecución API y el contexto indica camino asociado a configuración en cache.
+
+```json
+{
+  "available": true,
+  "integrated": true,
+  "data": [{ "name": "main" }],
+  "meta": { "usable": true, "systemReady": true, "source": "cache" }
+}
+```
+
+### `live`
+
+Caso: hubo ejecución API en vivo.
+
+```json
+{
+  "available": true,
+  "integrated": true,
+  "data": [{ "name": "feature/x" }],
+  "meta": { "usable": true, "systemReady": true, "source": "live" }
+}
+```
 
 ---
 

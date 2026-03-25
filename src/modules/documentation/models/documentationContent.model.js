@@ -33,6 +33,15 @@ function defineDocumentationContentModel(sequelize) {
         type: DataTypes.TEXT("long"),
         allowNull: false
       },
+      title: {
+        type: DataTypes.STRING(255),
+        allowNull: true
+      },
+      status: {
+        type: DataTypes.ENUM("ACTIVE", "ARCHIVED"),
+        allowNull: false,
+        defaultValue: "ACTIVE"
+      },
       updated_by_user_id: {
         type: DataTypes.UUID,
         allowNull: true

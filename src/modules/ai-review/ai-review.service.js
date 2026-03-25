@@ -58,8 +58,9 @@ async function generateReview(deliveryId, projectId, organizationId, context) {
   const startMs = Date.now();
 
   try {
-    const diffPayload = await deliveryDiffService.getDeliveryDiff(deliveryId);
-    if (!diffPayload.diff || diffPayload.diff.length < 10) {
+    const diffResult = await deliveryDiffService.getDeliveryDiff(deliveryId);
+    const diffPayload = diffResult && diffResult.data ? diffResult.data : diffResult;
+    if (!diffPayload || !diffPayload.diff || diffPayload.diff.length < 10) {
       throw new AppError("No hay suficiente contenido en el workspace para revisar. Añade archivos a la entrega.", {
         statusCode: 400,
         code: "DELIVERY_EMPTY"
@@ -68,6 +69,9 @@ async function generateReview(deliveryId, projectId, organizationId, context) {
 
     const prompt = generateCodeReviewPrompt(diffPayload);
     const aiResult = await aiService.complete(prompt);
+    if (!aiResult || aiResult.available === false) {
+      return aiResult;
+    }
     const durationMs = Date.now() - startMs;
 
     const parsed = parseReviewResponse(aiResult.content);
