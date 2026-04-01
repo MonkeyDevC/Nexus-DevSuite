@@ -82,7 +82,8 @@ test.describe("WAVE 4 — Releases E2E", () => {
     expect(sr.ok()).toBeTruthy();
     const storyId = (await sr.json()).data.id;
 
-    const version = `e2e-w4-${ts}`;
+    // Versión única y corta (uq_releases_version global); formato tipo SemVer para evitar colisiones raras en CI.
+    const version = `1.0.${ts}`;
     const relRes = await request.post(`${BASE}/api/v1/releases`, {
       headers: {
         Authorization: `Bearer ${tokens.access_token}`,
@@ -90,7 +91,10 @@ test.describe("WAVE 4 — Releases E2E", () => {
       },
       data: { name: `Rel E2E ${ts}`, version, description: "e2e" },
     });
-    expect(relRes.ok()).toBeTruthy();
+    if (!relRes.ok()) {
+      const errBody = await relRes.text();
+      throw new Error(`POST /api/v1/releases failed ${relRes.status()}: ${errBody}`);
+    }
     const releaseId = (await relRes.json()).data.id;
 
     await page.goto(`${BASE}/projects/${projectId}/releases/${releaseId}`, { waitUntil: "domcontentloaded" });

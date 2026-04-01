@@ -554,6 +554,21 @@ test.describe("Work management React — estable (sin skip)", () => {
       });
     }
 
+    // Re-login en sesión del navegador: el spec es largo; evita 401 en listReleasesLinkedToProject por JWT expirado.
+    const reloginReleases = await request.post(`${BASE}/api/v1/auth/login`, {
+      headers: { "Content-Type": "application/json" },
+      data: LOGIN_BODY,
+    });
+    expect(reloginReleases.ok()).toBeTruthy();
+    const reloginReleasesBody = await reloginReleases.json();
+    await page.evaluate(
+      ([a, r]) => {
+        sessionStorage.setItem("nexus_access_token", a);
+        sessionStorage.setItem("nexus_refresh_token", r);
+      },
+      [reloginReleasesBody.data.access_token, reloginReleasesBody.data.refresh_token]
+    );
+
     const releaseListPid = releaseCtx ? releaseCtx.projectId : primaryId;
     await page.goto(`${BASE}/projects/${releaseListPid}/releases`, { waitUntil: "domcontentloaded" });
     await assertOneMount();
@@ -561,6 +576,10 @@ test.describe("Work management React — estable (sin skip)", () => {
     await expect(page.getByTestId("releases-loading")).toHaveCount(0, { timeout: 120000 });
     const releasesTable = page.getByTestId("releases-table");
     await expect(releasesTable).toBeVisible({ timeout: 30000 });
+    if ((await page.getByTestId("releases-error").count()) > 0) {
+      const errTxt = await page.getByTestId("releases-error").innerText();
+      throw new Error(`releases list failed: ${errTxt.replace(/\s+/g, " ").trim()}`);
+    }
     const releaseRowLink = releasesTable.locator("table tbody tr td:first-child button");
     const releaseLinkCount = await releaseRowLink.count();
 

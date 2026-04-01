@@ -172,25 +172,31 @@ export default function Releases() {
         <span data-testid="releases-loaded-marker" hidden />
       )}
 
-      {!loading && errorPresentation ? (
-        <div className={bannerClass(errorPresentation.tone)} role="alert" data-testid="releases-error">
-          <div className={wave1.meta} style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
-            {errorPresentation.title}
-          </div>
-          {errorPresentation.message}
-        </div>
-      ) : null}
-
-      {!loading && !errorPresentation ? (
+      {!loading && (
         <Card padding="default">
-          <StatCardGrid>
-            <StatCard label="Total" value={String(stats.total)} variant="primary" />
-            <StatCard label="En curso / QA" value={String(stats.inFlight)} variant="warning" />
-            <StatCard label="Publicadas" value={String(stats.released)} variant="success" />
-          </StatCardGrid>
+          {errorPresentation ? (
+            <div className={bannerClass(errorPresentation.tone)} role="alert" data-testid="releases-error">
+              <div className={wave1.meta} style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
+                {errorPresentation.title}
+              </div>
+              {errorPresentation.message}
+            </div>
+          ) : (
+            <StatCardGrid>
+              <StatCard label="Total" value={String(stats.total)} variant="primary" />
+              <StatCard label="En curso / QA" value={String(stats.inFlight)} variant="warning" />
+              <StatCard label="Publicadas" value={String(stats.released)} variant="success" />
+            </StatCardGrid>
+          )}
 
+          {/* testid estable: E2E y accesibilidad; también en error de carga (antes no existía el nodo). */}
           <div data-testid="releases-table" className={wave1.tableSection}>
-            {rows.length === 0 ? (
+            {errorPresentation ? (
+              <EmptyState
+                title="No se pudieron cargar las releases"
+                description={errorPresentation.message}
+              />
+            ) : rows.length === 0 ? (
               <EmptyState
                 title="Sin releases vinculadas"
                 description="Aún no hay releases asociadas a este proyecto en el contexto actual."
@@ -234,11 +240,13 @@ export default function Releases() {
             )}
           </div>
 
-          <p className={wave1.meta}>
-            Usuario: {user?.email || "—"}
-          </p>
+          {!errorPresentation ? (
+            <p className={wave1.meta}>
+              Usuario: {user?.email || "—"}
+            </p>
+          ) : null}
         </Card>
-      ) : null}
+      )}
     </div>
   );
 }
