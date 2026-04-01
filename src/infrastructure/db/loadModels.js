@@ -79,8 +79,8 @@ function loadModels(sequelize) {
   const { Release, ReleaseFeature } = releaseModels;
   Organization.hasMany(Release, { foreignKey: "organization_id", as: "releases" });
   Release.belongsTo(Organization, { foreignKey: "organization_id", as: "organization" });
-  Project.hasMany(Release, { foreignKey: "project_id", as: "project_releases" });
-  Release.belongsTo(Project, { foreignKey: "project_id", as: "project" });
+  // No asociar Release ↔ Project por project_id: la tabla `releases` no tiene esa columna (no migrada).
+  // El vínculo proyecto–release es vía features.release_id / historias; un Release pertenece a org y usuario.
   User.hasMany(Release, { foreignKey: "created_by", as: "releases" });
   Release.belongsTo(User, { foreignKey: "created_by", as: "creator" });
   Release.hasMany(Feature, { foreignKey: "release_id", as: "features" });
