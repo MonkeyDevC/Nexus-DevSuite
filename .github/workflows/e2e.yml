@@ -33,9 +33,15 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          # Raíz (API) + frontend-react tienen package-lock independientes (sin workspaces).
+          cache-dependency-path: |
+            package-lock.json
+            frontend-react/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm ci --prefix frontend-react
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium

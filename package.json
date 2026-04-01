@@ -9,6 +9,7 @@
   "main": "src/server.js",
   "type": "commonjs",
   "scripts": {
+    "install:all": "npm ci && npm ci --prefix frontend-react",
     "start": "node src/server.js",
     "dev": "powershell -ExecutionPolicy Bypass -File dev-clean.ps1",
     "dev:server": "npx nodemon src/server.js",
