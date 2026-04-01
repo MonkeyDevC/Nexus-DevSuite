@@ -20,6 +20,15 @@ export default defineConfig(({ mode }) => {
     define: {
       "process.env.NODE_ENV": JSON.stringify("production"),
     },
+    // Vite 8 usa Oxc por defecto; en este repo necesitamos un build determinista de React
+    // (sin `jsxDEV`) incluso cuando el entorno padre tenga NODE_ENV=test (E2E/CI).
+    // Deshabilitamos Oxc para que `esbuild.jsxDev=false` aplique de forma consistente.
+    oxc: false,
+    // E2E/CI puede ejecutar `vite build` con NODE_ENV=test (heredado del backend).
+    // Forzamos output de producción para evitar bundles con `jsxDEV` en runtime real.
+    esbuild: {
+      jsxDev: false,
+    },
     /**
      * Cliente HTTP: base relativa /api/v1 (requestConfig.js). Mismo origen en prod.
      * En dev, Vite reenvía /api al backend para no usar URLs absolutas en el código.

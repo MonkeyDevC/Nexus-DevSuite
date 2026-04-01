@@ -50,11 +50,14 @@ test.describe("WAVE2 Sprints — E2E micro-closeout", () => {
     await page.getByRole("button", { name: projectName }).first().click();
     await expect(page.locator("body")).toContainText(projectName, { timeout: 30000 });
 
-    const idText = await page.locator("text=ID:").first().textContent();
-    const idMatch = String(idText || "").match(
-      /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i
-    );
-    const projectId = idMatch ? idMatch[0] : "";
+    // No depender del copy/markup del UI para extraer ID.
+    const listRes = await request.get(`${BASE}/api/v1/projects`, {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+    expect(listRes.ok()).toBeTruthy();
+    const listBody = await listRes.json();
+    const created = (listBody?.data?.items || []).find((row) => String(row.name) === projectName);
+    const projectId = created?.id ? String(created.id) : "";
     expect(projectId.length).toBeGreaterThan(10);
 
     const featureRes = await request.post(`${BASE}/api/v1/projects/${projectId}/features`, {

@@ -1,4 +1,4 @@
-/** Paridad con userMessageForDocumentationResponse (public/js/views/documents.js). */
+/** Paridad con el mapeo histórico de mensajes de documentación (implementación legacy ya retirada). */
 const CONTENT_MAX = 500000;
 
 export { CONTENT_MAX };

@@ -53,15 +53,20 @@ test.describe("Project domain W1-T01", () => {
     await expect(page.getByTestId("app-sidebar")).toBeVisible({ timeout: 30000 });
     await expect(page.locator("body")).toContainText(projectName);
 
+    // La edición vive en la pestaña "Edición" y se guarda desde el footer sticky ("Guardar").
+    await page.getByRole("tab", { name: "Edición" }).click();
+    await expect(page.getByTestId("project-edit-name")).toBeVisible({ timeout: 30000 });
     await page.getByTestId("project-edit-name").fill(projectNameUpdated);
-    await page.getByTestId("project-edit-submit").click();
+    await page.getByTestId("project-workspace-save").click();
     await expect(page.locator("body")).toContainText(projectNameUpdated, { timeout: 30000 });
 
-    const idText = await page.locator("text=ID:").first().textContent();
-    const idMatch = String(idText || "").match(
-      /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i
-    );
-    const projectId = idMatch ? idMatch[0] : "";
+    // No depender del copy/markup del UI para extraer ID.
+    const listResAfterUi = await request.get(`${BASE}/api/v1/projects`, {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+    const listBodyAfterUi = await listResAfterUi.json();
+    const created = (listBodyAfterUi?.data?.items || []).find((row) => String(row.name) === projectNameUpdated);
+    const projectId = created?.id ? String(created.id) : "";
     expect(projectId.length).toBeGreaterThan(0);
 
     const listRes = await request.get(`${BASE}/api/v1/projects`, {
@@ -87,11 +92,16 @@ test.describe("Project domain W1-T01", () => {
     expect(staleBody?.error?.code).toBe("PROJECT_CONFLICT");
 
     await page.getByTestId("project-archive-btn").click();
+    await page
+      .getByRole("alertdialog", { name: "Archivar proyecto" })
+      .getByRole("button", { name: "Archivar" })
+      .click();
     await expect(page.locator("body")).toContainText("ARCHIVED", { timeout: 30000 });
 
-    await page.getByTestId("project-edit-name").fill(`${projectNameUpdated} archived`);
-    await page.getByTestId("project-edit-submit").click();
-    await expect(page.locator("body")).toContainText("Proyecto archivado", { timeout: 30000 });
+    // En ARCHIVED el formulario queda bloqueado (no se permite editar tras archivar).
+    await expect(page.getByTestId("project-edit-status")).toHaveValue("ARCHIVED", { timeout: 30000 });
+    await expect(page.getByTestId("project-edit-name")).toBeDisabled();
+    await expect(page.getByTestId("project-workspace-save")).toBeDisabled();
 
     const detailRes = await request.get(`${BASE}/api/v1/projects/${projectId}`, {
       headers: { Authorization: `Bearer ${tokens.access_token}` },

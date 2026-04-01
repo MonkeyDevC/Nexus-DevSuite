@@ -1,7 +1,7 @@
 /**
  * ----
  * Módulo: Settings
- * Descripción: Ajustes del sistema (paridad mínima con public/js/views/settings.js) — Admin UI System.
+ * Descripción: Ajustes del sistema (paridad mínima con la superficie legacy ya retirada) — Admin UI System.
  * Solo MASTER (misma política que legacy + admin:access).
  * ----
  */

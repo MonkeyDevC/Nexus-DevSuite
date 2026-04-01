@@ -88,13 +88,15 @@ async function ensureBridgePage(page) {
   );
 }
 
-async function ensureLegacyPublicFetchApi(page) {
-  const hasFetchApi = await page.evaluate(() => typeof window.fetchApi === "function");
-  if (hasFetchApi) return;
-
-  // Cargar contrato público legacy real cuando el runtime React no lo inyecta por defecto.
-  await page.addScriptTag({ url: "/js/api.js" });
-  await page.waitForFunction(() => typeof window.fetchApi === "function", { timeout: 5000 });
+async function assertBridgeFetchApiAvailable(page) {
+  await page.waitForFunction(
+    () =>
+      Boolean(
+        window.NEXUS_HTTP_LEGACY_BRIDGE &&
+          typeof window.NEXUS_HTTP_LEGACY_BRIDGE.fetchApi === "function"
+      ),
+    { timeout: 5000 }
+  );
 }
 
 test.describe("Fase 6 closeout HTTP transversal", () => {
@@ -129,7 +131,7 @@ test.describe("Fase 6 closeout HTTP transversal", () => {
 
     const bridgeUrl = await ensureBridgePage(page);
     results.frontendBridgeUrl = bridgeUrl;
-    await ensureLegacyPublicFetchApi(page);
+    await assertBridgeFetchApiAvailable(page);
 
     // A2: getMe/flujo protegido OK vía app React cargada.
     const sidebar = page.getByTestId("app-sidebar");
@@ -139,7 +141,7 @@ test.describe("Fase 6 closeout HTTP transversal", () => {
     } else {
       // En algunas variantes staging el shell no renderiza sidebar en ruta inicial;
       // validamos flujo protegido por /auth/me a través del núcleo.
-      const me = await page.evaluate(async () => window.fetchApi("/auth/me"));
+      const me = await page.evaluate(async () => window.NEXUS_HTTP_LEGACY_BRIDGE.fetchApi("/auth/me"));
       results.A2_reactProtectedOk = Boolean(me && me.success);
       expect(results.A2_reactProtectedOk).toBe(true);
     }
@@ -156,14 +158,9 @@ test.describe("Fase 6 closeout HTTP transversal", () => {
 
     // B4 + C3/C4: legacy envelope + no __nexus/HttpResult.
     const legacyMe = await page.evaluate(async () => {
-      const legacyFetch =
-        typeof window.fetchApi === "function"
-          ? window.fetchApi
-          : window.NEXUS_HTTP_LEGACY_BRIDGE?.fetchApi;
-      if (typeof legacyFetch !== "function") {
-        throw new Error("LEGACY_FETCH_UNAVAILABLE");
-      }
-      return legacyFetch("/auth/me");
+      const bridgeFetch = window.NEXUS_HTTP_LEGACY_BRIDGE?.fetchApi;
+      if (typeof bridgeFetch !== "function") throw new Error("BRIDGE_FETCH_UNAVAILABLE");
+      return bridgeFetch("/auth/me");
     });
     results.B4_noNexusLeak = !legacyMe?.__nexus && !legacyMe?.status && !legacyMe?.ok;
     results.C3_legacyEnvelope =
@@ -179,11 +176,9 @@ test.describe("Fase 6 closeout HTTP transversal", () => {
     });
     const a3 = await page.evaluate(async ({ a, r }) => {
       window.setTokens(a, r);
-      const legacyFetch =
-        typeof window.fetchApi === "function"
-          ? window.fetchApi
-          : window.NEXUS_HTTP_LEGACY_BRIDGE?.fetchApi;
-      const res = await legacyFetch("/auth/me");
+      const bridgeFetch = window.NEXUS_HTTP_LEGACY_BRIDGE?.fetchApi;
+      if (typeof bridgeFetch !== "function") throw new Error("BRIDGE_FETCH_UNAVAILABLE");
+      const res = await bridgeFetch("/auth/me");
       return {
         success: Boolean(res && res.success),
       };
@@ -195,11 +190,9 @@ test.describe("Fase 6 closeout HTTP transversal", () => {
     const invalidRefresh = "invalid-refresh-token";
     const a4 = await page.evaluate(async ({ a, r }) => {
       window.setTokens(a, r);
-      const legacyFetch =
-        typeof window.fetchApi === "function"
-          ? window.fetchApi
-          : window.NEXUS_HTTP_LEGACY_BRIDGE?.fetchApi;
-      const res = await legacyFetch("/auth/me");
+      const bridgeFetch = window.NEXUS_HTTP_LEGACY_BRIDGE?.fetchApi;
+      if (typeof bridgeFetch !== "function") throw new Error("BRIDGE_FETCH_UNAVAILABLE");
+      const res = await bridgeFetch("/auth/me");
       return {
         success: Boolean(res && res.success),
         code: res?.error?.code || null,
@@ -228,10 +221,8 @@ test.describe("Fase 6 closeout HTTP transversal", () => {
       // A4 puede dejar la sesion en modo construction (logout controlado).
       // Forzamos execution para validar refresh concurrente de A5.
       sessionStorage.setItem("nexus_runtime_phase", "execution");
-      const legacyFetch =
-        typeof window.fetchApi === "function"
-          ? window.fetchApi
-          : window.NEXUS_HTTP_LEGACY_BRIDGE?.fetchApi;
+      const legacyFetch = window.NEXUS_HTTP_LEGACY_BRIDGE?.fetchApi;
+      if (typeof legacyFetch !== "function") throw new Error("BRIDGE_FETCH_UNAVAILABLE");
       const [x1, x2, x3] = await Promise.all([
         legacyFetch("/auth/me"),
         legacyFetch("/auth/me"),
@@ -255,10 +246,12 @@ test.describe("Fase 6 closeout HTTP transversal", () => {
       } catch (_) {
         window.NEXUS_HTTP_LEGACY_BRIDGE = undefined;
       }
-      const legacyFetch =
-        typeof window.fetchApi === "function"
-          ? window.fetchApi
-          : window.NEXUS_HTTP_LEGACY_BRIDGE?.fetchApi;
+      const legacyFetch = window.NEXUS_HTTP_LEGACY_BRIDGE?.fetchApi;
+      if (typeof legacyFetch !== "function") {
+        // Contrato esperado sin fallback: bridge ausente => error controlado.
+        window.NEXUS_HTTP_LEGACY_BRIDGE = prev;
+        return { success: false, error: { code: "BRIDGE_MISSING", message: "Infra HTTP no disponible" } };
+      }
       const out = await legacyFetch("/auth/me");
       window.NEXUS_HTTP_LEGACY_BRIDGE = prev;
       return out;
@@ -286,10 +279,8 @@ test.describe("Fase 6 closeout HTTP transversal", () => {
 
       try {
         window.setTokens(a, r);
-        const legacyFetch =
-          typeof window.fetchApi === "function"
-            ? window.fetchApi
-            : window.NEXUS_HTTP_LEGACY_BRIDGE?.fetchApi;
+        const legacyFetch = window.NEXUS_HTTP_LEGACY_BRIDGE?.fetchApi;
+        if (typeof legacyFetch !== "function") throw new Error("BRIDGE_FETCH_UNAVAILABLE");
         await legacyFetch("/auth/me");
       } finally {
         sessionStorage.setItem = originalSet;

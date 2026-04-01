@@ -28,7 +28,9 @@ function corsOriginPolicy(origin, callback) {
     return callback(null, true);
   }
 
-  if (env.NODE_ENV === "development" && corsAllowedOrigins.includes("*")) {
+  // En development y test permitimos wildcard explícito para evitar que
+  // entornos automatizados (E2E/CI) fallen por políticas CORS al servir el SPA.
+  if ((env.NODE_ENV === "development" || env.NODE_ENV === "test") && corsAllowedOrigins.includes("*")) {
     return callback(null, true);
   }
 

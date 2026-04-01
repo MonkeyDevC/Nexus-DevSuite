@@ -1,7 +1,7 @@
 // @ts-check
 const { defineConfig, devices } = require("@playwright/test");
 
-const BASE_URL = process.env.FRONTEND_URL || process.env.E2E_FRONTEND_URL || "http://localhost:3000";
+const BASE_URL = process.env.FRONTEND_URL || process.env.E2E_FRONTEND_URL || "http://127.0.0.1:3000";
 
 module.exports = defineConfig({
   testDir: "./tests/e2e",
@@ -11,11 +11,10 @@ module.exports = defineConfig({
   retries: process.env.CI ? 1 : 0,
   workers: 1,
   reporter: [["list"], ["html", { outputFolder: "playwright-report", open: "never" }]],
-  // En CI (y local si no hay servidor activo), levantar stack API+Vite.
-  // Evita falsos fallos por "no se ejecutan peticiones" / página en blanco.
+  // E2E debe validar el runtime real: Express sirve `public/` (SPA + build) y expone `/api/v1`.
   webServer: {
-    command: "npm run dev:stack",
-    url: BASE_URL,
+    command: "npm run e2e:server",
+    url: "http://127.0.0.1:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 180000,
     stdout: "pipe",

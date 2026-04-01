@@ -1,5 +1,5 @@
 /**
- * Exportación .docx vía POST /docs/export (mismo contrato que public/js/views/documentation.js).
+ * Exportación .docx vía POST /docs/export (contrato histórico alineado a la implementación legacy ya retirada).
  */
 import { post } from "../../shared/http/index.js";
 

@@ -1,8 +1,8 @@
 /**
  * ----
  * Módulo: Documentation
- * Descripción: Superficie de lectura (paridad con #/documentation) — Admin UI System.
- * Sin editor/CMS; contenido desde módulo estático (legacy *-content.js).
+ * Descripción: Superficie de lectura (paridad histórica con la ruta legacy de documentación) — Admin UI System.
+ * Sin editor/CMS; contenido desde módulo estático (contenido legacy ya retirado, hoy embebido en static/*.json).
  * ----
  */
 import { useCallback, useEffect, useMemo, useState } from "react";

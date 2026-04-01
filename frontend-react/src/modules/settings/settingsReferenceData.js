@@ -1,5 +1,6 @@
 /**
- * Parámetros de referencia alineados a public/js/views/settings.js (solo lectura; sin persistencia).
+ * Parámetros de referencia alineados a la superficie histórica de Settings (legacy ya retirada).
+ * Solo lectura; sin persistencia.
  */
 
 /** @typedef {{ code: string, description: string }} StatusRow */

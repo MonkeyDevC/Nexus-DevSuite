@@ -1,5 +1,11 @@
 const { test, expect } = require("@playwright/test");
 
+// DEV_RUNTIME_ONLY:
+// Esta suite depende del runtime de desarrollo (Vite en 5173 + import directo de /src).
+// NO valida el runtime real de E2E (Express + build servido desde /public/react-app).
+// En CI se omite para mantener una única estrategia determinista: http://127.0.0.1:3000 (Express).
+test.skip(Boolean(process.env.CI), "DEV_RUNTIME_ONLY: requiere Vite (5173); se omite en CI.");
+
 function base64UrlEncode(str) {
   return Buffer.from(str)
     .toString("base64")

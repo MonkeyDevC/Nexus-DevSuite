@@ -1,5 +1,5 @@
 /**
- * Contenido de documentación embebido (paridad con public/js/documentation/*-content.js).
+ * Contenido de documentación embebido (paridad con el contenido legacy histórico ya retirado).
  * Fuente: static/*.json — no depende del runtime legacy.
  */
 import functionalHtml from "./static/functional.json";

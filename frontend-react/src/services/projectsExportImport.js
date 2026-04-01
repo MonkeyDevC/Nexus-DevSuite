@@ -1,5 +1,5 @@
 /**
- * Exportación / importación de proyectos en JSON (paridad con legacy public/js/views/projects.js).
+ * Exportación / importación de proyectos en JSON (paridad con la superficie legacy de proyectos ya retirada).
  */
 import api from "./apiClient.js";
 import { importProjects, listProjectsPage } from "./projectApiClient.js";

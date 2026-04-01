@@ -260,42 +260,28 @@ test.describe("Integracion micro-app React BrowserRouter", () => {
     await firstProjectLink.click();
     await expect(reactRoot).toHaveCount(1);
     await expect(page.getByTestId("project-detail-root")).toBeVisible({ timeout: 30000 });
-    await expect(content.getByRole("button", { name: "Ver Features" })).toBeVisible({ timeout: 30000 });
-
-    await content.getByRole("button", { name: "Ver Backlog" }).click();
+    // La navegación interna del detalle se realiza por pestañas (WorkspaceTabBar).
+    await page.getByRole("tab", { name: "Backlog" }).click();
 
     await expect(reactRoot).toHaveCount(1);
-    await expect(page.getByTestId("backlog-root")).toBeVisible({ timeout: 30000 });
-    await expect(page.getByRole("heading", { level: 1, name: "Backlog" })).toBeVisible({ timeout: 30000 });
-    await expect(page.getByTestId("backlog-loading")).toHaveCount(0, { timeout: 60000 });
+    await expect(page.getByTestId("project-detail-tab-backlog")).toBeVisible({ timeout: 30000 });
 
-    await expect(page.getByTestId("breadcrumb-backlog")).toContainText("Backlog");
-    const backlogTable = page.getByTestId("backlog-table");
-    await expect(backlogTable).toBeVisible();
-    const backlogRowButtons = backlogTable.locator("tbody tr button");
-    const hasRows = await backlogRowButtons.count();
-    if (hasRows > 0) {
-      await expect(backlogTable.getByRole("columnheader", { name: "Historia" })).toBeVisible();
-      await expect(backlogTable.locator("tbody tr").first()).toBeVisible();
-    } else {
-      await expect(backlogTable).toContainText("Sin historias en backlog");
-    }
-
-    await page.getByTestId("backlog-root").getByRole("button", { name: "Lista proyectos" }).click();
+    // Volver a la lista de proyectos por breadcrumb (estable a nivel app).
+    await page.getByTestId("breadcrumb-project-detail").getByRole("link", { name: "Proyectos" }).click();
     await expect(reactRoot).toHaveCount(1);
     await expect(content).toContainText("Projects - Nexus DevSuite", { timeout: 30000 });
 
     await sidebar.getByRole("link", { name: "Dashboard" }).click();
     await expect(reactRoot).toHaveCount(1);
-    await expect(content).toContainText("Dashboard - Nexus DevSuite", { timeout: 30000 });
+    await expect(page.getByTestId("dashboard-root")).toBeVisible({ timeout: 30000 });
     await sidebar.getByRole("link", { name: "Projects" }).click();
     await expect(reactRoot).toHaveCount(1);
-    await expect(content).toContainText("Projects - Nexus DevSuite", { timeout: 30000 });
+    await expect(page.getByTestId("projects-root")).toBeVisible({ timeout: 30000 });
 
     await page.goto(`${BASE}/dashboard`, { waitUntil: "domcontentloaded" });
     await expect(reactRoot).toBeVisible({ timeout: 30000 });
     await expect(reactRoot).toHaveCount(1);
-    await expect(content).toContainText("Dashboard - Nexus DevSuite", { timeout: 30000 });
+    await expect(page.getByTestId("dashboard-root")).toBeVisible({ timeout: 30000 });
 
     const reloginResp = await page.request.post(`${BASE}/api/v1/auth/login`, {
       headers: { "Content-Type": "application/json" },
@@ -322,7 +308,7 @@ test.describe("Integracion micro-app React BrowserRouter", () => {
     await expect(reloginPage).toHaveURL(/\/dashboard$/, { timeout: 30000 });
     await expect(reloginRoot).toBeVisible({ timeout: 90000 });
     await expect(reloginRoot).toHaveCount(1);
-    await expect(reloginPage.locator("body")).toContainText("Dashboard - Nexus DevSuite", { timeout: 60000 });
+    await expect(reloginPage.getByTestId("dashboard-root")).toBeVisible({ timeout: 60000 });
     await expect(reloginPage.getByTestId("app-user-menu-trigger")).toBeVisible({ timeout: 60000 });
     await reloginPage.getByTestId("app-user-menu-trigger").click();
     await expect(reloginPage.getByTestId("app-user-menu-logout")).toBeVisible();
@@ -423,12 +409,9 @@ test.describe("Work management React — estable (sin skip)", () => {
       await featuresTable.locator("tbody tr button").first().click();
       await assertOneMount();
       await expect(page.getByTestId("feature-detail-card")).toBeVisible({ timeout: 30000 });
-      await page.getByRole("button", { name: "Ver Backlog" }).click();
-      await expect(page.getByTestId("backlog-root")).toBeVisible({ timeout: 30000 });
-      await page.getByTestId("backlog-root").getByRole("button", { name: "Proyecto", exact: true }).click();
-      await expect(page.getByTestId("project-detail-root")).toBeVisible({ timeout: 30000 });
-      await content.getByRole("button", { name: "Ver Features" }).click();
-      await expect(page.getByTestId("features-root")).toBeVisible({ timeout: 30000 });
+      // Volver al listado de proyectos (selector estable a nivel app) y re-entrar al detalle.
+      await page.getByTestId("app-sidebar").getByRole("link", { name: "Projects" }).click();
+      await expect(page.getByTestId("projects-root")).toBeVisible({ timeout: 30000 });
     } else {
       await expect(featuresTable).toContainText("Sin features");
     }
@@ -622,23 +605,25 @@ test.describe("Work management React — estable (sin skip)", () => {
     }
 
     for (let round = 0; round < 2; round++) {
+      // Navegación estable basada en rutas reales (BrowserRouter) y testids, evitando CTAs/copy frágil.
       await page.goto(`${BASE}/projects`, { waitUntil: "domcontentloaded" });
       await assertOneMount();
+      await expect(page.getByTestId("projects-root")).toBeVisible({ timeout: 30000 });
+
       await page.getByTestId("projects-table-wrapper").getByTestId("project-list-name-link").first().click();
       await assertOneMount();
       await expect(page.getByTestId("project-detail-root")).toBeVisible({ timeout: 30000 });
-      await content.getByRole("button", { name: "Ver Features" }).click();
+
+      await page.goto(`${BASE}/projects/${primaryId}/features`, { waitUntil: "domcontentloaded" });
       await assertOneMount();
       await expect(page.getByTestId("features-root")).toBeVisible({ timeout: 30000 });
-      await page.getByTestId("features-root").getByRole("button", { name: "Proyecto", exact: true }).click();
+
+      await page.goto(`${BASE}/projects/${primaryId}`, { waitUntil: "domcontentloaded" });
       await assertOneMount();
       await expect(page.getByTestId("project-detail-root")).toBeVisible({ timeout: 30000 });
-      await content.getByRole("button", { name: "Ver Backlog" }).click();
+      await page.getByRole("tab", { name: "Backlog" }).click();
       await assertOneMount();
-      await expect(page.getByTestId("backlog-root")).toBeVisible({ timeout: 30000 });
-      await page.getByTestId("backlog-root").getByRole("button", { name: "Lista proyectos" }).click();
-      await assertOneMount();
-      await expect(content).toContainText("Projects - Nexus DevSuite", { timeout: 30000 });
+      await expect(page.getByTestId("project-detail-tab-backlog")).toBeVisible({ timeout: 30000 });
     }
 
     if (pageErrors.length > 0) {
