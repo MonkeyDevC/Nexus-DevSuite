@@ -1,6 +1,7 @@
 const { test, expect } = require("@playwright/test");
 
-const BASE = "http://localhost:3000";
+const BASE =
+  process.env.FRONTEND_URL || process.env.E2E_FRONTEND_URL || "http://127.0.0.1:3000";
 const LOGIN_BODY = { email: "admin_nexus@nexus.com", password: "Zaq1029*" };
 const FAKE_UUID_STORY = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
 const FAKE_UUID_FEATURE = "3fa85f64-5717-4562-b3fc-2c963f66afa7";

@@ -3,7 +3,7 @@
  */
 const { test, expect } = require("@playwright/test");
 
-const BASE = process.env.FRONTEND_URL || process.env.E2E_FRONTEND_URL || "http://localhost:3000";
+const BASE = process.env.FRONTEND_URL || process.env.E2E_FRONTEND_URL || "http://127.0.0.1:3000";
 const LOGIN_BODY = { email: "admin_nexus@nexus.com", password: "Zaq1029*" };
 const E2E_EMPLOYEE_EMAIL = "react_e2e_employee@nexus.test";
 const E2E_EMPLOYEE_PASSWORD = "EmployeeE2e123!";

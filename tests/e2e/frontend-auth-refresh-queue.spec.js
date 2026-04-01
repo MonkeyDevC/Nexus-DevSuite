@@ -6,6 +6,9 @@ const { test, expect } = require("@playwright/test");
 // En CI se omite para mantener una única estrategia determinista: http://127.0.0.1:3000 (Express).
 test.skip(Boolean(process.env.CI), "DEV_RUNTIME_ONLY: requiere Vite (5173); se omite en CI.");
 
+const E2E_EXPRESS_ORIGIN =
+  process.env.FRONTEND_URL || process.env.E2E_FRONTEND_URL || "http://127.0.0.1:3000";
+
 function base64UrlEncode(str) {
   return Buffer.from(str)
     .toString("base64")
@@ -27,7 +30,7 @@ test.describe("frontend-react Auth: refresh queue + anti-loop", () => {
 
     await page.goto("http://localhost:5173/", { waitUntil: "domcontentloaded" });
 
-    const loginResp = await page.request.post("http://localhost:3000/api/v1/auth/login", {
+    const loginResp = await page.request.post(`${E2E_EXPRESS_ORIGIN}/api/v1/auth/login`, {
       data: { email: "admin_nexus@nexus.com", password: "Zaq1029*" },
       headers: { "Content-Type": "application/json" }
     });

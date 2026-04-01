@@ -3,7 +3,9 @@ const fs = require("fs");
 const path = require("path");
 
 const OUTPUT_DIR = path.join(process.cwd(), "screenshots", "buttons");
-const BASE = "http://localhost:3000";
+// Misma base que playwright.config + CI (127.0.0.1 evita localhost→::1 en Linux).
+const BASE =
+  process.env.FRONTEND_URL || process.env.E2E_FRONTEND_URL || "http://127.0.0.1:3000";
 const LOGIN_BODY = { email: "admin_nexus@nexus.com", password: "Zaq1029*" };
 
 function ensureDir() {

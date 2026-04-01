@@ -1,10 +1,10 @@
 /**
  * WAVE 2 — Micro-cierre UI: flujo sprint + story en React (HTTP core ya probado en integración).
- * Requisito: app en FRONTEND_URL (default http://localhost:3000) sirviendo el shell React con API.
+ * Requisito: app en FRONTEND_URL (default http://127.0.0.1:3000) sirviendo el shell React con API.
  */
 const { test, expect } = require("@playwright/test");
 
-const BASE = process.env.FRONTEND_URL || process.env.E2E_FRONTEND_URL || "http://localhost:3000";
+const BASE = process.env.FRONTEND_URL || process.env.E2E_FRONTEND_URL || "http://127.0.0.1:3000";
 const LOGIN_BODY = { email: process.env.E2E_EMAIL || "admin_nexus@nexus.com", password: process.env.E2E_PASSWORD || "Zaq1029*" };
 
 async function loginByApi(request) {

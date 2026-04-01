@@ -1,7 +1,10 @@
 const { test, expect } = require("@playwright/test");
 
-const FRONTEND_URL = process.env.FRONTEND_URL || process.env.E2E_FRONTEND_URL || "http://localhost:3000";
-const API_BASE_URL = process.env.API_BASE_URL || process.env.E2E_API_BASE_URL || "http://localhost:3000/api/v1";
+const FRONTEND_URL = process.env.FRONTEND_URL || process.env.E2E_FRONTEND_URL || "http://127.0.0.1:3000";
+const API_BASE_URL =
+  process.env.API_BASE_URL ||
+  process.env.E2E_API_BASE_URL ||
+  "http://127.0.0.1:3000/api/v1";
 const EMAIL = process.env.E2E_EMAIL || "admin_nexus@nexus.com";
 const PASSWORD = process.env.E2E_PASSWORD || "Zaq1029*";
 const ROLE = process.env.E2E_ROLE || "MASTER";
