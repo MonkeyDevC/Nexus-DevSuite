@@ -1,0 +1,96 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  width: 100%;
+}
+
+.label {
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-medium);
+  color: var(--ds-color-text-heading);
+}
+
+.field {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-md);
+  line-height: var(--ds-line-height-body);
+  color: var(--ds-color-text-heading);
+  background: var(--ds-color-surface);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  transition:
+    border-color var(--ds-duration-fast) var(--ds-ease-standard),
+    box-shadow var(--ds-duration-fast) var(--ds-ease-standard);
+}
+
+.field::placeholder {
+  color: var(--ds-color-text-muted);
+}
+
+.field:hover:not(:disabled):not(.fieldDisabled) {
+  border-color: var(--ds-color-border-subtle);
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--ds-color-primary-border);
+  box-shadow: 0 0 0 1px var(--ds-color-primary-muted);
+}
+
+.field:focus-visible {
+  outline: 2px solid var(--ds-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.fieldError {
+  border-color: var(--ds-color-error-border);
+}
+
+.fieldError:focus,
+.fieldError:focus-visible {
+  border-color: var(--ds-color-error);
+  box-shadow: 0 0 0 1px var(--ds-color-danger-muted);
+}
+
+.fieldSuccess {
+  border-color: var(--ds-color-success);
+}
+
+.fieldSuccess:focus,
+.fieldSuccess:focus-visible {
+  border-color: var(--ds-color-success);
+  box-shadow: 0 0 0 1px var(--ds-color-success-muted);
+}
+
+.fieldDisabled,
+.field:disabled {
+  cursor: not-allowed;
+  color: var(--ds-color-disabled-fg);
+  background: var(--ds-color-disabled-bg);
+  border-color: var(--ds-color-border-subtle);
+  opacity: 0.85;
+}
+
+.messageBase {
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-xs);
+  line-height: var(--ds-line-height-tight);
+}
+
+.messageError {
+  color: var(--ds-color-error);
+}
+
+.messageSuccess {
+  color: var(--ds-color-success);
+}
+
+.messageHelp {
+  color: var(--ds-color-text-muted);
+}

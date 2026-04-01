@@ -76,6 +76,10 @@ function defineUserStoryModel(sequelize) {
         type: DataTypes.UUID,
         allowNull: true
       },
+      release_id: {
+        type: DataTypes.UUID,
+        allowNull: true
+      },
       story_points: {
         type: DataTypes.INTEGER.UNSIGNED,
         allowNull: true

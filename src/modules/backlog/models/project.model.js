@@ -21,15 +21,34 @@ function defineProjectModel(sequelize) {
       },
       organization_id: {
         type: DataTypes.UUID,
-        allowNull: true
+        allowNull: false
       },
       name: {
+        type: DataTypes.STRING(255),
+        allowNull: false
+      },
+      normalized_name: {
         type: DataTypes.STRING(255),
         allowNull: false
       },
       description: {
         type: DataTypes.TEXT,
         allowNull: false
+      },
+      acceptance_criteria: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: []
+      },
+      implementation_criteria: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: []
+      },
+      evidence_markdown: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+        defaultValue: ""
       },
       status: {
         type: DataTypes.ENUM("ACTIVE", "ARCHIVED"),
@@ -43,6 +62,11 @@ function defineProjectModel(sequelize) {
       archived_at: {
         type: DataTypes.DATE,
         allowNull: true
+      },
+      version: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: false,
+        defaultValue: 1
       }
     },
     {
@@ -51,7 +75,10 @@ function defineProjectModel(sequelize) {
       timestamps: true,
       createdAt: "created_at",
       updatedAt: "updated_at",
-      indexes: [{ unique: true, fields: ["organization_id", "name"], name: "uq_projects_organization_name" }]
+      indexes: [
+        { unique: true, fields: ["organization_id", "normalized_name"], name: "uq_projects_organization_normalized_name" },
+        { unique: true, fields: ["organization_id", "number"], name: "uq_projects_organization_number" }
+      ]
     }
   );
 }

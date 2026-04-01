@@ -32,28 +32,53 @@ async function resolveDelivery({ projectId, deliveryId, organizationId }) {
 
 async function resolveChain(delivery, organizationId) {
   if (!delivery) return { delivery: null, task: null, workOrder: null, story: null, feature: null, release: null };
-  const { Task, WorkOrder, UserStory, Feature, Release, ReleaseFeature } = getModels();
+  const { Task, WorkOrder, UserStory, Feature, Release, Project } = getModels();
 
   const task = await Task.findOne({ where: { id: delivery.task_id, organization_id: organizationId } }).catch(() => null);
-  const story = await UserStory.findOne({ where: { id: delivery.user_story_id, organization_id: organizationId } }).catch(() => null);
+
+  let story = null;
+  if (delivery.user_story_id) {
+    story = await UserStory.findOne({
+      where: { id: delivery.user_story_id },
+      include: [
+        {
+          model: Feature,
+          as: "feature",
+          required: true,
+          include: [{ model: Project, as: "project", attributes: ["id", "organization_id"], required: true, where: { organization_id: organizationId } }]
+        }
+      ]
+    }).catch(() => null);
+  }
 
   const storyPlain = story ? (story.toJSON ? story.toJSON() : story) : null;
   const featureId = storyPlain ? storyPlain.feature_id : null;
-  const feature = featureId ? await Feature.findOne({ where: { id: featureId, organization_id: organizationId } }).catch(() => null) : null;
+  const feature =
+    featureId && storyPlain && storyPlain.feature
+      ? typeof storyPlain.feature.toJSON === "function"
+        ? storyPlain.feature.toJSON()
+        : storyPlain.feature
+      : featureId
+        ? await Feature.findOne({
+            where: { id: featureId },
+            include: [{ model: Project, as: "project", where: { organization_id: organizationId }, required: true }]
+          }).catch(() => null)
+        : null;
+  const featurePlain = feature && typeof feature.toJSON === "function" ? feature.toJSON() : feature;
 
   const workOrderId = delivery.work_order_id || (task ? (task.work_order_id || null) : null);
   const workOrder = workOrderId ? await WorkOrder.findOne({ where: { id: workOrderId, organization_id: organizationId } }).catch(() => null) : null;
 
-  // Release: se resuelve por ReleaseFeature (release_features) desde la feature de la story.
+  /**
+   * Release (WAVE 4.5): precedencia canónica — story.release_id > feature.release_id (legacy lectura).
+   * Si ambos existen y difieren, prevalece story.release_id.
+   */
   let release = null;
-  if (featureId) {
-    const rf = await ReleaseFeature.findOne({
-      where: { feature_id: featureId },
-      order: [["created_at", "DESC"]]
-    }).catch(() => null);
-    if (rf && rf.release_id) {
-      release = await Release.findOne({ where: { id: rf.release_id, organization_id: organizationId } }).catch(() => null);
-    }
+  const storyReleaseId = storyPlain && storyPlain.release_id != null ? String(storyPlain.release_id) : null;
+  const featureReleaseId = featurePlain && featurePlain.release_id != null ? String(featurePlain.release_id) : null;
+  const releaseIdToLoad = storyReleaseId || featureReleaseId || null;
+  if (releaseIdToLoad) {
+    release = await Release.findOne({ where: { id: releaseIdToLoad, organization_id: organizationId } }).catch(() => null);
   }
 
   return {
@@ -61,20 +86,29 @@ async function resolveChain(delivery, organizationId) {
     task: task ? (task.toJSON ? task.toJSON() : task) : null,
     workOrder: workOrder ? (workOrder.toJSON ? workOrder.toJSON() : workOrder) : null,
     story: storyPlain,
-    feature: feature ? (feature.toJSON ? feature.toJSON() : feature) : null,
+    feature: featurePlain,
     release: release ? (release.toJSON ? release.toJSON() : release) : null
   };
 }
 
 async function computeReleaseCounts(release, organizationId) {
-  const { ReleaseFeature, UserStory } = getModels();
+  void organizationId;
+  const { UserStory } = getModels();
   if (!release || !release.id) return { featuresCount: null, storiesCount: null, featureIds: [] };
-  const rows = await ReleaseFeature.findAll({ where: { release_id: release.id }, attributes: ["feature_id"] }).catch(() => []);
-  const featureIds = rows.map((r) => (r && r.feature_id ? r.feature_id : null)).filter(Boolean);
+  const sequelize = UserStory.sequelize;
+  const rid = release.id;
+
+  const storiesCount = await UserStory.count({ where: { release_id: rid } }).catch(() => null);
+
+  const distinctRows = await sequelize
+    .query(`SELECT DISTINCT feature_id AS fid FROM user_stories WHERE release_id = :rid AND feature_id IS NOT NULL`, {
+      replacements: { rid },
+      type: sequelize.QueryTypes.SELECT
+    })
+    .catch(() => []);
+  const featureIds = (distinctRows || []).map((r) => r.fid).filter(Boolean);
   const featuresCount = featureIds.length;
-  const storiesCount = featureIds.length
-    ? await UserStory.count({ where: { organization_id: organizationId, feature_id: featureIds } }).catch(() => null)
-    : 0;
+
   return { featuresCount, storiesCount, featureIds };
 }
 
@@ -239,6 +273,8 @@ async function getExecutiveData({ projectId, deliveryId, organizationId }) {
 }
 
 module.exports = {
-  getExecutiveData
+  getExecutiveData,
+  resolveChain,
+  computeReleaseCounts
 };
 

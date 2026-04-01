@@ -97,6 +97,12 @@ const env = {
     // En desarrollo: mínimo 1000 para evitar bloqueos durante pruebas locales
     return isDevelopment && raw < 1000 ? 1000 : raw;
   })(),
+  /**
+   * Herramientas peligrosas de desarrollo (hard gate).
+   * - Solo se montan rutas si NODE_ENV=development
+   * - Además requiere esta flag explícita para evitar borrados accidentales
+   */
+  DEV_DATA_RESET_ENABLED: asBoolean(process.env.DEV_DATA_RESET_ENABLED, false),
   SHUTDOWN_TIMEOUT_MS: asNumber(process.env.SHUTDOWN_TIMEOUT_MS, 10000),
   SUBDOMAIN_BASE: getEnvValue("SUBDOMAIN_BASE") || ""
 };

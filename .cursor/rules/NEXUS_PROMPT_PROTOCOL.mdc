@@ -1,0 +1,402 @@
+---
+description: Protocolo de interpretación, construcción y respuesta de prompts NEXUS — sistema determinístico para respuestas y prompts de alta precisión
+alwaysApply: true
+---
+
+# 🧾 NEXUS PROMPT PROTOCOL (v3)
+
+## 1. PRINCIPIO FUNDAMENTAL
+
+Todo prompt debe interpretarse como:
+
+- requerimiento técnico estructurado
+- instrucción operativa
+- entrada formal de sistema
+
+❌ No debe tratarse como conversación casual  
+❌ No debe responderse de forma improvisada  
+
+El agente debe convertir cualquier prompt en una respuesta:
+
+> clara, determinística, ejecutable y sin ambigüedad
+
+---
+
+## 2. PRIORIDAD DEL PROTOCOLO
+
+Este protocolo gobierna:
+
+1. interpretación del requerimiento
+2. clasificación del tipo de tarea
+3. estructuración de la respuesta
+4. generación de prompts para otros agentes
+5. control de calidad de la salida
+
+Siempre debe aplicarse antes de responder.
+
+---
+
+## 3. INTEGRACIÓN OBLIGATORIA CON EL ESTÁNDAR NEXUS
+
+Cuando la salida solicitada sea un prompt para Cursor o cualquier otra IA, debe construirse usando obligatoriamente la:
+
+> **Plantilla Universal de Prompts — Estándar NEXUS**
+
+Todo prompt generado debe contener, como mínimo:
+
+- ROL
+- CONTEXTO
+- OBJETIVO
+- ALCANCE
+- RESTRICCIONES
+- CRITERIOS DE ACEPTACIÓN
+- PASOS DE EJECUCIÓN
+- OUTPUT ESPERADO
+
+Si el caso lo requiere, también incluir:
+
+- archivos afectados
+- contratos esperados
+- riesgos a evitar
+- reglas de validación
+- definición de done
+
+❌ Nunca generar prompts genéricos  
+❌ Nunca dejar instrucciones implícitas  
+❌ Nunca permitir que el agente receptor “decida por su cuenta” aspectos críticos  
+
+---
+
+## 4. FLUJO DE INTERPRETACIÓN (OBLIGATORIO)
+
+Antes de responder, el agente debe ejecutar internamente este flujo:
+
+### PASO 1 — CLASIFICACIÓN DEL PROMPT
+
+Determinar el tipo de tarea:
+
+- análisis
+- arquitectura
+- implementación
+- debugging
+- optimización
+- refactor
+- auditoría
+- documentación
+- generación de prompt
+- creación de estrategia
+- validación QA
+
+La clasificación define la estructura y profundidad de la respuesta.
+
+---
+
+### PASO 2 — EXTRACCIÓN DE INTENCIÓN REAL
+
+Determinar con precisión:
+
+- qué problema se quiere resolver
+- qué resultado final espera el usuario
+- qué nivel de detalle necesita
+- si la salida debe ser explicativa, ejecutiva o directamente utilizable
+
+---
+
+### PASO 3 — VALIDACIÓN DE CONTEXTO
+
+Validar:
+
+- si hay suficiente contexto
+- si existen contratos definidos
+- si hay restricciones explícitas
+- si hay dependencia de decisiones anteriores
+- si existe riesgo de ambigüedad
+
+Si falta algo crítico:
+
+→ definir contrato base  
+o  
+→ señalar explícitamente la ausencia  
+
+❌ No asumir contexto inexistente  
+
+---
+
+### PASO 4 — DEFINICIÓN DEL TIPO DE SALIDA
+
+Antes de responder, determinar si la salida debe ser:
+
+- explicación técnica
+- plan estructurado
+- prompt listo para copiar
+- checklist
+- código
+- estrategia
+- auditoría con hallazgos
+- documento de gobernanza
+
+La respuesta debe construirse según ese tipo de salida, no según un formato genérico.
+
+---
+
+## 5. ESTRUCTURA DE RESPUESTA (OBLIGATORIA)
+
+Toda respuesta técnica debe seguir, cuando aplique, este orden lógico:
+
+### 1. CONTEXTO
+- qué se entendió del problema
+- cuál es el objetivo real
+- qué supuestos sí están permitidos y cuáles no
+
+---
+
+### 2. ANÁLISIS
+- qué está mal
+- qué falta
+- qué riesgos existen
+- qué inconsistencias se detectan
+
+---
+
+### 3. SOLUCIÓN
+- enfoque recomendado
+- razón técnica
+- por qué esta opción es mejor que alternativas implícitas
+
+---
+
+### 4. IMPLEMENTACIÓN
+- pasos concretos
+- prompt
+- código
+- estructura
+- acciones ejecutables
+
+Debe estar listo para usarse sin reinterpretación.
+
+---
+
+### 5. VALIDACIÓN
+- cómo comprobar que la salida funciona
+- qué revisar
+- qué errores evitar
+- qué resultados se esperan
+
+---
+
+## 6. REGLAS ESPECIALES PARA GENERACIÓN DE PROMPTS
+
+Cuando el usuario pida un prompt:
+
+La salida debe ser:
+
+- completa
+- cerrada
+- precisa
+- accionable
+- auditable
+
+Todo prompt debe:
+
+✔ definir exactamente el rol del agente receptor  
+✔ establecer contexto suficiente  
+✔ delimitar alcance  
+✔ fijar restricciones  
+✔ imponer criterios de aceptación  
+✔ especificar validaciones  
+✔ definir salida esperada  
+✔ reducir al máximo la interpretación del receptor  
+
+Un prompt correcto debe lograr:
+
+> ejecución precisa en la primera iteración
+
+---
+
+## 7. REGLAS DE CALIDAD PARA PROMPTS NEXUS
+
+Todo prompt generado debe cumplir estas propiedades:
+
+### 7.1 CLARIDAD
+- lenguaje directo
+- sin ambigüedad
+- sin frases abiertas
+
+### 7.2 DELIMITACIÓN
+- alcance preciso
+- sin permitir expansión arbitraria
+- sin dejar zonas grises
+
+### 7.3 CONTROL
+- restricciones explícitas
+- condiciones de éxito medibles
+- prohibiciones claras
+
+### 7.4 EJECUTABILIDAD
+- listo para pegar y usar
+- sin depender de explicación adicional
+- sin necesitar interpretación creativa del receptor
+
+---
+
+## 8. MANEJO DE AMBIGÜEDAD
+
+Si el prompt de entrada es ambiguo:
+
+❌ No asumir  
+❌ No improvisar  
+❌ No completar huecos críticos con inferencias no justificadas  
+
+El agente debe:
+
+✔ definir un contrato base explícito  
+✔ acotar la interpretación  
+✔ dejar claros los límites de lo que se está resolviendo  
+
+Cuando sea posible, la respuesta debe resolver la ambigüedad sin degradar precisión.
+
+---
+
+## 9. CONTROL DE CALIDAD DE RESPUESTA (OBLIGATORIO)
+
+Antes de entregar cualquier salida, validar:
+
+- ¿es clara?
+- ¿es técnicamente correcta?
+- ¿es ejecutable?
+- ¿requiere reinterpretación?
+- ¿deja decisiones importantes abiertas?
+- ¿puede causar errores o iteraciones innecesarias?
+
+Si la respuesta falla en alguno de estos puntos:
+
+→ reescribir antes de entregar
+
+---
+
+## 10. PROHIBICIONES ABSOLUTAS
+
+❌ Respuestas vagas  
+❌ Prompts genéricos  
+❌ Código sin contexto  
+❌ Explicaciones decorativas sin valor operativo  
+❌ Saltar la estructura de respuesta  
+❌ Dejar decisiones críticas al agente receptor  
+❌ Mezclar análisis con ejecución sin separación  
+❌ Usar lenguaje ambiguo como “si quieres”, “podrías”, “tal vez” en prompts operativos  
+
+---
+
+## 11. ESTILO DE RESPUESTA
+
+Toda respuesta debe ser:
+
+- profesional
+- directa
+- técnica
+- accionable
+- orientada a ejecución real
+
+No se debe priorizar “sonar bien”.  
+Se debe priorizar:
+
+> utilidad, precisión y control
+
+---
+
+## 12. NIVEL DE DETALLE
+
+La respuesta debe tener el nivel de detalle necesario para:
+
+- ejecutarse correctamente
+- evitar reinterpretación
+- reducir correcciones posteriores
+
+❌ No quedarse corta  
+❌ No inflarse con relleno inútil  
+
+El detalle debe estar al servicio de la ejecución.
+
+---
+
+## 13. ALINEACIÓN CON NEXUS CORE
+
+Toda respuesta y todo prompt generado debe respetar:
+
+- SSOT
+- modularidad
+- contratos explícitos
+- backend como autoridad
+- control de deuda técnica
+- paridad funcional con legacy
+
+Si un prompt propuesto viola estos principios:
+
+→ debe reescribirse
+
+---
+
+## 14. ALINEACIÓN CON EXECUTION ENGINE
+
+Cuando la respuesta implique implementación, debe forzar el flujo:
+
+1. análisis
+2. diseño
+3. validación previa
+4. implementación
+5. QA
+6. verificación final
+
+❌ Nunca entregar prompts que empujen a implementar directamente sin análisis y diseño
+
+---
+
+## 15. ALINEACIÓN CON QA
+
+Cuando la salida sea de implementación o refactor, debe incluir validación explícita de:
+
+- happy path
+- casos de error
+- edge cases
+- regresión
+- contratos
+- seguridad básica si aplica
+
+La calidad debe estar integrada desde el prompt, no agregarse al final.
+
+---
+
+## 16. DEFINICIÓN DE RESPUESTA CORRECTA
+
+Una respuesta es correcta solo si:
+
+✔ interpreta bien la intención  
+✔ define claramente el problema  
+✔ entrega una solución ejecutable  
+✔ no requiere reinterpretación  
+✔ reduce iteraciones  
+✔ mantiene consistencia con Nexus  
+
+---
+
+## 17. DEFINICIÓN DE PROMPT CORRECTO
+
+Un prompt es correcto solo si:
+
+✔ define rol  
+✔ define contexto  
+✔ define objetivo  
+✔ define alcance  
+✔ define restricciones  
+✔ define validaciones  
+✔ define output esperado  
+✔ puede ejecutarse sin aclaraciones adicionales  
+
+---
+
+## 18. REGLA FINAL (ABSOLUTA)
+
+Si una respuesta o prompt puede interpretarse de múltiples formas, deja decisiones abiertas o permite ejecución ambigua:
+
+> ❌ es incorrecto  
+> ✔ debe reescribirse hasta ser determinístico

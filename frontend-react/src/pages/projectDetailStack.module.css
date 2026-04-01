@@ -1,0 +1,236 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--ds-z-modal);
+  background: var(--ds-color-modal-backdrop);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  /* Más espacio útil para contenido denso (workspace). */
+  padding: var(--ds-space-4) var(--ds-space-4) var(--ds-space-6);
+  overflow-y: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stackWrap {
+  position: relative;
+  width: 100%;
+  max-width: min(92rem, 96vw);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.card {
+  box-sizing: border-box;
+  width: 100%;
+  background: var(--ds-color-surface);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  box-shadow: var(--ds-shadow-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: min(94vh, 64rem);
+}
+
+/* Dentro de HierarchyOverlayStack: la escena fija la altura; la card llena la capa absoluta. */
+.cardStackLayer {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+}
+
+.header {
+  padding: var(--ds-space-4) var(--ds-space-4) var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+}
+
+.breadcrumbRow {
+  margin-bottom: var(--ds-space-2);
+  font-size: var(--ds-font-size-sm);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--ds-font-family-heading);
+  font-size: var(--ds-font-size-xl);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+  line-height: var(--ds-line-height-tight);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-1);
+  padding: 0 var(--ds-space-4);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-surface-raised);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-3) var(--ds-space-3);
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--ds-color-text-muted);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-medium);
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--ds-color-text-heading);
+}
+
+.tabActive {
+  color: var(--ds-color-primary);
+  border-bottom-color: var(--ds-color-primary);
+}
+
+.body {
+  padding: var(--ds-space-4);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: var(--ds-space-4);
+  margin-bottom: var(--ds-space-4);
+}
+
+.statLabel {
+  margin: 0 0 var(--ds-space-1);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ds-color-text-muted);
+}
+
+.textBlock {
+  margin: 0 0 var(--ds-space-4);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text);
+  line-height: var(--ds-line-height-body);
+}
+
+.textareaReadonly {
+  width: 100%;
+  min-height: 5rem;
+  padding: var(--ds-space-3);
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-color-border);
+  background: var(--ds-color-surface-raised);
+  color: var(--ds-color-text);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  resize: vertical;
+}
+
+.navModules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+  margin-top: var(--ds-space-4);
+  padding-top: var(--ds-space-4);
+  border-top: 1px solid var(--ds-color-border-subtle);
+}
+
+.actionsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+  margin-top: var(--ds-space-4);
+  justify-content: flex-end;
+}
+
+/* Columna + stretch: el slot de cabecera ocupa todo el ancho de la card (evita hijo “al ancho del contenido”). */
+.stackHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-surface-raised);
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.stackTitle {
+  margin: 0;
+  font-size: var(--ds-font-size-md);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+}
+
+.stackBody {
+  padding: var(--ds-space-4);
+  max-height: min(50vh, 26rem);
+  overflow-y: auto;
+}
+
+.storyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-color-border);
+  margin-bottom: var(--ds-space-2);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  background: var(--ds-color-surface);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text);
+}
+
+.storyRow:hover {
+  background: var(--ds-color-surface-raised);
+}
+
+.loading {
+  padding: var(--ds-space-4);
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-sm);
+}
+
+.error {
+  padding: var(--ds-space-3);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-danger-muted);
+  color: var(--ds-color-text);
+  font-size: var(--ds-font-size-sm);
+}
+
+.footerBar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-4);
+  border-top: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-surface-raised);
+  flex-shrink: 0;
+}
+
+/* Fila única alineada a la derecha dentro del footer (acciones secundarias overlay). */
+.footerActionsEnd {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+

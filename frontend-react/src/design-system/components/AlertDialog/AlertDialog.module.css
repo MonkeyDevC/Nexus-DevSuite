@@ -1,0 +1,125 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+}
+
+.topRow {
+  display: flex;
+  gap: var(--ds-space-4);
+  align-items: flex-start;
+}
+
+/*
+ * Override localizado frente a `public/css/design-system.css` → `.lucide { width/height: 16px; … }`
+ * y cualquier patrón `stroke: currentColor` en iconos Lucide. Solo aplica bajo [data-nexus-ds-alert-icon].
+ */
+.iconWrap[data-nexus-ds-alert-icon] :global(svg.lucide) {
+  box-sizing: border-box;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  display: block !important;
+  flex-shrink: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  overflow: visible !important;
+}
+
+/* Wrapper 44×44: solo layout, centrado, radius, fondo y borde tonal (sin color heredado para el SVG). */
+.iconWrap {
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  line-height: 0;
+  border: 1px solid transparent;
+}
+
+/* Tamaño/display del SVG: sin stroke ni color aquí — lo fija Lucide vía props en JSX. */
+.iconSvg {
+  display: block;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.iconToneInfo {
+  background: var(--ds-color-primary-muted);
+  border-color: rgba(124, 140, 255, 0.35);
+}
+
+.iconToneQuestion {
+  background: var(--ds-color-primary-muted);
+  border-color: rgba(124, 140, 255, 0.3);
+}
+
+.iconToneError {
+  background: var(--ds-color-danger-muted);
+  border-color: rgba(249, 112, 102, 0.35);
+}
+
+.iconToneSuccess {
+  background: var(--ds-color-success-muted);
+  border-color: rgba(60, 203, 127, 0.35);
+}
+
+.iconToneWarning {
+  background: var(--ds-color-warning-muted);
+  border-color: rgba(251, 191, 36, 0.32);
+}
+
+.textBlock {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--ds-font-size-lg);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+  line-height: var(--ds-line-height-tight);
+  letter-spacing: 0.01em;
+}
+
+.description {
+  margin: var(--ds-space-2) 0 0;
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-muted);
+  line-height: 1.6;
+  white-space: pre-line;
+  max-width: 46ch;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ds-space-2);
+  margin-top: var(--ds-space-2);
+  padding-top: var(--ds-space-4);
+  border-top: 1px solid var(--ds-color-border-subtle);
+}
+
+.dialogWide {
+  max-width: 34rem;
+}
+
+.alertDialogDialog {
+  border-radius: calc(var(--ds-radius-lg) + 0.25rem);
+  border-color: rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, var(--ds-color-surface) 0%, var(--ds-color-surface-raised) 100%);
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, 0.35),
+    0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.alertDialogBody {
+  padding: var(--ds-space-6);
+}

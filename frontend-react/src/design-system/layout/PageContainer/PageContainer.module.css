@@ -1,0 +1,15 @@
+.outer {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--ds-space-4) var(--ds-space-4) var(--ds-space-8);
+}
+
+.inner {
+  width: 100%;
+  max-width: var(--ds-layout-page-max-width);
+  margin-inline: auto;
+}
+
+.compact {
+  padding-block: var(--ds-space-3);
+}

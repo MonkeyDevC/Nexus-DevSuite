@@ -30,6 +30,16 @@ function defineFeatureModel(sequelize) {
         type: DataTypes.TEXT,
         allowNull: false
       },
+      acceptance_criteria: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: []
+      },
+      implementation_criteria: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: []
+      },
       status: {
         type: DataTypes.ENUM("DRAFT", "APPROVED", "IN_PROGRESS", "DONE", "ARCHIVED"),
         allowNull: false,

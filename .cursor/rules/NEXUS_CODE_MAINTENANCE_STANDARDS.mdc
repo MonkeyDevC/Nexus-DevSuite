@@ -1,0 +1,601 @@
+---
+description: Estándar obligatorio de creación, edición y mantenimiento de código (legibilidad, capas, nombres, React, HTTP, pruebas)
+alwaysApply: true
+---
+
+# NEXUS — Archivo de memoria de creación y mantenimiento de código
+
+## Relación con otras reglas
+
+El **principio rector**, la **regla de mejora al tocar código existente** y el **criterio final de calidad** en cada tarea están en `NEXUS_CODE_STANDARDS_MEMORY.mdc` (`alwaysApply: true`). Este documento amplía con arquitectura por capas, HTTP, React, validación y pruebas.
+
+## Propósito
+
+Este documento define el estándar obligatorio para toda creación, edición, refactorización y mantenimiento de código dentro del proyecto. Su objetivo es asegurar que el sistema sea mantenible por humanos, comprensible sin depender de IA, auditable, extensible y estable a largo plazo.
+
+Este estándar aplica a:
+
+* código nuevo
+* código editado
+* refactors
+* pruebas
+* documentación técnica embebida en el código
+* contratos entre módulos
+* nombres de archivos, funciones, variables, clases y componentes
+
+---
+
+## Principios rectores
+
+### 1. El código debe ser legible primero
+
+La legibilidad tiene prioridad sobre la "ingeniería creativa", la compacidad extrema y los atajos sintácticos.
+
+Reglas:
+
+* escribir código para que un humano pueda entenderlo rápidamente
+* evitar clever code
+* evitar expresiones compactas difíciles de mantener
+* preferir claridad sobre brevedad
+
+### 2. El código debe expresar intención
+
+Cada bloque debe responder con claridad:
+
+* qué hace
+* por qué existe
+* qué contrato cumple
+* qué no está permitido hacer
+
+### 3. El código debe ser mantenible por capas
+
+Separar responsabilidades de forma estricta:
+
+* UI / presentación
+* estado local
+* acceso HTTP / infraestructura
+* normalización / transformación
+* validaciones estructurales
+* validaciones de dominio
+* reglas de negocio
+
+### 4. Nada implícito si es importante
+
+Toda regla importante debe estar explícita:
+
+* en nombres
+* en contratos
+* en comentarios de arquitectura
+* en validaciones
+
+### 5. La consistencia importa más que el estilo individual
+
+Es mejor un estilo uniforme que varios estilos "buenos" mezclados.
+
+---
+
+## Reglas de arquitectura
+
+### 1. Separación de responsabilidades
+
+Nunca mezclar en el mismo lugar:
+
+* lógica de UI con lógica de negocio
+* acceso a red con renderizado
+* validaciones de dominio con componentes visuales
+* normalización de datos con eventos de interfaz si puede separarse
+
+### 2. El código debe tener capas claras
+
+Orden preferido:
+
+1. contratos / tipos implícitos / shape esperado
+2. infraestructura (HTTP, cache, adapters)
+3. servicios de dominio
+4. páginas / casos de uso
+5. componentes UI puros
+
+### 3. Componentes UI deben ser tontos
+
+Los componentes visuales deben:
+
+* recibir props
+* renderizar
+* emitir eventos
+
+No deben:
+
+* llamar API
+* resolver dominio
+* contener reglas de negocio críticas
+* decidir navegación compleja
+
+### 4. Servicios deben encapsular infraestructura
+
+Los servicios deben:
+
+* centralizar llamadas HTTP
+* centralizar acceso a contratos
+* evitar duplicación de endpoints o headers
+
+No deben:
+
+* mezclar decisiones de UI
+* mutar estado visual
+* renderizar mensajes de interfaz
+
+### 5. Páginas coordinan, no improvisan
+
+Las páginas pueden:
+
+* orquestar fetch
+* manejar loading/error/empty
+* conectar servicios con UI
+* validar contexto de ruta
+
+No deben:
+
+* duplicar lógica de infraestructura
+* duplicar normalizadores compartidos sin justificación
+* convertirse en archivos gigantes
+
+---
+
+## Reglas de nombres
+
+### 1. Variables
+
+Las variables deben tener nombres que indiquen propósito real.
+
+Buenas prácticas:
+
+* `projectId`
+* `normalizedStory`
+* `isLoading`
+* `hasInvalidContext`
+* `selectedFeatureId`
+* `requestPayload`
+* `responseData`
+
+Evitar:
+
+* `data`
+* `item`
+* `tmp`
+* `value`
+* `x`
+* `obj`
+* `res2`
+* `newDataFinal`
+
+### 2. Funciones
+
+Los nombres deben expresar acción + intención.
+
+Ejemplos correctos:
+
+* `normalizeStory`
+* `fetchProjectDetail`
+* `validateRouteProjectContext`
+* `buildKanbanColumns`
+* `mapSeverityToBadgeVariant`
+* `createFeaturePayload`
+
+Evitar nombres ambiguos:
+
+* `handleData`
+* `process`
+* `doStuff`
+* `fixInfo`
+* `updateThings`
+
+### 3. Booleanos
+
+Todo booleano debe leerse como una afirmación.
+
+Correcto:
+
+* `isAuthenticated`
+* `hasValidProjectContext`
+* `canRenderBoard`
+* `shouldRetryRequest`
+
+Incorrecto:
+
+* `auth`
+* `valid`
+* `renderFlag`
+* `retryMaybe`
+
+### 4. Componentes
+
+Los componentes deben nombrarse por responsabilidad real.
+
+Correcto:
+
+* `ProjectDetailPage`
+* `SprintKanbanBoard`
+* `IncidentSummaryCard`
+* `FeatureListTable`
+
+Evitar:
+
+* `DataView`
+* `MainCard`
+* `GenericBlock`
+* `StuffPanel`
+
+### 5. Archivos
+
+El nombre del archivo debe reflejar exactamente lo que contiene.
+
+Correcto:
+
+* `StoryDetail.jsx`
+* `releaseApiClient.js`
+* `normalizeFeature.js`
+* `buildSprintColumns.js`
+
+Evitar:
+
+* `helpers.js`
+* `misc.js`
+* `utils2.js`
+* `commonStuff.js`
+
+---
+
+## Reglas de estructura de código
+
+### 1. Funciones pequeñas y enfocadas
+
+Cada función debe hacer una sola cosa bien.
+
+Señales de problema:
+
+* más de una responsabilidad clara
+* múltiples bloques `if/else` sin separación
+* mezcla de fetch + parse + validación + render mapping
+
+### 2. Reducir nesting profundo
+
+Máximo esfuerzo por evitar anidaciones excesivas.
+
+Preferir:
+
+* returns tempranos
+* guard clauses
+* extracción de funciones
+
+### 3. Evitar duplicación
+
+Antes de duplicar, preguntar:
+
+* ¿es duplicación accidental?
+* ¿es una variación real del dominio?
+* ¿vale la pena centralizar ahora o aún no?
+
+No sobre-extraer prematuramente.
+
+### 4. Mantener archivos razonables
+
+Si un archivo empieza a mezclar:
+
+* fetch
+* normalización
+* mapping de badges
+* armado de tabla
+* navegación
+* validaciones de dominio
+
+Entonces probablemente debe separarse.
+
+### 5. Orden interno recomendado en archivos
+
+Para páginas/componentes complejos:
+
+1. imports
+2. constantes de configuración
+3. helpers puros
+4. componente principal
+5. hooks/useEffect
+6. handlers
+7. cálculos derivados
+8. render
+
+---
+
+## Reglas de documentación en código
+
+### 1. Comentar por qué, no qué
+
+No escribir comentarios inútiles.
+
+Evitar:
+
+* `// incrementa contador`
+* `// hace fetch`
+* `// renderiza tabla`
+
+Preferir:
+
+* `// El backend no expone project_id en este payload, por eso se resuelve vía feature_id`
+* `// Se descarta la entidad si no pertenece al contexto de la URL para evitar render cruzado`
+
+### 2. Documentar contratos no obvios
+
+Siempre documentar:
+
+* workarounds de backend
+* decisiones temporales
+* deuda técnica controlada
+* invariantes de dominio
+* fallbacks no triviales
+
+### 3. Usar JSDoc donde aporte valor
+
+Aplicar JSDoc en:
+
+* servicios
+* funciones de normalización
+* helpers complejos
+* adapters
+* contratos de retorno
+
+Ejemplo recomendado:
+
+```js
+/**
+ * Normaliza una story para consumo de UI.
+ * Retorna null si el payload no cumple invariantes mínimos.
+ * @param {object} rawStory
+ * @param {string} projectId
+ * @returns {object|null}
+ */
+```
+
+### 4. No comentar para ocultar mal diseño
+
+Si un bloque necesita demasiada explicación, primero evaluar si debe refactorizarse.
+
+---
+
+## Reglas de validación
+
+### 1. Validar temprano
+
+Todo dato externo debe validarse antes de usarse.
+
+Aplicar a:
+
+* params de ruta
+* payloads backend
+* formularios
+* respuestas parciales
+* ids
+
+### 2. Separar validación estructural y de dominio
+
+Validación estructural:
+
+* existe `id`
+* string no vacío
+* UUID válido
+* array esperado
+
+Validación de dominio:
+
+* la entidad pertenece al `projectId`
+* la story pertenece al sprint correcto
+* el usuario tiene permisos para ver la vista
+
+### 3. No renderizar datos inválidos
+
+Regla obligatoria:
+
+* si no cumple validación mínima, no se renderiza
+* usar fallback claro
+
+---
+
+## Reglas de manejo de errores
+
+### 1. Errores deben ser explícitos
+
+Diferenciar claramente:
+
+* error técnico
+* not found
+* mismatch de contexto
+* empty state
+
+### 2. No esconder errores con fallbacks ambiguos
+
+No convertir cualquier fallo en "No hay datos".
+
+### 3. Mantener mensajes UX consistentes
+
+Mensajes base recomendados:
+
+* `Cargando...`
+* `Error cargando datos`
+* `No hay datos disponibles`
+* `Elemento no encontrado`
+* `Elemento no pertenece a este contexto`
+
+---
+
+## Reglas HTTP e integración con backend
+
+### 1. Un solo contrato HTTP oficial
+
+Toda llamada al backend debe pasar por la misma estrategia oficial.
+
+### 2. Nunca duplicar lógica de auth/refresh
+
+No permitir:
+
+* headers manuales repetidos
+* refresh fuera del cliente HTTP oficial
+* múltiples políticas de retry
+
+### 3. No transformar Response Layer v1 arbitrariamente
+
+El contrato debe mantenerse:
+
+```js
+{ success, data, error, meta }
+```
+
+### 4. Los servicios no deben inventar backend
+
+Si falta endpoint:
+
+* reportar GAP
+* no simular comportamiento crítico
+
+---
+
+## Reglas para React
+
+### 1. Hooks con intención clara
+
+* un `useEffect` por responsabilidad dominante
+* cleanup obligatorio en efectos async
+* evitar efectos que mezclen muchas cosas
+
+### 2. Evitar setState inseguro
+
+En async:
+
+* usar bandera `cancelled`
+* evitar actualizar después de unmount
+
+### 3. Derivar antes que duplicar estado
+
+No guardar en estado algo que puede derivarse de props o estado base, salvo que mejore claridad o performance de forma clara.
+
+### 4. No usar efectos para resolver todo
+
+Si algo puede resolverse con función pura, no meterlo en `useEffect`.
+
+### 5. Componentes predecibles
+
+Los renders deben ser deterministas.
+
+---
+
+## Reglas de pruebas
+
+### 1. Toda funcionalidad importante debe ser verificable
+
+Mínimo esperado:
+
+* lint
+* build
+* E2E o validación funcional según criticidad
+
+### 2. Los tests deben validar comportamiento real
+
+No basarlos en implementaciones frágiles.
+
+### 3. Usar selectores deterministas
+
+Preferir:
+
+* `data-testid`
+* roles accesibles claros
+
+Evitar:
+
+* texto ambiguo
+* selectores demasiado frágiles
+
+### 4. No permitir tests que "pasan por suerte"
+
+* no usar waits arbitrarios
+* no depender del timing si puede depender del DOM
+
+---
+
+## Reglas de refactor
+
+### 1. Refactor sin cambio funcional debe seguir siéndolo
+
+Si es refactor, no meter cambios de negocio escondidos.
+
+### 2. Todo refactor debe reducir deuda, no moverla
+
+Antes de refactorizar, responder:
+
+* ¿qué simplifica?
+* ¿qué elimina?
+* ¿qué riesgo reduce?
+
+### 3. Si el refactor amplía alcance, detenerse
+
+Primero reportar GAP, no invadir otras capas.
+
+---
+
+## Reglas de mantenimiento evolutivo
+
+### 1. Deuda técnica debe documentarse
+
+Toda deuda aceptada debe quedar explícita en comentario o documento técnico.
+
+### 2. Soluciones temporales deben etiquetarse como temporales
+
+Ejemplo:
+
+* workaround por contrato incompleto de backend
+* caché temporal hasta endpoint específico
+
+### 3. Todo cambio debe dejar el código igual o mejor
+
+Regla obligatoria:
+
+* no empeorar nombres
+* no empeorar estructura
+* no dejar "parches mudos"
+
+---
+
+## Regla de revisión antes de dar por cerrado un cambio
+
+Antes de cerrar cualquier implementación, verificar:
+
+### Checklist obligatorio
+
+* [ ] Los nombres son claros y consistentes
+* [ ] No hay variables ambiguas
+* [ ] No hay lógica de negocio en UI base
+* [ ] No hay fetch/Auth duplicado
+* [ ] No hay render con datos no normalizados
+* [ ] Los errores distinguen contexto, not found y fallo técnico
+* [ ] Hay validación de parámetros/ruta
+* [ ] Hay cleanup async si aplica
+* [ ] El código tiene comentarios solo donde aportan valor
+* [ ] El cambio puede ser entendido por un humano sin depender de IA
+
+---
+
+## Estándar obligatorio para agentes y desarrolladores
+
+Todo agente o desarrollador que trabaje en este proyecto debe cumplir:
+
+* escribir código legible primero
+* preservar arquitectura por capas
+* no improvisar contratos
+* no ocultar deuda técnica
+* no cerrar tareas con resultados parciales ambiguos
+* priorizar mantenibilidad humana sobre velocidad aparente
+
+---
+
+## Regla final
+
+Si una decisión mejora la velocidad hoy pero empeora la comprensión del sistema mañana, esa decisión NO cumple el estándar NEXUS.
+
+La meta no es solo que el código funcione.
+La meta es que el código pueda sostenerse, auditarse, evolucionar y mantenerse por humanos con seguridad en el tiempo.

@@ -1,0 +1,71 @@
+/**
+ * Utilidades mínimas de layout (no sustituto de util framework).
+ */
+.flex {
+  display: flex;
+}
+
+.flexCol {
+  display: flex;
+  flex-direction: column;
+}
+
+.inlineFlex {
+  display: inline-flex;
+}
+
+.wrap {
+  flex-wrap: wrap;
+}
+
+.flex1 {
+  flex: 1 1 0%;
+}
+
+.itemsStart {
+  align-items: flex-start;
+}
+
+.itemsCenter {
+  align-items: center;
+}
+
+.itemsEnd {
+  align-items: flex-end;
+}
+
+.justifyStart {
+  justify-content: flex-start;
+}
+
+.justifyCenter {
+  justify-content: center;
+}
+
+.justifyEnd {
+  justify-content: flex-end;
+}
+
+.justifyBetween {
+  justify-content: space-between;
+}
+
+.gap1 {
+  gap: var(--ds-space-1);
+}
+
+.gap2 {
+  gap: var(--ds-space-2);
+}
+
+.gap3 {
+  gap: var(--ds-space-3);
+}
+
+.gap4 {
+  gap: var(--ds-space-4);
+}
+
+.gap6 {
+  gap: var(--ds-space-6);
+}

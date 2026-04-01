@@ -98,24 +98,42 @@ describe("Releases ETAPA 2 - QA negativo", () => {
     return crId;
   }
 
-  test("Versión inválida devuelve 400 y RELEASE_INVALID_VERSION", async () => {
+  async function createStoryOnFeature(featureId) {
+    const res = await request(app)
+      .post(`/api/v1/features/${featureId}/stories`)
+      .set("Authorization", `Bearer ${masterToken}`)
+      .send({ title: "Story " + Date.now(), description: "D" })
+      .expect(201);
+    return res.body.data.id;
+  }
+
+  async function attachStoryToRelease(storyId, releaseId) {
+    await request(app)
+      .post(`/api/v1/stories/${storyId}/assign-release`)
+      .set("Authorization", `Bearer ${masterToken}`)
+      .send({ release_id: releaseId })
+      .expect(200);
+  }
+
+  test("Sin name devuelve 400 y VALIDATION_ERROR", async () => {
     const res = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: "v1.0.0", description: "Test" })
+      .send({ version: `${baseMajor}.0.${(Date.now() % 10000000) + 200000}`, description: "Test" })
       .expect(400);
     expect(res.body.success).toBe(false);
-    expect(res.body.error && res.body.error.code).toBe("RELEASE_INVALID_VERSION");
+    expect(res.body.error && res.body.error.code).toBe("VALIDATION_ERROR");
     expect(res.status).not.toBe(500);
   });
 
-  test("Versión inválida (1.0) devuelve 400 y RELEASE_INVALID_VERSION", async () => {
+  test("Versión vacía / solo espacios devuelve VALIDATION_ERROR (capa HTTP)", async () => {
     const res = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: "1.0", description: "Test" })
+      .send({ name: "N", version: "   ", description: "Test" })
       .expect(400);
-    expect(res.body.error && res.body.error.code).toBe("RELEASE_INVALID_VERSION");
+    expect(res.body.success).toBe(false);
+    expect(res.body.error && res.body.error.code).toBe("VALIDATION_ERROR");
     expect(res.status).not.toBe(500);
   });
 
@@ -124,78 +142,33 @@ describe("Releases ETAPA 2 - QA negativo", () => {
     await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version, description: "Primera" })
+      .send({ name: "Primera", version, description: "Primera" })
       .expect(201);
     const res = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version, description: "Duplicada" })
+      .send({ name: "Dup", version, description: "Duplicada" })
       .expect(409);
     expect(res.body.success).toBe(false);
     expect(res.body.error && res.body.error.code).toBe("RELEASE_ALREADY_EXISTS");
     expect(res.status).not.toBe(500);
   });
 
-  test("Anti-downgrade: version menor o igual a última RELEASED devuelve 400 y RELEASE_VERSION_NOT_ALLOWED", async () => {
-    const projectRes = await request(app)
-      .post("/api/v1/projects")
-      .set("Authorization", `Bearer ${masterToken}`)
-      .send({ name: "Proj AntiDowngrade " + Date.now(), description: "D" })
-      .expect(201);
-    const featureRes = await request(app)
-      .post(`/api/v1/projects/${projectRes.body.data.id}/features`)
-      .set("Authorization", `Bearer ${masterToken}`)
-      .send({ title: "F", description: "D" })
-      .expect(201);
-
-    const releaseVersion = `${baseMajor}.0.${100000 + (Date.now() % 800000)}`;
-    const createRelease = await request(app)
-      .post("/api/v1/releases")
-      .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: releaseVersion, description: "Release mayor" })
-      .expect(201);
-    const releaseId = createRelease.body.data.id;
-
-    let crId = await createApprovedCRForRelease(releaseId);
-    await request(app)
-      .post(`/api/v1/releases/${releaseId}/features/${featureRes.body.data.id}`)
-      .set("Authorization", `Bearer ${masterToken}`)
-      .send({ change_request_id: crId })
-      .expect(200);
-    crId = await createApprovedCRForRelease(releaseId);
-    await request(app)
-      .patch(`/api/v1/releases/${releaseId}/status`)
-      .set("Authorization", `Bearer ${masterToken}`)
-      .send({ status: "IN_PROGRESS", change_request_id: crId })
-      .expect(200);
-    crId = await createApprovedCRForRelease(releaseId);
-    await request(app)
-      .patch(`/api/v1/releases/${releaseId}/status`)
-      .set("Authorization", `Bearer ${masterToken}`)
-      .send({ status: "QA", change_request_id: crId })
-      .expect(200);
-    crId = await createApprovedCRForRelease(releaseId);
-    await request(app)
-      .patch(`/api/v1/releases/${releaseId}/status`)
-      .set("Authorization", `Bearer ${masterToken}`)
-      .send({ status: "RELEASED", change_request_id: crId })
-      .expect(200);
-
-    const versionToReject = baseMajor > 1 ? `${baseMajor - 1}.9.9` : "0.9.9";
+  test("WAVE 4: version etiqueta no SemVer estricto acepta si única", async () => {
+    const version = `v1.0.0-${Date.now()}`;
     const res = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: versionToReject, description: "Menor" })
-      .expect(400);
-    expect(res.body.error && res.body.error.code).toBe("RELEASE_VERSION_NOT_ALLOWED");
-    expect(res.status).not.toBe(500);
+      .send({ name: "Etiqueta", version, description: "D" })
+      .expect(201);
+    expect(res.body.data.version).toBe(version);
   });
 
   test("Transición inválida (PLANNED → RELEASED) devuelve 400 y RELEASE_INVALID_TRANSITION", async () => {
     const createRelease = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.1.0`, description: "D" })
+      .send({ name: "T1", version: `${baseMajor}.1.0`, description: "D" })
       .expect(201);
     const crId = await createApprovedCRForRelease(createRelease.body.data.id);
     const res = await request(app)
@@ -207,11 +180,11 @@ describe("Releases ETAPA 2 - QA negativo", () => {
     expect(res.status).not.toBe(500);
   });
 
-  test("Pasar a RELEASED sin features devuelve 400 y RELEASE_EMPTY", async () => {
+  test("Pasar a RELEASED sin stories devuelve 400 y RELEASE_EMPTY", async () => {
     const createRelease = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.2.0`, description: "D" })
+      .send({ name: "Empty", version: `${baseMajor}.2.0`, description: "D" })
       .expect(201);
     const releaseId = createRelease.body.data.id;
     let crId = await createApprovedCRForRelease(releaseId);
@@ -250,12 +223,12 @@ describe("Releases ETAPA 2 - QA negativo", () => {
     const release1 = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.3.0`, description: "R1" })
+      .send({ name: "R1", version: `${baseMajor}.3.0`, description: "R1" })
       .expect(201);
     const release2 = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.4.0`, description: "R2" })
+      .send({ name: "R2", version: `${baseMajor}.4.0`, description: "R2" })
       .expect(201);
     const cr1Id = await createApprovedCRForRelease(release1.body.data.id);
     await request(app)
@@ -292,7 +265,7 @@ describe("Releases ETAPA 2 - QA negativo", () => {
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.5.0`, description: "R" })
+      .send({ name: "Arch5", version: `${baseMajor}.5.0`, description: "R" })
       .expect(201);
     const releaseId = releaseRes.body.data.id;
     let crId = await createApprovedCRForRelease(releaseId);
@@ -313,18 +286,16 @@ describe("Releases ETAPA 2 - QA negativo", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ change_request_id: crId })
       .expect(200);
+    const storyArch5 = await createStoryOnFeature(feature1Res.body.data.id);
+    await attachStoryToRelease(storyArch5, releaseId);
     crId = await createApprovedCRForRelease(releaseId);
     await request(app)
       .patch(`/api/v1/releases/${releaseId}/status`)
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ status: "RELEASED", change_request_id: crId })
       .expect(200);
-    crId = await createApprovedCRForRelease(releaseId);
-    await request(app)
-      .patch(`/api/v1/releases/${releaseId}/status`)
-      .set("Authorization", `Bearer ${masterToken}`)
-      .send({ status: "ARCHIVED", change_request_id: crId })
-      .expect(200);
+    const { Release } = getModels();
+    await Release.update({ status: "ARCHIVED" }, { where: { id: releaseId } });
 
     crId = await createApprovedCRForRelease(releaseId);
     const res = await request(app)
@@ -340,7 +311,7 @@ describe("Releases ETAPA 2 - QA negativo", () => {
     const createRelease = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.6.0`, description: "D" })
+      .send({ name: "E6", version: `${baseMajor}.6.0`, description: "D" })
       .expect(201);
     const crId = await createApprovedCRForRelease(createRelease.body.data.id);
     const res = await request(app)
@@ -351,11 +322,11 @@ describe("Releases ETAPA 2 - QA negativo", () => {
     expect(res.status).not.toBe(500);
   });
 
-  test("PATCH release con version en body devuelve 400 y RELEASE_VERSION_IMMUTABLE", async () => {
+  test("PATCH release con version en body devuelve VALIDATION_ERROR (use PUT para version)", async () => {
     const createRelease = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.7.0`, description: "D" })
+      .send({ name: "V7", version: `${baseMajor}.7.0`, description: "D" })
       .expect(201);
     const crId = await createApprovedCRForRelease(createRelease.body.data.id);
     const res = await request(app)
@@ -363,7 +334,7 @@ describe("Releases ETAPA 2 - QA negativo", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ version: `${baseMajor}.7.99`, change_request_id: crId })
       .expect(400);
-    expect(res.body.error && res.body.error.code).toBe("RELEASE_VERSION_IMMUTABLE");
+    expect(res.body.error && res.body.error.code).toBe("VALIDATION_ERROR");
     expect(res.status).not.toBe(500);
   });
 
@@ -371,7 +342,7 @@ describe("Releases ETAPA 2 - QA negativo", () => {
     const createRelease = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.8.0`, description: "D" })
+      .send({ name: "S8", version: `${baseMajor}.8.0`, description: "D" })
       .expect(201);
     const releaseId = createRelease.body.data.id;
     let crId = await createApprovedCRForRelease(releaseId);
@@ -402,18 +373,16 @@ describe("Releases ETAPA 2 - QA negativo", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ change_request_id: crId })
       .expect(200);
+    const storyS8 = await createStoryOnFeature(featureRes.body.data.id);
+    await attachStoryToRelease(storyS8, releaseId);
     crId = await createApprovedCRForRelease(releaseId);
     await request(app)
       .patch(`/api/v1/releases/${releaseId}/status`)
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ status: "RELEASED", change_request_id: crId })
       .expect(200);
-    crId = await createApprovedCRForRelease(releaseId);
-    await request(app)
-      .patch(`/api/v1/releases/${releaseId}/status`)
-      .set("Authorization", `Bearer ${masterToken}`)
-      .send({ status: "ARCHIVED", change_request_id: crId })
-      .expect(200);
+    const { Release: ReleaseSt } = getModels();
+    await ReleaseSt.update({ status: "ARCHIVED" }, { where: { id: releaseId } });
 
     crId = await createApprovedCRForRelease(releaseId);
     const res = await request(app)
@@ -429,7 +398,7 @@ describe("Releases ETAPA 2 - QA negativo", () => {
     const createRelease = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.9.0`, description: "D" })
+      .send({ name: "D9", version: `${baseMajor}.9.0`, description: "D" })
       .expect(201);
     const releaseId = createRelease.body.data.id;
     let crId = await createApprovedCRForRelease(releaseId);
@@ -460,18 +429,16 @@ describe("Releases ETAPA 2 - QA negativo", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ change_request_id: crId })
       .expect(200);
+    const storyD9 = await createStoryOnFeature(featureRes.body.data.id);
+    await attachStoryToRelease(storyD9, releaseId);
     crId = await createApprovedCRForRelease(releaseId);
     await request(app)
       .patch(`/api/v1/releases/${releaseId}/status`)
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ status: "RELEASED", change_request_id: crId })
       .expect(200);
-    crId = await createApprovedCRForRelease(releaseId);
-    await request(app)
-      .patch(`/api/v1/releases/${releaseId}/status`)
-      .set("Authorization", `Bearer ${masterToken}`)
-      .send({ status: "ARCHIVED", change_request_id: crId })
-      .expect(200);
+    const { Release: ReleaseDesc } = getModels();
+    await ReleaseDesc.update({ status: "ARCHIVED" }, { where: { id: releaseId } });
 
     crId = await createApprovedCRForRelease(releaseId);
     const res = await request(app)

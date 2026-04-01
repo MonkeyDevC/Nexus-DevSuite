@@ -1,0 +1,302 @@
+# PLANTILLA UNIVERSAL DE PROMPTS — NEXUS V3 (ENTERPRISE ENGINEERING STANDARD)
+
+Esta plantilla define un estándar profesional para construir software sin ambigüedad, sin reprocesos y con alta mantenibilidad.
+
+Está optimizada para:
+- sistemas complejos (SaaS, plataformas)
+- desarrollo multi-capa (frontend + backend)
+- agentes de código (Cursor, GPT, etc.)
+- evolución continua del producto
+
+---
+
+# 1) ROL (PRECISIÓN ABSOLUTA)
+
+Define el rol con nivel, responsabilidad y stack.
+
+Formato obligatorio:
+
+```text
+ROL: [nivel exacto] + [responsabilidad] + [stack]
+
+Ejemplo:
+ROL: Principal Product Engineer + Frontend Architect (React + Tailwind + SPA + Design Systems)
+
+2) OBJETIVO (DETERMINISTA + VERIFICABLE)
+
+Define el resultado final SIN ambigüedad.
+
+Debe responder:
+
+¿Qué cambia?
+¿Cómo queda el sistema?
+¿Qué ya no existe?
+
+Agregar obligatoriamente:
+
+INVARIANTES DE DOMINIO:
+- [regla que nunca puede romperse]
+- [regla crítica de negocio]
+- [regla técnica estructural]
+
+Agregar también:
+
+ESTADO FINAL DEL SISTEMA:
+- [cómo queda backend]
+- [cómo queda frontend]
+- [cómo se comporta el sistema]
+3) DECISIÓN ARQUITECTÓNICA (ÚNICA Y EXCLUYENTE)
+
+Definir UNA sola estrategia.
+
+Prohibido:
+
+soluciones híbridas sin control
+fallback ocultos
+lógica “por si acaso”
+
+Formato:
+
+DECISIÓN:
+- [estrategia elegida]
+
+DESCARTADO:
+- [opción A]
+- [opción B]
+- [opción C]
+
+Si aplica:
+
+MODOS DEL SISTEMA:
+- Construcción
+- Ejecución
+
+DISTRIBUCIÓN:
+- método X → construcción
+- método Y → ejecución
+4) MODELO MENTAL DEL SISTEMA (NUEVO — CRÍTICO)
+
+Define cómo debe entenderse el sistema.
+
+MODELO MENTAL:
+- [qué representa esta parte del sistema]
+- [qué responsabilidad tiene]
+- [qué NO es]
+
+Ejemplo:
+“El detalle de proyecto NO es un modal, es un workspace operativo”
+
+Esto evita errores de diseño estructural.
+
+5) ALCANCE CONTROLADO (CERRADO)
+
+Define exactamente qué se toca.
+
+ALCANCE:
+- módulo A
+- módulo B
+- módulo C
+
+Reglas:
+
+❌ Prohibido tocar fuera del alcance
+❌ Prohibido inferir cambios adicionales
+✔ Reportar gaps sin implementar
+6) ARQUITECTURA POR CAPAS (EXPANDIDO)
+
+Dividir SIEMPRE:
+
+Backend
+controllers
+services
+rutas
+validaciones
+dependencias
+Frontend
+layout
+vistas
+componentes
+estado
+routing
+UI / DESIGN SYSTEM (NUEVO — CLAVE)
+tokens
+componentes base
+patrones visuales
+consistencia
+Contratos
+request/response
+errores
+consistencia
+Base de datos (si aplica)
+modelos
+relaciones
+migraciones
+7) ARQUITECTURA DE UI (NUEVO — CRÍTICO PARA NEXUS)
+
+Definir explícitamente:
+
+UI ARCHITECTURE:
+- Layout principal
+- Jerarquía visual
+- Componentes clave
+- Reglas de composición
+
+Ejemplo:
+
+Shell (sidebar + header + main)
+Workspace surface
+Cards
+Tabs
+Toolbars
+8) COMPONENTES (OBLIGATORIO)
+
+Listar componentes a crear o reutilizar:
+
+COMPONENTES:
+- ComponentA (responsabilidad)
+- ComponentB (responsabilidad)
+
+Reglas:
+
+✔ Reutilizables
+✔ Semánticos
+❌ No genéricos sin propósito
+9) REGLAS DE EJECUCIÓN (CRÍTICO)
+
+Definir comportamiento exacto:
+
+EJECUCIÓN:
+- método X → sin validación
+- método Y → validación parcial
+- método Z → validación estricta
+10) UX Y COMPORTAMIENTO (NUEVO — CLAVE)
+UX:
+- comportamiento esperado
+- estados visuales
+- interacción usuario
+- empty states
+- loading states
+- error states
+11) RESTRICCIONES (OBLIGATORIO)
+
+Lista explícita:
+
+NO agregar features
+NO refactorizar fuera del alcance
+NO duplicar lógica
+NO introducir deuda técnica
+NO romper contratos existentes
+12) VALIDACIÓN OBLIGATORIA
+Técnica
+
+Backend:
+
+corre sin errores
+endpoints funcionan
+
+Frontend:
+
+sin errores consola
+navegación correcta
+UX
+interfaz usable
+estados correctos
+Escenarios
+- Happy path
+- Error
+- Edge cases
+13) CRITERIOS DE ACEPTACIÓN (BINARIOS)
+
+Debe cumplirse TODO:
+
+✔ Funciona
+✔ No rompe nada
+✔ Código limpio
+✔ UX correcta
+✔ Arquitectura respetada
+14) OUTPUT OBLIGATORIO
+
+Siempre exigir:
+
+Archivos modificados
+Problemas detectados
+Cambios aplicados
+Validación real
+Estado final:
+OBJETIVO COMPLETADO
+15) CONTRATOS DE DOMINIO (CRÍTICO)
+CONTRATOS:
+- endpoint validación
+- endpoint transición
+
+Reglas:
+
+❌ Nada implícito
+✔ Todo explícito
+16) ORDEN DE IMPLEMENTACIÓN
+
+SIEMPRE:
+
+Modelo
+Service
+Validaciones
+UI base
+UI avanzada
+Integración
+Validación
+17) HARDENING FINAL
+
+Checklist obligatorio:
+
+✔ Sin duplicación
+✔ Sin lógica implícita
+✔ Sin validaciones mal ubicadas
+✔ Sin acoplamiento indebido
+✔ Componentes reutilizables
+✔ Código legible
+18) CALIDAD DE CÓDIGO (NUEVO — CRÍTICO)
+CODE QUALITY:
+- nombres claros
+- funciones pequeñas
+- separación de responsabilidades
+- sin efectos secundarios ocultos
+- sin lógica duplicada
+19) DISEÑO VISUAL (NUEVO — CLAVE PARA FRONTEND)
+DESIGN:
+- jerarquía clara
+- espaciado consistente
+- tokens respetados
+- accesibilidad básica
+- dark mode compatible
+20) ANTI-PATRONES (NUEVO — PRO LEVEL)
+
+Prohibido:
+
+lógica en el lugar incorrecto
+componentes gigantes
+estilos hardcodeados repetidos
+validaciones duplicadas
+UI sin estructura
+código “temporal” permanente
+CONCLUSIÓN
+
+V3 NO es solo una plantilla.
+
+Es un sistema de control que garantiza:
+
+arquitectura correcta
+UX consistente
+código mantenible
+cero ambigüedad
+mínima retrabajo
+REGLAS DE ORO (VERSIÓN FINAL)
+Una sola estrategia
+Todo explícito
+Nada implícito
+Validación obligatoria
+Alcance cerrado
+Código mantenible
+UX consistente
+Resultado verificable
+
+Si falta uno → el prompt NO está listo.

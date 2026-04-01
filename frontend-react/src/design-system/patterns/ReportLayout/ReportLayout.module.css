@@ -1,0 +1,34 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6);
+  width: 100%;
+}
+
+.filters {
+  flex: 0 0 auto;
+}
+
+.summary {
+  flex: 0 0 auto;
+}
+
+.chart {
+  flex: 0 0 auto;
+  min-height: 10rem;
+  padding: var(--ds-space-6);
+  background: var(--ds-color-surface-raised);
+  border: 1px dashed var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.table {
+  flex: 1 1 auto;
+  min-width: 0;
+}

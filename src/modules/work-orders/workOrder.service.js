@@ -9,11 +9,72 @@ const userStoryRepository = require("../backlog/userStory.repository");
 const featureService = require("../backlog/feature.service");
 const authRepository = require("../auth/auth.repository");
 const codeDeliveryRepository = require("../code-deliveries/codeDelivery.repository");
+const sprintRepository = require("../sprints/sprint.repository");
+const rulesOrchestratorService = require("../rules-engine/rulesOrchestrator.service");
 const eventBus = require("../../system/eventBus");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
 const logger = require("../../config/logger");
 const { WORK_ORDER_STATUSES, WORK_ORDER_PRIORITIES, assertValidTransition, LEGACY_STATUS_ALIASES } = require("./workOrder.stateMachine");
+
+async function assertStartDevelopmentRulesForWorkOrder(workOrder, context = {}) {
+  // START_DEVELOPMENT mapping:
+  // Story -> IN_PROGRESS
+  // WorkOrder -> IN_PROGRESS
+  // CodeDelivery -> READY
+  const woPlain = workOrder && workOrder.toJSON ? workOrder.toJSON() : workOrder;
+  if (!woPlain || !woPlain.user_story_id) {
+    throw new AppError("Contexto incompleto para iniciar desarrollo: work order sin user_story_id", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  const story = await userStoryRepository.findById(woPlain.user_story_id);
+  if (!story || !story.sprint_id) {
+    throw new AppError("Contexto incompleto para iniciar desarrollo: story sin sprint asignado", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  const sprint = await sprintRepository.findById(story.sprint_id);
+  if (!sprint) {
+    throw new AppError("Contexto incompleto para iniciar desarrollo: sprint no encontrado", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  const startContext = {
+    sprint: { status: sprint.status },
+    story: { status: story.status }
+  };
+  if (!startContext.sprint || !startContext.story) {
+    throw new AppError("Invalid context for rule evaluation", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  const ruleResult = await rulesOrchestratorService.execute({
+    entityType: "work_order",
+    entityId: woPlain.id,
+    action: "START_DEVELOPMENT",
+    context: startContext,
+    workflowId: context.workflowId || null,
+    requestContext: context
+  });
+  if (!ruleResult.allowed) {
+    throw new AppError(ruleResult.rule.userMessage, {
+      statusCode: 400,
+      code: "RULE_BLOCKED",
+      details: {
+        executionId: ruleResult.executionId,
+        guidance: ruleResult.rule.guidance,
+        errors: ruleResult.errors,
+        warnings: ruleResult.warnings
+      }
+    });
+  }
+  return ruleResult;
+}
 
 function normalizeStatusToMachine(status) {
   if (!status) return status;
@@ -247,6 +308,8 @@ async function updateWorkOrder(id, projectId, payload, context) {
   const previousStatus = normalizeStatusToMachine(wo.status);
   const previousAssigned = wo.assigned_to_user_id ?? null;
   const previousDeliveryId = wo.delivery_id ?? null;
+  let statusRuleWarnings = [];
+  let statusRuleExecutionId = null;
 
   const updatePayload = {};
   if (payload.title !== undefined) updatePayload.title = String(payload.title).trim() || wo.title;
@@ -273,6 +336,11 @@ async function updateWorkOrder(id, projectId, payload, context) {
   if (payload.status !== undefined) {
     const previous = normalizeStatusToMachine(wo.status);
     const next = normalizeStatusToMachine(payload.status);
+    let statusRuleResult = null;
+    if (next === "IN_PROGRESS") {
+      statusRuleResult = await assertStartDevelopmentRulesForWorkOrder(wo, context);
+      statusRuleExecutionId = statusRuleResult.executionId;
+    }
     if (previous !== next) {
       try {
         assertValidTransition(previous, next);
@@ -284,6 +352,9 @@ async function updateWorkOrder(id, projectId, payload, context) {
       }
     }
     updatePayload.status = next;
+    if (statusRuleResult && statusRuleResult.allowed && statusRuleResult.warnings.length > 0) {
+      statusRuleWarnings = statusRuleResult.warnings;
+    }
   }
 
   if (payload.delivery_id !== undefined) {
@@ -374,7 +445,14 @@ async function updateWorkOrder(id, projectId, payload, context) {
     );
   }
 
-  return updatedPlain;
+  return {
+    success: true,
+    data: updatedPlain,
+    rule: {
+      executionId: statusRuleExecutionId,
+      warnings: statusRuleWarnings
+    }
+  };
 }
 
 async function assignWorkOrder(workOrderId, projectId, assignedToUserId, context) {
@@ -455,6 +533,12 @@ async function changeStatus(workOrderId, projectId, nextStatus, context) {
   const previous = normalizeStatusToMachine(wo.status);
   const next = normalizeStatusToMachine(nextStatus);
   const previousStatus = previous;
+  let statusRuleResult = null;
+  let statusRuleExecutionId = null;
+  if (next === "IN_PROGRESS") {
+    statusRuleResult = await assertStartDevelopmentRulesForWorkOrder(wo, context);
+    statusRuleExecutionId = statusRuleResult.executionId;
+  }
 
   const project = await projectsRepository.findById(projectId);
   if (project) featureService.ensureProjectInOrg(project, context.organizationId);
@@ -492,6 +576,7 @@ async function changeStatus(workOrderId, projectId, nextStatus, context) {
   });
 
   const updatedPlain = toPlain(updated);
+  const ruleWarnings = statusRuleResult && statusRuleResult.allowed ? statusRuleResult.warnings : [];
   emitWorkOrderEvent("WORK_ORDER_UPDATED", updatedPlain, context);
   const updatedStatus = normalizeStatusToMachine(updatedPlain.status);
   if (updatedStatus !== previousStatus) {
@@ -515,7 +600,14 @@ async function changeStatus(workOrderId, projectId, nextStatus, context) {
     );
   }
 
-  return updatedPlain;
+  return {
+    success: true,
+    data: updatedPlain,
+    rule: {
+      executionId: statusRuleExecutionId,
+      warnings: ruleWarnings
+    }
+  };
 }
 
 async function linkToDelivery(workOrder, deliveryId, context, { transaction } = {}) {

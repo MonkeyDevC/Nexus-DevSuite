@@ -1,0 +1,93 @@
+.wrap {
+  position: relative;
+  min-width: 12rem;
+}
+
+.trigger {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  width: 100%;
+  min-height: 2.5rem;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-projects-shell-border);
+  background: var(--ds-projects-input-bg);
+  color: var(--ds-projects-shell-text);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--ds-duration-fast) var(--ds-ease-standard),
+    box-shadow var(--ds-duration-fast) var(--ds-ease-standard);
+}
+
+.trigger:hover:not(:disabled) {
+  border-color: var(--ds-color-primary);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--ds-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.triggerLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  color: var(--ds-projects-shell-muted);
+  line-height: 1;
+}
+
+.list {
+  position: absolute;
+  top: calc(100% + var(--ds-space-1));
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin: 0;
+  padding: var(--ds-space-1);
+  list-style: none;
+  max-height: min(18rem, 60vh);
+  overflow-y: auto;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-projects-shell-border);
+  background: var(--ds-projects-shell-bg);
+  box-shadow: var(--ds-shadow-md);
+}
+
+.option,
+.optionActive {
+  margin: 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-projects-shell-text);
+  cursor: pointer;
+  line-height: var(--ds-line-height-body);
+}
+
+.option:hover {
+  background: var(--ds-projects-tab-pill-muted-bg);
+}
+
+.optionActive {
+  background: var(--ds-projects-pager-active-bg);
+  color: var(--ds-color-on-solid);
+  font-weight: var(--ds-font-weight-medium);
+}

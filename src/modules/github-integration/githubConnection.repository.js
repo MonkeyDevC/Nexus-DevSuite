@@ -15,7 +15,7 @@ async function findByProjectId(projectId, userId) {
   if (userId) where.user_id = userId;
   const row = await models.GitHubConnection.findOne({
     where,
-    attributes: ["id", "user_id", "project_id", "repo_owner", "repo_name", "access_token"],
+    attributes: ["id", "user_id", "project_id", "repo_owner", "repo_name", "access_token", "updated_at"],
     order: [["updated_at", "DESC"]]
   });
   return row;

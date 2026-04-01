@@ -1,0 +1,15 @@
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-2) var(--ds-space-4);
+  background: var(--ds-color-surface);
+  border-top: 1px dashed var(--ds-color-border-subtle);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-muted);
+}

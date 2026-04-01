@@ -1,0 +1,398 @@
+---
+description: Marco completo de cumplimiento ISO 9001 para NEXUS DevSuite — sistema operativo de calidad, trazabilidad y control aplicado a desarrollo de software SaaS
+alwaysApply: true
+---
+
+# 🏛️ NEXUS ISO COMPLIANCE FRAMEWORK (v3 — ENTERPRISE GRADE)
+
+## 1. PROPÓSITO DEL SISTEMA ISO
+
+Este documento define el marco operativo para que NEXUS DevSuite cumpla con:
+
+> ISO 9001 — Sistema de Gestión de Calidad (QMS)
+
+Aplicado a:
+
+- desarrollo de software
+- operación SaaS
+- gestión de procesos técnicos
+- gobernanza de cambios
+- control de calidad
+
+Este documento NO es teórico.  
+Es un sistema de ejecución obligatoria.
+
+---
+
+## 2. PRINCIPIO ISO FUNDAMENTAL
+
+ISO 9001 exige:
+
+> procesos definidos, controlados, repetibles, medibles y auditables
+
+Por lo tanto, todo en NEXUS debe cumplir:
+
+✔ definido  
+✔ documentado  
+✔ ejecutado consistentemente  
+✔ medible  
+✔ trazable  
+✔ auditable  
+✔ mejorable  
+
+---
+
+## 3. SISTEMA DE GESTIÓN DE CALIDAD (QMS)
+
+NEXUS debe operar como un QMS completo:
+
+### 3.1 COMPONENTES DEL QMS
+
+- procesos definidos
+- roles y responsabilidades claras
+- control documental
+- control de cambios
+- gestión de riesgos
+- validación de calidad
+- auditoría interna
+
+---
+
+### 3.2 REGLA CLAVE
+
+Nada puede existir en el sistema sin:
+
+- definición
+- control
+- trazabilidad
+
+---
+
+## 4. ENFOQUE A PROCESOS (CORE ISO)
+
+Todo debe modelarse como:
+
+
+INPUT → PROCESO → OUTPUT
+
+
+Cada proceso debe tener:
+
+- propósito
+- entrada definida
+- transformación controlada
+- salida validable
+- métricas asociadas
+
+---
+
+## 5. CONTROL DE PROCESOS (OBLIGATORIO)
+
+Cada proceso en NEXUS debe:
+
+✔ estar documentado  
+✔ ser repetible  
+✔ tener validaciones  
+✔ tener responsable  
+✔ tener métricas  
+
+---
+
+## 6. GESTIÓN DE REQUISITOS
+
+Toda funcionalidad debe tener:
+
+- definición clara
+- objetivo
+- alcance
+- criterios de aceptación
+- validación verificable
+
+❌ Prohibido implementar sin requisitos definidos
+
+---
+
+## 7. CONTROL DE CAMBIOS (CRÍTICO)
+
+Todo cambio debe seguir este flujo:
+
+1. definición del cambio
+2. análisis de impacto
+3. evaluación de riesgos
+4. implementación controlada
+5. validación QA
+6. registro del cambio
+
+---
+
+### 7.1 REGLAS DE CAMBIO
+
+✔ todo cambio debe ser trazable  
+✔ todo cambio debe poder revertirse  
+✔ todo cambio debe validarse antes de cerrar  
+
+❌ cambios invisibles  
+❌ cambios no documentados  
+
+---
+
+## 8. TRAZABILIDAD (OBLIGATORIA)
+
+Cada acción del sistema debe poder responder:
+
+- qué se hizo
+- quién lo hizo
+- cuándo se hizo
+- por qué se hizo
+- qué resultado tuvo
+
+---
+
+### 8.1 IMPLEMENTACIÓN
+
+Debe existir:
+
+- logging estructurado
+- auditoría por acción
+- identificación de usuario
+- tracking de requests
+
+---
+
+## 9. CONTROL DOCUMENTAL
+
+Debe existir control sobre:
+
+- documentación técnica
+- documentación funcional
+- contratos API
+- decisiones arquitectónicas
+- cambios realizados
+
+---
+
+### 9.1 REGLAS
+
+✔ versionado obligatorio  
+✔ historial de cambios  
+✔ consistencia entre documentación y sistema  
+
+---
+
+## 10. CONTROL DE CALIDAD (QA ISO)
+
+Toda funcionalidad debe pasar:
+
+### 10.1 VALIDACIÓN FUNCIONAL
+- flujo principal
+- resultados esperados
+
+---
+
+### 10.2 VALIDACIÓN NEGATIVA
+- errores controlados
+- inputs inválidos
+
+---
+
+### 10.3 VALIDACIÓN DE REGRESIÓN
+- no romper funcionalidades existentes
+
+---
+
+### 10.4 VALIDACIÓN DE CONTRATOS
+- input/output correcto
+- estructura consistente
+
+---
+
+## 11. GESTIÓN DE NO CONFORMIDADES
+
+Una no conformidad ocurre cuando:
+
+- el sistema falla
+- no cumple requisitos
+- rompe contratos
+- genera inconsistencias
+
+---
+
+### 11.1 ACCIONES OBLIGATORIAS
+
+1. registrar
+2. analizar causa raíz
+3. corregir
+4. prevenir recurrencia
+
+---
+
+## 12. GESTIÓN DE RIESGOS
+
+Antes de implementar:
+
+- identificar riesgos
+- evaluar impacto
+- definir mitigación
+
+---
+
+### TIPOS DE RIESGO
+
+- técnico
+- funcional
+- seguridad
+- regresión
+- rendimiento
+
+---
+
+## 13. MEDICIÓN Y MÉTRICAS
+
+El sistema debe medir:
+
+- errores por módulo
+- fallos en producción
+- tiempos de respuesta
+- estabilidad
+- tasa de fallos
+
+---
+
+### 13.1 PRINCIPIO
+
+> lo que no se mide, no se puede mejorar
+
+---
+
+## 14. AUDITORÍA (INTERNA Y EXTERNA)
+
+El sistema debe permitir auditoría sobre:
+
+- procesos
+- cambios
+- errores
+- decisiones
+
+---
+
+### 14.1 EL SISTEMA DEBE RESPONDER:
+
+- ¿qué ocurrió?
+- ¿por qué ocurrió?
+- ¿quién lo ejecutó?
+- ¿qué evidencia existe?
+
+---
+
+## 15. MEJORA CONTINUA (CICLO PDCA)
+
+NEXUS debe operar bajo:
+
+1. PLAN → definir proceso
+2. DO → ejecutar
+3. CHECK → validar
+4. ACT → mejorar
+
+---
+
+## 16. ESTANDARIZACIÓN
+
+Cada proceso debe ejecutarse:
+
+✔ de forma consistente  
+✔ sin variaciones arbitrarias  
+✔ con resultados predecibles  
+
+---
+
+## 17. ALINEACIÓN CON NEXUS CORE
+
+ISO depende de:
+
+- decisiones sin ambigüedad
+- control de complejidad
+- contratos claros
+
+---
+
+## 18. ALINEACIÓN CON EXECUTION ENGINE
+
+ISO exige:
+
+- análisis antes de implementar
+- diseño estructurado
+- validación antes de cerrar
+
+---
+
+## 19. ALINEACIÓN CON QA
+
+ISO exige:
+
+- validación sistemática
+- prevención de errores
+- control de defectos
+
+---
+
+## 20. DEFINICIÓN DE CALIDAD ISO
+
+Un sistema tiene calidad si:
+
+✔ es predecible  
+✔ es consistente  
+✔ es controlado  
+✔ es medible  
+✔ es auditable  
+
+---
+
+## 21. ANTI-PATRONES ISO (CRÍTICOS)
+
+❌ implementar sin requisitos  
+❌ cambiar sin registrar  
+❌ no validar funcionalidades  
+❌ no medir resultados  
+❌ no analizar errores  
+❌ comportamiento impredecible  
+
+---
+
+## 22. DEFINICIÓN DE SISTEMA ISO-COMPLIANT
+
+NEXUS cumple ISO si:
+
+✔ procesos definidos  
+✔ cambios controlados  
+✔ errores gestionados  
+✔ decisiones trazables  
+✔ calidad validada  
+✔ mejora continua activa  
+
+---
+
+## 23. DEFINICIÓN DE INCUMPLIMIENTO
+
+El sistema NO cumple ISO si:
+
+- no puede auditarse
+- no puede explicarse
+- no puede medirse
+- no puede validarse
+
+---
+
+## 24. REGLA FINAL (ABSOLUTA)
+
+Si una funcionalidad no puede:
+
+- documentarse
+- validarse
+- medirse
+- auditarse
+- repetirse
+
+Entonces:
+
+> ❌ NO cumple ISO  
+> ✔ debe rediseñarse antes de implementarse

@@ -1,11 +1,14 @@
 /**
  * Módulo Incidents - Service
  * Reglas: workflow, cierre solo MASTER, root_cause_analysis obligatorio antes de CLOSED, auditoría.
+ * WAVE 3: priority, story_id, PUT canónico, DELETE solo OPEN, validación story/proyecto.
  */
 
 const incidentRepository = require("./incident.repository");
 const projectsRepository = require("../backlog/projects.repository");
 const featureService = require("../backlog/feature.service");
+const featureRepository = require("../backlog/feature.repository");
+const userStoryRepository = require("../backlog/userStory.repository");
 const authRepository = require("../auth/auth.repository");
 const { validateIncidentTransition } = require("./incident.workflow.validator");
 const { AppError } = require("../../shared/errors/AppError");
@@ -20,6 +23,8 @@ function toPlain(incident) {
     title: i.title,
     description: i.description,
     severity: i.severity,
+    priority: i.priority != null ? i.priority : "MEDIUM",
+    story_id: i.story_id != null && String(i.story_id).trim() !== "" ? String(i.story_id).trim() : null,
     status: i.status,
     root_cause_analysis: i.root_cause_analysis,
     reported_by: i.reported_by,
@@ -47,6 +52,32 @@ function ensureAuditContext(context) {
   };
 }
 
+/**
+ * Si storyId es no vacío: existencia + mismo proyecto que projectId del incidente.
+ * Retorna uuid normalizado o null si storyId es null/omitido para "sin story".
+ */
+async function resolveStoryIdForProject(storyId, projectId) {
+  if (storyId === undefined) return undefined;
+  if (storyId === null || storyId === "") return null;
+  const sid = String(storyId).trim();
+  if (!sid) return null;
+  const story = await userStoryRepository.findById(sid);
+  if (!story) {
+    throw new AppError("Story no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.STORY_NOT_FOUND
+    });
+  }
+  const feature = await featureRepository.findById(story.feature_id);
+  if (!feature || String(feature.project_id) !== String(projectId)) {
+    throw new AppError("La story no pertenece al proyecto del incidente", {
+      statusCode: 400,
+      code: ERROR_CODES.STORY_PROJECT_MISMATCH
+    });
+  }
+  return sid;
+}
+
 async function createIncident(projectId, payload, context) {
   const project = await projectsRepository.findById(projectId);
   if (!project) {
@@ -56,11 +87,25 @@ async function createIncident(projectId, payload, context) {
     });
   }
   featureService.ensureProjectInOrg(project, context.organizationId);
+  const severity = payload.severity;
+  const priority = payload.priority;
+  if (!severity || !priority) {
+    throw new AppError("severity y priority son obligatorios", {
+      statusCode: 422,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  let story_id = null;
+  if (payload.story_id !== undefined && payload.story_id !== null && String(payload.story_id).trim() !== "") {
+    story_id = await resolveStoryIdForProject(payload.story_id, projectId);
+  }
   const created = await incidentRepository.create({
     project_id: projectId,
     title: payload.title,
     description: payload.description ?? null,
-    severity: payload.severity || "MEDIUM",
+    severity,
+    priority,
+    story_id,
     status: "OPEN",
     reported_by: context.user?.id
   });
@@ -178,6 +223,9 @@ async function updateIncidentStatus(incidentId, nextStatus, payload, context) {
   return plain;
 }
 
+/**
+ * Actualización de campos (PUT canónico y PATCH compat). Solo claves presentes en payload (excepto story_id explícito null).
+ */
 async function updateIncident(incidentId, payload, context) {
   const incident = await incidentRepository.findById(incidentId);
   if (!incident) {
@@ -195,11 +243,66 @@ async function updateIncident(incidentId, payload, context) {
     });
   }
   const updatePayload = {};
+  const projectId = incident.project_id;
+
+  if (payload.title !== undefined) {
+    const t = String(payload.title || "").trim();
+    if (!t) {
+      throw new AppError("title no puede vaciarse", { statusCode: 422, code: ERROR_CODES.VALIDATION_ERROR });
+    }
+    updatePayload.title = t;
+  }
+  if (payload.description !== undefined) {
+    updatePayload.description = payload.description === null || payload.description === "" ? null : String(payload.description).trim();
+  }
+  if (payload.severity !== undefined) updatePayload.severity = payload.severity;
+  if (payload.priority !== undefined) updatePayload.priority = payload.priority;
   if (payload.assigned_to !== undefined) updatePayload.assigned_to = payload.assigned_to || null;
-  if (payload.root_cause_analysis !== undefined) updatePayload.root_cause_analysis = payload.root_cause_analysis ? String(payload.root_cause_analysis).trim() : null;
+  if (payload.root_cause_analysis !== undefined) {
+    updatePayload.root_cause_analysis = payload.root_cause_analysis ? String(payload.root_cause_analysis).trim() : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, "story_id")) {
+    const resolved = await resolveStoryIdForProject(payload.story_id, projectId);
+    updatePayload.story_id = resolved === undefined ? incident.story_id : resolved;
+  }
+
   if (Object.keys(updatePayload).length === 0) return toPlain(incident);
   const updated = await incidentRepository.update(incidentId, updatePayload);
   return toPlain(updated);
+}
+
+async function deleteIncident(incidentId, context) {
+  const incident = await incidentRepository.findById(incidentId);
+  if (!incident) {
+    throw new AppError("Incidente no encontrado", {
+      statusCode: 404,
+      code: ERROR_CODES.INCIDENT_NOT_FOUND
+    });
+  }
+  const project = await projectsRepository.findById(incident.project_id);
+  if (project) featureService.ensureProjectInOrg(project, context.organizationId);
+  if (incident.status !== "OPEN") {
+    throw new AppError("Solo se puede eliminar un incidente en estado OPEN", {
+      statusCode: 409,
+      code: ERROR_CODES.INCIDENT_INVALID_STATE
+    });
+  }
+  const auditCtx = ensureAuditContext(context);
+  const result = await incidentRepository.destroyById(incidentId);
+  if (!result) {
+    throw new AppError("Incidente no encontrado", {
+      statusCode: 404,
+      code: ERROR_CODES.INCIDENT_NOT_FOUND
+    });
+  }
+  await authRepository.createAuditLog({
+    ...auditCtx,
+    action: "INCIDENT_DELETED",
+    entity: "INCIDENT",
+    entity_id: incidentId,
+    metadata: { project_id: incident.project_id }
+  });
+  return result;
 }
 
 module.exports = {
@@ -208,5 +311,7 @@ module.exports = {
   listIncidents,
   updateIncidentStatus,
   updateIncident,
-  toPlain
+  deleteIncident,
+  toPlain,
+  resolveStoryIdForProject
 };

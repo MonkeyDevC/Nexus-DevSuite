@@ -1,0 +1,53 @@
+.tabList {
+  display: inline-flex;
+  align-items: stretch;
+  padding: 2px;
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  border: 1px solid var(--ds-color-border-subtle);
+  gap: 2px;
+}
+
+.tab {
+  margin: 0;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  padding: var(--ds-space-1);
+  border-radius: calc(var(--ds-radius-md) - 2px);
+  color: var(--ds-color-text-muted);
+  background: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tab:hover:not(:disabled) {
+  color: var(--ds-color-text-heading);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--ds-color-primary);
+  outline-offset: 2px;
+}
+
+.tab:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tabSelected {
+  background: var(--ds-color-surface-raised);
+  color: var(--ds-color-text-heading);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.tabIdle {
+  color: var(--ds-color-text-muted);
+}
+
+.tabIcon {
+  display: block;
+}

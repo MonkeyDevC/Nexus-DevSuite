@@ -17,6 +17,15 @@ let app;
 let masterToken;
 let employeeToken;
 
+function incidentCreateBody(overrides = {}) {
+  return {
+    title: "Inc " + Date.now(),
+    severity: "MEDIUM",
+    priority: "MEDIUM",
+    ...overrides
+  };
+}
+
 beforeAll(async () => {
   await connectDatabase();
   loadModels(sequelize);
@@ -75,7 +84,7 @@ describe("Incidents ETAPA 3 - QA negativo", () => {
     const res = await request(app)
       .post(`/api/v1/projects/${fakeProjectId}/incidents`)
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ title: "Incident 1", description: "Test" })
+      .send(incidentCreateBody({ title: "Incident 1", description: "Test" }))
       .expect(404);
     expect(res.body.success).toBe(false);
     expect(res.body.error?.code).toBe("PROJECT_NOT_FOUND");
@@ -93,7 +102,7 @@ describe("Incidents ETAPA 3 - QA negativo", () => {
     const incidentRes = await request(app)
       .post(`/api/v1/projects/${projectId}/incidents`)
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ title: "Inc Trans " + Date.now() })
+      .send(incidentCreateBody({ title: "Inc Trans " + Date.now() }))
       .expect(201);
     const incidentId = incidentRes.body.data.id;
 
@@ -118,7 +127,7 @@ describe("Incidents ETAPA 3 - QA negativo", () => {
     const incidentRes = await request(app)
       .post(`/api/v1/projects/${projectId}/incidents`)
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ title: "Inc Emp " + Date.now() })
+      .send(incidentCreateBody({ title: "Inc Emp " + Date.now() }))
       .expect(201);
     const incidentId = incidentRes.body.data.id;
 
@@ -154,7 +163,7 @@ describe("Incidents ETAPA 3 - QA negativo", () => {
     const incidentRes = await request(app)
       .post(`/api/v1/projects/${projectId}/incidents`)
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ title: "Inc Close " + Date.now() })
+      .send(incidentCreateBody({ title: "Inc Close " + Date.now() }))
       .expect(201);
     const incidentId = incidentRes.body.data.id;
 
@@ -196,7 +205,7 @@ describe("Incidents ETAPA 3 - QA negativo", () => {
     const incidentRes = await request(app)
       .post(`/api/v1/projects/${projectId}/incidents`)
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ title: "Inc Patch " + Date.now() })
+      .send(incidentCreateBody({ title: "Inc Patch " + Date.now() }))
       .expect(201);
     const incidentId = incidentRes.body.data.id;
 
@@ -242,7 +251,7 @@ describe("Incidents ETAPA 3 - QA negativo", () => {
     const incidentRes = await request(app)
       .post(`/api/v1/projects/${projectId}/incidents`)
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ title: "Inc RCA " + Date.now() })
+      .send(incidentCreateBody({ title: "Inc RCA " + Date.now() }))
       .expect(201);
     const incidentId = incidentRes.body.data.id;
 

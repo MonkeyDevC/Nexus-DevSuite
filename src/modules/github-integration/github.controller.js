@@ -225,16 +225,23 @@ async function syncController(req, res, next) {
       const prNumber = parseInt(match[1], 10);
       const userId = req.user && req.user.id;
       const prStatus = await githubService.getPullRequestStatus(prNumber, projectId, userId);
+      const pullRequest = prStatus && prStatus.pull_request ? prStatus.pull_request : null;
       let newStatus = d.status;
-      if (prStatus.merged_at) newStatus = "MERGED";
-      else if (prStatus.state === "closed") newStatus = "PR_CREATED";
-      else if (prStatus.state === "open") newStatus = "PR_CREATED";
+      if (pullRequest && pullRequest.merged_at) newStatus = "MERGED";
+      else if (pullRequest && pullRequest.state === "closed") newStatus = "PR_CREATED";
+      else if (pullRequest && pullRequest.state === "open") newStatus = "PR_CREATED";
       if (newStatus !== d.status) {
         await codeDeliveryService.updateCodeDelivery(deliveryId, projectId, { status: newStatus }, context);
       }
       return res.status(200).json(
         buildSuccess(
-          { delivery_id: deliveryId, pr_number: prNumber, state: prStatus.state, status: newStatus, merged_at: prStatus.merged_at },
+          {
+            delivery_id: deliveryId,
+            pr_number: prNumber,
+            state: pullRequest ? pullRequest.state : null,
+            status: newStatus,
+            merged_at: pullRequest ? pullRequest.merged_at : null
+          },
           { request_id: req.requestId || "no-request-id" }
         )
       );
@@ -252,8 +259,9 @@ async function syncController(req, res, next) {
       try {
         const userId = req.user && req.user.id;
         const prStatus = await githubService.getPullRequestStatus(prNumber, projectId, userId);
+        const pullRequest = prStatus && prStatus.pull_request ? prStatus.pull_request : null;
         let newStatus = d.status;
-        if (prStatus.merged_at) newStatus = "MERGED";
+        if (pullRequest && pullRequest.merged_at) newStatus = "MERGED";
         if (newStatus !== d.status) {
           await codeDeliveryService.updateCodeDelivery(d.id, projectId, { status: newStatus }, context);
           synced.push({ delivery_id: d.id, pr_number: prNumber, status: newStatus });

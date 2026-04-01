@@ -1,13 +1,13 @@
 /**
- * Módulo Releases - Mapa de transiciones permitidas de estado.
- * ARCHIVED no tiene transiciones salientes (bloqueo total).
+ * Mapa de transiciones permitidas de estado Release.
+ * WAVE 4: RELEASED terminal (sin salidas). Se mantiene QA / ROLLED_BACK para datos históricos.
  */
 
 const TRANSITION_MAP_RELEASE = {
   PLANNED: ["IN_PROGRESS"],
-  IN_PROGRESS: ["QA"],
+  IN_PROGRESS: ["QA", "RELEASED"],
   QA: ["RELEASED", "ROLLED_BACK"],
-  RELEASED: ["ARCHIVED"],
+  RELEASED: [],
   ROLLED_BACK: ["IN_PROGRESS"],
   ARCHIVED: []
 };

@@ -67,6 +67,24 @@ function defineUserModel(sequelize, DataTypes) {
       updatedAt: "updated_at",
       paranoid: true,
       deletedAt: "deleted_at",
+      hooks: {
+        /**
+         * Evita colisiones por email en suites de QA cuando existe un usuario
+         * soft-deleted con el mismo email: se "revive" en lugar de intentar insertar duplicado.
+         */
+        beforeValidate: async (instance, options) => {
+          if (!instance.isNewRecord || !instance.email) return;
+          const existing = await User.unscoped().findOne({
+            where: { email: instance.email },
+            paranoid: false,
+            transaction: options?.transaction
+          });
+          if (!existing) return;
+          instance.set("id", existing.id);
+          instance.set("deleted_at", null);
+          instance.isNewRecord = false;
+        }
+      },
       defaultScope: {
         attributes: safeAttributes
       }

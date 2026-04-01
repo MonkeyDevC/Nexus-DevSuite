@@ -13,6 +13,7 @@ const sprintRoutes = require("../modules/sprints/sprint.routes");
 const incidentRoutes = require("../modules/incidents/incident.routes");
 const improvementRoutes = require("../modules/improvements/improvement.routes");
 const documentRoutes = require("../modules/documents/document.routes");
+const documentationRoutes = require("../modules/documentation/documentation.routes");
 const reportRoutes = require("../modules/reports/report.routes");
 const organizationRoutes = require("../modules/organizations/organization.routes");
 const dashboardRoutes = require("../modules/dashboard/dashboard.routes");
@@ -24,6 +25,11 @@ const tasksRoutes = require("../modules/tasks/task.routes");
 const implementationStepsRoutes = require("../modules/implementation-steps/implementationStep.routes");
 const aiAutomationRoutes = require("../modules/ai-automation/ai.rule.routes");
 const automationRulesRoutes = require("../modules/automation/automation.rules.routes");
+const workflowRoutes = require("../modules/workflow/workflow.routes");
+const rulesEngineRoutes = require("../modules/rules-engine/rulesEngine.routes");
+const { buildFeatureDisabledResponse } = require("../config/optionalModules");
+const { env } = require("../config/env");
+const devToolsRoutes = require("../system/dev-tools/devTools.routes");
 
 const router = express.Router();
 
@@ -33,6 +39,9 @@ router.use("/auth", authRoutes);
 router.use("/organizations", organizationRoutes);
 router.use("/users", usersRoutes);
 router.use("/system", metricsRoutes);
+if (env.NODE_ENV === "development" && env.DEV_DATA_RESET_ENABLED === true) {
+  router.use("/system/dev-tools", devToolsRoutes);
+}
 router.use("/projects", projectsRoutes);
 router.use("/features", featureRoutes);
 router.use("/stories", storiesRoutes);
@@ -42,6 +51,8 @@ router.use("/sprints", sprintRoutes);
 router.use("/incidents", incidentRoutes);
 router.use("/improvements", improvementRoutes);
 router.use("/documents", documentRoutes);
+// Contenido documental de plataforma (documentation_contents). ISO documents permanece en /documents.
+router.use("/documentation", documentationRoutes);
 router.use("/docs", docsExportRoutes);
 router.use("/projects/:projectId/repository", githubRoutes);
 router.use("/projects/:projectId/code-deliveries", codeDeliveryRoutes);
@@ -52,5 +63,15 @@ router.use("/reports", reportRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/automation", aiAutomationRoutes);
 router.use("/automation", automationRulesRoutes);
+router.use("/workflows", workflowRoutes);
+router.use("/rules-engine", rulesEngineRoutes);
+router.use("/ai/review", (req, res) => {
+  void req;
+  const result = buildFeatureDisabledResponse("ai-review", {
+    status: "disabled",
+    checks: []
+  });
+  return res.status(400).json(result);
+});
 
 module.exports = router;

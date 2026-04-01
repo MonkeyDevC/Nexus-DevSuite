@@ -1,0 +1,274 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+}
+
+/* Barra compacta de metadatos (wireframe: fila densa + iconos de acento) */
+.metaBarWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.metaBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-3) var(--ds-space-5);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-surface-raised);
+}
+
+.metaBarItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-2);
+  min-width: 0;
+}
+
+.metaBarIconWrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.1rem;
+}
+
+.metaBarIconSvg {
+  width: 100%;
+  height: 100%;
+}
+
+.metaIconAmber {
+  color: #fbbf24;
+}
+
+.metaIconSlate {
+  color: #94a3b8;
+}
+
+.metaIconCyan {
+  color: #22d3ee;
+}
+
+.metaIconGold {
+  color: #eab308;
+}
+
+.metaIconPurple {
+  color: #c084fc;
+}
+
+.metaIconSky {
+  color: #38bdf8;
+}
+
+.metaIconTeal {
+  color: #2dd4bf;
+}
+
+.metaBarItemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  max-width: min(100%, 20rem);
+}
+
+.metaBarLabel {
+  font-size: 0.65rem;
+  font-weight: var(--ds-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ds-color-text-muted);
+  line-height: 1.2;
+}
+
+.metaBarValue {
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.metaBarValueDense {
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.metaBarSep {
+  margin: 0 0.35rem;
+  font-weight: var(--ds-font-weight-regular);
+  color: var(--ds-color-text-muted);
+  opacity: 0.85;
+}
+
+.metaBarInlineMuted {
+  font-weight: var(--ds-font-weight-regular);
+  color: var(--ds-color-text-muted);
+}
+
+.metaBarSubMuted {
+  font-size: 0.7rem;
+  font-weight: var(--ds-font-weight-regular);
+  color: var(--ds-color-text-muted);
+  line-height: 1.2;
+}
+
+.metaBarStatus {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.metaBarActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.metaBarMoreBtn {
+  font-size: var(--ds-font-size-sm);
+  padding: 0.35rem 0.75rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 40rem) {
+  .metaBarActions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .metaBarMoreBtn {
+    width: 100%;
+  }
+}
+
+.metaDetailsPanel {
+  margin-top: var(--ds-space-2);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-surface);
+}
+
+.metaDetailsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--ds-space-3) var(--ds-space-4);
+}
+
+.metaDetailCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.metaDetailKey {
+  font-size: 0.65rem;
+  font-weight: var(--ds-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ds-color-text-muted);
+}
+
+.metaDetailVal {
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-heading);
+  word-break: break-word;
+}
+
+.sectionCard {
+  border: 1px solid var(--ds-color-border-subtle);
+}
+
+.sectionTitle {
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+  margin-bottom: var(--ds-space-3);
+}
+
+.readBody {
+  margin: 0;
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-body);
+  color: var(--ds-color-text);
+}
+
+.muted {
+  margin: 0;
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-muted);
+}
+
+.criteriaList {
+  margin: 0;
+  padding-left: var(--ds-space-5);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text);
+  line-height: var(--ds-line-height-body);
+}
+
+.quickLinks {
+  margin-top: var(--ds-space-2);
+  padding-top: var(--ds-space-4);
+  border-top: 1px solid var(--ds-color-border-subtle);
+}
+
+.quickLabel {
+  display: block;
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-muted);
+  margin-bottom: var(--ds-space-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.quickRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+}
+
+/* Fila tipo lista en Vista (preview de historias en overlay de feature). */
+.storyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  width: 100%;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-color-border);
+  background: var(--ds-color-surface);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.storyRow:hover:not(:disabled) {
+  background: var(--ds-color-surface-raised);
+}
+
+.storyRow:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

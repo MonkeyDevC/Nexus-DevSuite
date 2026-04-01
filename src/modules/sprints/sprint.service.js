@@ -9,6 +9,8 @@ const featureService = require("../backlog/feature.service");
 const userStoryRepository = require("../backlog/userStory.repository");
 const featureRepository = require("../backlog/feature.repository");
 const authRepository = require("../auth/auth.repository");
+const rulesEngineService = require("../rules-engine/rulesEngine.service");
+const { logStateTransition } = require("../orchestrator/stateTransitionLogger.service");
 const { validateSprintTransition } = require("./sprint.workflow.validator");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
@@ -48,6 +50,38 @@ function ensureAuditContext(context) {
   };
 }
 
+function resolveExplicitRules(rules) {
+  if (rules == null) {
+    return null;
+  }
+  if (!Array.isArray(rules)) {
+    throw new AppError("rules debe ser un arreglo cuando se envía", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  return rules;
+}
+
+function assertSprintCreateDates(payload) {
+  const start = payload.start_date;
+  const end = payload.end_date;
+  if (start == null || String(start).trim() === "" || end == null || String(end).trim() === "") {
+    throw new AppError("start_date y end_date son obligatorias", {
+      statusCode: 422,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  const s = String(start).trim().slice(0, 10);
+  const e = String(end).trim().slice(0, 10);
+  if (e < s) {
+    throw new AppError("end_date debe ser posterior a start_date", {
+      statusCode: 422,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+}
+
 async function createSprint(projectId, payload, context) {
   const project = await projectsRepository.findById(projectId);
   if (!project) {
@@ -57,12 +91,13 @@ async function createSprint(projectId, payload, context) {
     });
   }
   featureService.ensureProjectInOrg(project, context.organizationId);
+  assertSprintCreateDates(payload);
   const created = await sprintRepository.create({
     project_id: projectId,
     name: payload.name,
     goal: payload.goal ?? null,
-    start_date: payload.start_date ?? null,
-    end_date: payload.end_date ?? null,
+    start_date: String(payload.start_date).trim().slice(0, 10),
+    end_date: String(payload.end_date).trim().slice(0, 10),
     status: "PLANNED",
     created_by: context.user?.id
   });
@@ -102,7 +137,7 @@ async function listSprints(projectId, params = {}, organizationId) {
   };
 }
 
-async function updateSprintStatus(sprintId, nextStatus, context) {
+async function updateSprintStatus(sprintId, nextStatus, context, rules = null) {
   const sprint = await sprintRepository.findById(sprintId);
   if (!sprint) {
     throw new AppError("Sprint no encontrado", {
@@ -122,19 +157,36 @@ async function updateSprintStatus(sprintId, nextStatus, context) {
   validateSprintTransition(currentStatus, nextStatus);
 
   if (nextStatus === "IN_PROGRESS") {
-    const goalTrimmed = sprint.goal != null ? String(sprint.goal).trim() : "";
-    if (!goalTrimmed) {
-      throw new AppError(
-        "Para abrir el sprint oficialmente debe definir los objetivos del sprint. Edite el sprint y complete el campo Objetivo.",
-        { statusCode: 400, code: ERROR_CODES.SPRINT_OPEN_GOAL_REQUIRED }
-      );
+    const otherActive = await sprintRepository.countByProjectStatus(sprint.project_id, "IN_PROGRESS", {
+      excludeId: sprintId
+    });
+    if (otherActive > 0) {
+      throw new AppError("Ya existe un sprint IN_PROGRESS en este proyecto", {
+        statusCode: 409,
+        code: ERROR_CODES.SPRINT_ALREADY_ACTIVE
+      });
     }
-    const storyCount = await sprintRepository.countStoriesBySprintId(sprintId);
-    if (storyCount === 0) {
-      throw new AppError(
-        "Para abrir el sprint oficialmente debe incluir al menos una user story en el sprint. Asigne stories desde el listado anterior.",
-        { statusCode: 400, code: ERROR_CODES.SPRINT_OPEN_STORIES_REQUIRED }
-      );
+  }
+
+  const explicitRules = resolveExplicitRules(rules);
+  if (explicitRules) {
+    const rulesResult = await rulesEngineService.evaluateRules(
+      {
+        domain: "sprints",
+        entity: "sprint",
+        sprint_id: sprintId,
+        project_id: sprint.project_id,
+        from_status: currentStatus,
+        to_status: nextStatus
+      },
+        explicitRules
+    );
+    if (!rulesResult.allowed) {
+      throw new AppError("Transición de sprint bloqueada por rules engine", {
+        statusCode: 400,
+        code: ERROR_CODES.VALIDATION_ERROR,
+        details: { errors: rulesResult.errors, warnings: rulesResult.warnings }
+      });
     }
   }
 
@@ -158,8 +210,8 @@ async function updateSprintStatus(sprintId, nextStatus, context) {
       throw new AppError(
         "No se puede cerrar el sprint: hay stories en estado IN_PROGRESS o BLOCKED. Complételas o muévalas al backlog.",
         {
-          statusCode: 400,
-          code: ERROR_CODES.SPRINT_CLOSE_STORIES_IN_PROGRESS
+          statusCode: 409,
+          code: ERROR_CODES.SPRINT_HAS_ACTIVE_WORK
         }
       );
     }
@@ -181,6 +233,15 @@ async function updateSprintStatus(sprintId, nextStatus, context) {
     entity: "SPRINT",
     entity_id: sprintId,
     metadata: { from: currentStatus, to: nextStatus }
+  });
+  await logStateTransition({
+    entity: "SPRINT",
+    entityId: sprintId,
+    fromState: currentStatus,
+    toState: nextStatus,
+    requestId: context.requestId,
+    dedupKey: context.dedupKey,
+    metadata: { action: "STATUS_CHANGE" }
   });
 
   if (nextStatus === "CLOSED") {
@@ -272,11 +333,21 @@ async function assignStoryToSprint(sprintId, storyId, context) {
   }
   if (story.status !== "READY") {
     throw new AppError(
-      "Solo se pueden asignar al sprint stories en estado READY. La story está en estado " + story.status + ".",
+      "Solo se pueden asignar al sprint stories en estado READY",
       { statusCode: 400, code: ERROR_CODES.STORY_NOT_READY_FOR_SPRINT }
     );
   }
-
+  const existingSprint = story.sprint_id != null && String(story.sprint_id).trim() !== "" ? String(story.sprint_id).trim() : null;
+  if (existingSprint && existingSprint === String(sprintId).trim()) {
+    return toPlain(await sprintRepository.findById(sprintId));
+  }
+  if (existingSprint) {
+    throw new AppError("La story ya está asignada a un sprint; elimine la asignación antes de reasignar", {
+      statusCode: 409,
+      code: ERROR_CODES.STORY_ALREADY_IN_SPRINT,
+      details: { sprint_id: existingSprint }
+    });
+  }
   await userStoryRepository.update(storyId, { sprint_id: sprintId });
   const auditCtx = ensureAuditContext(context);
   await authRepository.createAuditLog({
@@ -408,8 +479,8 @@ async function deleteSprint(sprintId, context) {
   if (project) featureService.ensureProjectInOrg(project, context.organizationId);
   if (sprint.status !== "PLANNED") {
     throw new AppError("Solo se puede eliminar un sprint en estado PLANNED", {
-      statusCode: 400,
-      code: ERROR_CODES.SPRINT_CANNOT_DELETE
+      statusCode: 409,
+      code: ERROR_CODES.SPRINT_INVALID_STATE
     });
   }
   await sprintRepository.remove(sprintId);
@@ -421,7 +492,7 @@ async function deleteSprint(sprintId, context) {
     entity_id: sprintId,
     metadata: { project_id: sprint.project_id, name: sprint.name }
   });
-  return { deleted: true, id: sprintId };
+  return { id: sprintId };
 }
 
 module.exports = {

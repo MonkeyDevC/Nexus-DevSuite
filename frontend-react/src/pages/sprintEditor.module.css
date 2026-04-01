@@ -1,0 +1,72 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+}
+
+.title {
+  margin: 0 0 var(--ds-space-1);
+  font-family: var(--ds-font-family-heading);
+  font-size: var(--ds-font-size-xl);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+}
+
+.formStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+}
+
+.dateRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-4);
+}
+
+.dateField {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+}
+
+.alertBase {
+  margin: 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-radius: var(--ds-radius-md);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-body);
+}
+
+.alertWarning {
+  composes: alertBase;
+  border: 1px solid var(--ds-color-warning);
+  background: var(--ds-color-warning-muted);
+  color: var(--ds-color-text-heading);
+}
+
+.alertDanger {
+  composes: alertBase;
+  border: 1px solid var(--ds-color-error-border);
+  background: var(--ds-color-danger-muted);
+  color: var(--ds-color-text-heading);
+}
+
+.alertSecondary {
+  composes: alertBase;
+  border: 1px solid var(--ds-color-border);
+  background: var(--ds-color-surface-raised);
+  color: var(--ds-color-text-muted);
+}
+
+.muted {
+  margin: 0;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-sm);
+}

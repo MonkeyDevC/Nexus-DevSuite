@@ -68,7 +68,7 @@ describe("Backlog ETAPA 1 - QA negativo", () => {
     return crId;
   }
 
-  test("Crear proyecto duplicado devuelve 409 y PROJECT_ALREADY_EXISTS", async () => {
+  test("Crear proyecto duplicado devuelve 409 y PROJECT_NAME_DUPLICATE", async () => {
     const name = "Proyecto QA Duplicado " + Date.now();
     await request(app)
       .post("/api/v1/projects")
@@ -83,7 +83,7 @@ describe("Backlog ETAPA 1 - QA negativo", () => {
       .expect(409);
 
     expect(res.body.success).toBe(false);
-    expect(res.body.error && res.body.error.code).toBe("PROJECT_ALREADY_EXISTS");
+    expect(res.body.error && res.body.error.code).toBe("PROJECT_NAME_DUPLICATE");
     expect(res.status).not.toBe(500);
   });
 
@@ -170,9 +170,11 @@ describe("Backlog ETAPA 1 - QA negativo", () => {
       .send({ name: "Proj Archivado " + Date.now(), description: "D" })
       .expect(201);
     const pid = createProject.body.data.id;
+    const expectedVersion = createProject.body.data.version;
     await request(app)
       .patch(`/api/v1/projects/${pid}/archive`)
       .set("Authorization", `Bearer ${masterToken}`)
+      .send({ expected_version: expectedVersion })
       .expect(200);
     const res = await request(app)
       .post(`/api/v1/projects/${pid}/features`)

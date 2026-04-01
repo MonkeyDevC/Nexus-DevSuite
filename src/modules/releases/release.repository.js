@@ -4,7 +4,6 @@
  */
 
 const { getModels } = require("../../infrastructure/db/loadModels");
-const { compareSemVer } = require("./semver.validator");
 
 function getReleaseModel() {
   const { Release } = getModels();
@@ -44,17 +43,17 @@ async function list({ page = 1, limit = 10, status, organizationId } = {}) {
 }
 
 /**
- * Obtiene todas las releases en estado RELEASED y devuelve la de mayor versión (comparación semántica).
+ * Última release publicada (WAVE 4: por released_at / created_at, no SemVer).
  */
 async function findLatestReleased() {
   const Release = getReleaseModel();
-  const rows = await Release.findAll({
+  return Release.findOne({
     where: { status: "RELEASED" },
-    order: [["released_at", "DESC"]]
+    order: [
+      ["released_at", "DESC"],
+      ["created_at", "DESC"]
+    ]
   });
-  if (rows.length === 0) return null;
-  const sorted = [...rows].sort((a, b) => compareSemVer(b.version, a.version));
-  return sorted[0];
 }
 
 async function update(id, payload) {
@@ -67,6 +66,16 @@ async function update(id, payload) {
 async function countFeaturesByReleaseId(releaseId) {
   const { Feature } = getModels();
   return Feature.count({ where: { release_id: releaseId } });
+}
+
+async function countStoriesByReleaseId(releaseId) {
+  const { UserStory } = getModels();
+  return UserStory.count({ where: { release_id: releaseId } });
+}
+
+async function clearStoriesReleaseIdForRelease(releaseId) {
+  const { UserStory } = getModels();
+  await UserStory.update({ release_id: null }, { where: { release_id: releaseId } });
 }
 
 async function deleteById(id) {
@@ -83,5 +92,7 @@ module.exports = {
   findLatestReleased,
   update,
   countFeaturesByReleaseId,
+  countStoriesByReleaseId,
+  clearStoriesReleaseIdForRelease,
   deleteById
 };

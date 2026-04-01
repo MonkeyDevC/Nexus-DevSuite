@@ -1,0 +1,54 @@
+.root {
+  min-height: var(--ds-layout-min-height-viewport);
+}
+
+.mainRow {
+  display: flex;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.topbarLabel {
+  font-family: var(--ds-font-family-heading);
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+}
+
+.sectionStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-6);
+}
+
+.sectionTitle {
+  margin: 0 0 var(--ds-space-2);
+  font-family: var(--ds-font-family-heading);
+  font-size: var(--ds-font-size-md);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+}
+
+.breadcrumbFake {
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-muted);
+}
+
+.emptyBox {
+  padding: var(--ds-space-4);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface-raised);
+}
+
+.chartPlaceholderLabel {
+  margin: 0;
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-muted);
+}
+
+.primitivesFields {
+  margin-top: var(--ds-space-4);
+}

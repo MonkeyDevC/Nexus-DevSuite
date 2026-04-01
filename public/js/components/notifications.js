@@ -44,4 +44,23 @@
       }, 150);
     }, TOAST_DURATION_MS);
   };
+
+  /**
+   * Toast de error breve (feedback UX sin modal).
+   * @param {string} message
+   */
+  window.showErrorMessage = function (message) {
+    var container = ensureContainer();
+    var div = document.createElement("div");
+    div.className = "alert alert-danger alert-dismissible fade show shadow-sm";
+    div.role = "alert";
+    div.innerHTML = esc(message || "Se produjo un error.");
+    container.appendChild(div);
+    setTimeout(function () {
+      div.classList.remove("show");
+      setTimeout(function () {
+        if (div.parentNode) div.parentNode.removeChild(div);
+      }, 150);
+    }, TOAST_DURATION_MS + 1500);
+  };
 })();

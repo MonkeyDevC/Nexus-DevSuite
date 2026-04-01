@@ -9,6 +9,7 @@ const userStoryRepository = require("./userStory.repository");
 const changeRequestService = require("../changeRequests/changeRequest.service");
 const { validateTransition, ENTITY_TYPES } = require("./workflow.validator");
 const authRepository = require("../auth/auth.repository");
+const rulesEngineService = require("../rules-engine/rulesEngine.service");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
 
@@ -21,6 +22,8 @@ function toPlain(feature) {
     number: f.number,
     title: f.title,
     description: f.description,
+    acceptance_criteria: f.acceptance_criteria != null ? f.acceptance_criteria : [],
+    implementation_criteria: f.implementation_criteria != null ? f.implementation_criteria : [],
     status: f.status,
     priority: f.priority,
     backlog_position: f.backlog_position != null ? f.backlog_position : null,
@@ -60,6 +63,19 @@ function ensureProjectInOrg(project, organizationId) {
       code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
     });
   }
+}
+
+function resolveExplicitRules(rules) {
+  if (rules == null) {
+    return null;
+  }
+  if (!Array.isArray(rules)) {
+    throw new AppError("rules debe ser un arreglo cuando se envía", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  return rules;
 }
 
 async function createFeature(projectId, payload, context = {}) {
@@ -161,6 +177,8 @@ async function updateFeature(id, payload, context = {}) {
   const updatePayload = {};
   if (payload.title !== undefined) updatePayload.title = payload.title;
   if (payload.description !== undefined) updatePayload.description = payload.description;
+  if (payload.acceptance_criteria !== undefined) updatePayload.acceptance_criteria = payload.acceptance_criteria;
+  if (payload.implementation_criteria !== undefined) updatePayload.implementation_criteria = payload.implementation_criteria;
   if (payload.priority !== undefined) updatePayload.priority = payload.priority;
   if (payload.backlog_position !== undefined) updatePayload.backlog_position = payload.backlog_position === null || payload.backlog_position === "" ? null : Math.max(0, parseInt(payload.backlog_position, 10));
   if (Object.keys(updatePayload).length === 0) return toPlain(feature);
@@ -177,7 +195,7 @@ async function updateFeature(id, payload, context = {}) {
   return toPlain(updated);
 }
 
-async function updateFeatureStatus(id, nextStatus, context, changeRequestId = null) {
+async function updateFeatureStatus(id, nextStatus, context, changeRequestId = null, rules = null) {
   const feature = await featureRepository.findById(id);
   if (!feature) {
     throw new AppError("Feature no encontrada", {
@@ -197,6 +215,27 @@ async function updateFeatureStatus(id, nextStatus, context, changeRequestId = nu
     }
   }
   validateTransition(ENTITY_TYPES.FEATURE, currentStatus, nextStatus);
+  const explicitRules = resolveExplicitRules(rules);
+  if (explicitRules) {
+    const rulesResult = await rulesEngineService.evaluateRules(
+      {
+        domain: "backlog",
+        entity: "feature",
+        from_status: currentStatus,
+        to_status: nextStatus,
+        feature_id: id,
+        project_id: feature.project_id
+      },
+      explicitRules
+    );
+    if (!rulesResult.allowed) {
+      throw new AppError("Transición de feature bloqueada por rules engine", {
+        statusCode: 400,
+        code: ERROR_CODES.VALIDATION_ERROR,
+        details: { errors: rulesResult.errors, warnings: rulesResult.warnings }
+      });
+    }
+  }
 
   const updatePayload = { status: nextStatus };
   if (nextStatus === "APPROVED") {
@@ -222,11 +261,55 @@ async function updateFeatureStatus(id, nextStatus, context, changeRequestId = nu
   return toPlain(updated);
 }
 
+async function deleteFeature(id, context = {}) {
+  const feature = await featureRepository.findById(id);
+  if (!feature) {
+    throw new AppError("Feature no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.FEATURE_NOT_FOUND
+    });
+  }
+  const project = await projectsRepository.findById(feature.project_id);
+  if (project) ensureProjectInOrg(project, context.organizationId);
+  if (feature.status === "ARCHIVED") {
+    throw new AppError("No se puede eliminar una feature archivada", {
+      statusCode: 409,
+      code: ERROR_CODES.FEATURE_INVALID_STATE,
+      details: { status: feature.status }
+    });
+  }
+  const storyCount = await featureRepository.countStoriesByFeatureId(id);
+  if (storyCount > 0) {
+    throw new AppError("La feature tiene historias asociadas", {
+      statusCode: 409,
+      code: ERROR_CODES.FEATURE_HAS_STORIES,
+      details: { story_count: storyCount }
+    });
+  }
+  const removed = await featureRepository.removeById(id);
+  if (!removed) {
+    throw new AppError("Feature no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.FEATURE_NOT_FOUND
+    });
+  }
+  const auditCtx = ensureAuditContext(context);
+  await authRepository.createAuditLog({
+    ...auditCtx,
+    action: "DELETE",
+    entity: "Feature",
+    entity_id: id,
+    metadata: {}
+  });
+  return { id };
+}
+
 module.exports = {
   createFeature,
   getFeatureById,
   listFeaturesByProject,
   updateFeature,
   updateFeatureStatus,
+  deleteFeature,
   ensureProjectInOrg
 };

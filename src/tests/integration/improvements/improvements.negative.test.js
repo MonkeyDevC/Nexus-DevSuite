@@ -33,7 +33,7 @@ describe("Improvements ETAPA 3 - QA negativo", () => {
       throw new Error("Roles MASTER o EMPLOYEE no existen en BD.");
     }
 
-    let masterUser = await User.unscoped().findOne({ where: { email: TEST_MASTER_EMAIL } });
+    let masterUser = await User.unscoped().findOne({ where: { email: TEST_MASTER_EMAIL }, paranoid: false });
     if (!masterUser) {
       masterUser = await User.create({
         email: TEST_MASTER_EMAIL,
@@ -41,12 +41,30 @@ describe("Improvements ETAPA 3 - QA negativo", () => {
         role_id: masterRole.id,
         is_active: true
       });
+    } else {
+      if (masterUser.deleted_at) {
+        await masterUser.restore();
+      }
+      await masterUser.update({
+        password_hash: bcrypt.hashSync(TEST_MASTER_PASSWORD, 10),
+        role_id: masterRole.id,
+        is_active: true
+      });
     }
 
-    let employeeUser = await User.unscoped().findOne({ where: { email: TEST_EMPLOYEE_EMAIL } });
+    let employeeUser = await User.unscoped().findOne({ where: { email: TEST_EMPLOYEE_EMAIL }, paranoid: false });
     if (!employeeUser) {
       employeeUser = await User.create({
         email: TEST_EMPLOYEE_EMAIL,
+        password_hash: bcrypt.hashSync(TEST_EMPLOYEE_PASSWORD, 10),
+        role_id: employeeRole.id,
+        is_active: true
+      });
+    } else {
+      if (employeeUser.deleted_at) {
+        await employeeUser.restore();
+      }
+      await employeeUser.update({
         password_hash: bcrypt.hashSync(TEST_EMPLOYEE_PASSWORD, 10),
         role_id: employeeRole.id,
         is_active: true

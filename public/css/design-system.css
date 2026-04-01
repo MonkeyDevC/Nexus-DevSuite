@@ -1,13 +1,42 @@
 /**
  * ETAPA 12 — Sistema de diseño Nexus DevSuite
  * Variables CSS y clases reutilizables para tipografía, colores, espaciados,
- * botones, inputs, cards, badges y estados. Alineado con login (Etapa 11).
- * Referencia: docs/PLAN_ETAPA_12_SISTEMA_DISENO.md
+ * botones, inputs, cards, badges y estados.
+ * Paleta de marca: azul enterprise (primario #1E3A8A, acento interactivo #3B82F6, fondo Hawkes Blue).
  */
 
 /* ========== 1. VARIABLES ( :root ) ========== */
 
 :root {
+  /* ---- Tokens canónicos (paleta de referencia + estados armónicos) ---- */
+  --color-primary: #1e3a8a;
+  --color-primary-hover: #172554;
+  --color-secondary: #3b82f6;
+  --color-secondary-hover: #2563eb;
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-accent-light: rgba(59, 130, 246, 0.14);
+  --color-bg-main: #e1e8fc;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #f0f4fd;
+  --color-text-primary: #1f2937;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #6b7280;
+  --color-text-inverse: #ffffff;
+  --color-border: #c5d3ef;
+  --color-border-subtle: #dce6fa;
+  --color-border-focus: var(--color-accent);
+  --color-success: #0d9488;
+  --color-success-hover: #0f766e;
+  --color-success-muted: rgba(13, 148, 136, 0.14);
+  --color-error: #dc2626;
+  --color-error-hover: #b91c1c;
+  --color-error-muted: #fef2f2;
+  --color-warning: #ca8a04;
+  --color-warning-muted: rgba(202, 138, 4, 0.16);
+  --color-info: #3b82f6;
+  --color-info-muted: rgba(59, 130, 246, 0.12);
+
   /* Tipografía */
   --nexus-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --nexus-text-xs: 0.75rem;
@@ -21,31 +50,27 @@
   --nexus-font-weight-semibold: 600;
   --nexus-font-weight-bold: 700;
 
-  /* Paleta — Acento (alineado con login Etapa 11) */
-  --nexus-accent: #f97316;
-  --nexus-accent-hover: #ea580c;
-  --nexus-accent-light: rgba(249, 115, 22, 0.12);
+  /* Alias NEXUS → tokens (compatibilidad con el resto del CSS) */
+  --nexus-accent: var(--color-accent);
+  --nexus-accent-hover: var(--color-accent-hover);
+  --nexus-accent-light: var(--color-accent-light);
 
-  /* Fondos */
-  --nexus-bg-page: #f8fafc;
-  --nexus-bg-card: #ffffff;
-  --nexus-bg-sidebar: #1e293b;
+  --nexus-bg-page: var(--color-bg-main);
+  --nexus-bg-card: var(--color-bg-surface);
+  --nexus-bg-sidebar: var(--color-primary);
 
-  /* Texto */
-  --nexus-text-primary: #0f172a;
-  --nexus-text-secondary: #64748b;
-  --nexus-text-muted: #94a3b8;
-  --nexus-text-inverse: #ffffff;
+  --nexus-text-primary: var(--color-text-primary);
+  --nexus-text-secondary: var(--color-text-secondary);
+  --nexus-text-muted: var(--color-text-muted);
+  --nexus-text-inverse: var(--color-text-inverse);
 
-  /* Bordes */
-  --nexus-border: #e2e8f0;
-  --nexus-border-focus: var(--nexus-accent);
+  --nexus-border: var(--color-border);
+  --nexus-border-focus: var(--color-border-focus);
 
-  /* Estados semánticos */
-  --nexus-success: #22c55e;
-  --nexus-warning: #eab308;
-  --nexus-danger: #ef4444;
-  --nexus-info: #3b82f6;
+  --nexus-success: var(--color-success);
+  --nexus-warning: var(--color-warning);
+  --nexus-danger: var(--color-error);
+  --nexus-info: var(--color-info);
 
   /* Espaciados */
   --nexus-spacing-1: 4px;
@@ -795,9 +820,9 @@ body.nexus-evidence-fullscreen-open {
   background: rgba(255, 255, 255, 0.08);
 }
 .nexus-sidebar-link.nexus-nav-item-active {
-  background: rgba(249, 115, 22, 0.2);
-  color: var(--nexus-accent);
-  border-left: 3px solid var(--nexus-accent);
+  background: var(--color-accent-light);
+  color: var(--nexus-text-inverse);
+  border-left: 3px solid var(--color-secondary);
 }
 #app-main {
   flex: 1;
@@ -916,9 +941,9 @@ body.nexus-evidence-fullscreen-open {
   padding-left: 36px;
   padding-right: 12px;
   height: 38px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--nexus-border);
   border-radius: var(--nexus-radius-md);
-  background: #ffffff;
+  background: var(--nexus-bg-card);
   font-size: var(--nexus-text-sm);
   color: var(--nexus-text-primary);
 }
@@ -952,7 +977,7 @@ body.nexus-evidence-fullscreen-open {
   padding: 0;
   border: 0;
   border-radius: 16px;
-  background: #1e293b;
+  background: var(--color-primary);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
   margin-top: 8px;
 }
@@ -1360,20 +1385,29 @@ body.nexus-manage-user-modal-open .modal-backdrop {
 .dashboard-metric-link {
   font-size: var(--nexus-text-sm);
   text-decoration: none;
+  color: var(--color-secondary);
+  font-weight: var(--nexus-font-weight-medium);
 }
-.dashboard-metric-link:hover { text-decoration: underline; }
+.dashboard-metric-link:hover {
+  text-decoration: underline;
+  color: var(--color-secondary-hover);
+}
+.dashboard-metric-accent .dashboard-metric-icon {
+  background: rgba(30, 58, 138, 0.18);
+  color: var(--color-primary);
+}
 .dashboard-metric-progress { height: 6px; }
 .dashboard-metric-success .dashboard-metric-icon {
-  background: rgba(34, 197, 94, 0.15);
-  color: #15803d;
+  background: var(--color-success-muted);
+  color: var(--color-success-hover);
 }
 .dashboard-metric-info .dashboard-metric-icon {
-  background: rgba(59, 130, 246, 0.15);
-  color: #1d4ed8;
+  background: var(--color-info-muted);
+  color: var(--color-secondary-hover);
 }
 .dashboard-metric-danger .dashboard-metric-icon {
-  background: rgba(239, 68, 68, 0.15);
-  color: #b91c1c;
+  background: rgba(220, 38, 38, 0.14);
+  color: var(--color-error-hover);
 }
 .dashboard-empty-block {
   border: 1px dashed var(--nexus-border);
@@ -1723,4 +1757,60 @@ body.nexus-manage-user-modal-open .modal-backdrop {
   #content .nexus-card {
     padding: 1rem;
   }
+}
+
+/* Vista documentos (#/documents) — lectura Markdown/HTML */
+#content .nexus-doc-viewer-md h1,
+#content .nexus-doc-viewer-md h2,
+#content .nexus-doc-viewer-md h3,
+#content .nexus-doc-viewer-md h4,
+#content .nexus-doc-viewer-md h5,
+#content .nexus-doc-viewer-md h6 {
+  margin-top: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-weight: var(--nexus-font-weight-semibold);
+}
+#content .nexus-doc-viewer-md p:last-child {
+  margin-bottom: 0;
+}
+#content .nexus-documents-split .list-group-item.active {
+  background-color: var(--nexus-accent-light);
+  border-color: var(--nexus-accent);
+  color: var(--nexus-text-primary);
+}
+#content .nexus-documents-form .sticky-top {
+  top: 0.5rem;
+}
+
+/* Skeleton carga — documentos hub */
+@keyframes nexus-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+#content .nexus-skeleton-bar {
+  height: 0.75rem;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 50%, #e2e8f0 100%);
+  background-size: 200% 100%;
+  animation: nexus-skeleton-pulse 1.2s ease-in-out infinite;
+}
+#content .nexus-skeleton-bar.w-75 {
+  width: 75%;
+}
+#content .nexus-skeleton-bar.w-50 {
+  width: 50%;
+}
+#content .nexus-skeleton-bar.w-100 {
+  width: 100%;
+}
+#content .nexus-skeleton-bar.mb-2 {
+  margin-bottom: 0.5rem;
+}
+#content .hub-detail-loading {
+  min-height: 200px;
 }

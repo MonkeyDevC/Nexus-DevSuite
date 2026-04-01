@@ -137,6 +137,20 @@
 | PATCH | `/api/v1/documents/:documentId/versions/:versionId` | Actualizar versión |
 | PATCH | `/api/v1/documents/:documentId/versions/:versionId/status` | Cambiar estado de versión |
 
+### Documentation (contenido de plataforma)
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/v1/documentation` | Listar contenidos documentales de plataforma |
+| GET | `/api/v1/documentation/:id` | Obtener contenido por id |
+| POST | `/api/v1/documentation` | Crear contenido documental (idempotente; requiere `x-dedup-key`) |
+| PATCH | `/api/v1/documentation/:id` | Actualizar contenido documental (idempotente; requiere `x-dedup-key`) |
+| DELETE | `/api/v1/documentation/:id` | Eliminar contenido documental (idempotente; requiere `x-dedup-key`) |
+
+### Docs Export
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/v1/docs/export` | Exportar documentación a archivo Word (.docx). Body: `type` (obligatorio), `projectId` (opcional), `deliveryId` (opcional), overrides de contenido HTML opcionales. |
+
 ### Dashboard
 | Método | Ruta | Descripción |
 |--------|------|-------------|
@@ -241,6 +255,14 @@ En la carpeta `public/` (HTML + JS) estos son los endpoints que se llaman desde 
 | PATCH `/api/v1/documents/:documentId/versions/:versionId` | Documents → detalle | Actualizar contenido de versión (modal "Ver contenido" → Guardar cuando versión DRAFT y usuario MASTER). |
 | POST `/api/v1/documents/:documentId/versions` | Documents → detalle | Crear nueva versión (Nueva versión; change_reason, content opcionales). |
 | PATCH `/api/v1/documents/:documentId/versions/:versionId/status` | Documents → detalle | Aprobar (APPROVED) o Archivar (ARCHIVED) versión. |
+| **Documentation (plataforma)** | | |
+| GET `/api/v1/documentation` | Documentation (#/documentation y #/documents) | Listado de contenidos de plataforma. |
+| GET `/api/v1/documentation/:id` | Documentation / Documents | Detalle por id para vista y resolución de ruta. |
+| POST `/api/v1/documentation` | Documentation / Documents | Crear contenido (usa `x-dedup-key` en frontend). |
+| PATCH `/api/v1/documentation/:id` | Documentation / Documents | Editar contenido (usa `x-dedup-key` en frontend). |
+| DELETE `/api/v1/documentation/:id` | Documents | Eliminar contenido (usa `x-dedup-key` en frontend). |
+| **Docs Export** | | |
+| POST `/api/v1/docs/export` | Documentation (#/documentation) | Descarga DOCX de documentación funcional/técnica o ambas. |
 | **Change Requests** | | |
 | POST `/api/v1/change-requests` | Change Requests (#/change-requests) | Crear CR (entity_type, entity_id obligatorios; title, description, type, impact_level opcionales). |
 | PATCH `/api/v1/change-requests/:id/submit` | Change Requests | Enviar a revisión (acciones por ID). |
