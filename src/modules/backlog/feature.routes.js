@@ -1,11 +1,15 @@
 /**
  * Módulo Backlog - Rutas Features
- * GET /features/:id, PATCH /features/:id, PATCH /features/:id/status, POST /features/:featureId/stories
+ * GET /features, POST /features, GET /features/:id, PUT/PATCH/DELETE /features/:id, GET /features/:featureId/stories, ...
  */
 
 const express = require("express");
 const {
   getFeatureController,
+  listFeaturesRootController,
+  createFeatureRootController,
+  putFeatureController,
+  deleteFeatureController,
   patchFeatureController,
   patchFeatureStatusController,
   createStoryController,
@@ -15,8 +19,11 @@ const {
   featureIdParamValidator,
   featureIdAsParamValidator,
   patchFeatureValidator,
+  putFeatureValidator,
   patchFeatureStatusValidator,
   createStoryValidator,
+  createFeatureRootValidator,
+  listFeaturesProjectQueryValidator,
   listQueryValidator
 } = require("./backlog.validator");
 const { authenticateMiddleware } = require("../../middlewares/authenticate.middleware");
@@ -24,8 +31,38 @@ const { authorizeMiddleware } = require("../../middlewares/authorize.middleware"
 
 const router = express.Router();
 
+router.get(
+  "/",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  listFeaturesProjectQueryValidator,
+  listFeaturesRootController
+);
+router.post(
+  "/",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  createFeatureRootValidator,
+  createFeatureRootController
+);
+
+router.get(
+  "/:featureId/stories",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  featureIdAsParamValidator,
+  listQueryValidator,
+  listStoriesController
+);
 router.get("/:id", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), featureIdParamValidator, getFeatureController);
-router.get("/:featureId/stories", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), featureIdAsParamValidator, listQueryValidator, listStoriesController);
+router.put(
+  "/:id",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  putFeatureValidator,
+  putFeatureController
+);
+router.delete("/:id", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), featureIdParamValidator, deleteFeatureController);
 router.patch(
   "/:id",
   authenticateMiddleware,

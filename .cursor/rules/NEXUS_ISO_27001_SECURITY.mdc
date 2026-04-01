@@ -1,0 +1,388 @@
+---
+description: Marco de seguridad NEXUS alineado a ISO 27001 — sistema integral de gestión de seguridad (ISMS) para SaaS multi-tenant de nivel enterprise
+alwaysApply: true
+---
+
+# 🔐 NEXUS ISO 27001 SECURITY FRAMEWORK (v2 — ENTERPRISE HARD MODE)
+
+## 1. PROPÓSITO
+
+Definir el sistema de gestión de seguridad de la información (ISMS) de NEXUS DevSuite, alineado a:
+
+> ISO/IEC 27001 — Information Security Management System
+
+Aplicado a:
+
+- backend
+- frontend
+- APIs
+- base de datos
+- autenticación
+- flujos multi-tenant
+- lógica de negocio
+- operaciones SaaS
+
+Este documento es:
+
+✔ normativo  
+✔ operativo  
+✔ obligatorio  
+
+---
+
+## 2. PRINCIPIO FUNDAMENTAL (CIA)
+
+Toda decisión de seguridad debe garantizar:
+
+### CONFIDENCIALIDAD
+- solo usuarios autorizados acceden a datos
+
+### INTEGRIDAD
+- los datos no pueden alterarse sin control
+
+### DISPONIBILIDAD
+- el sistema debe permanecer operativo
+
+---
+
+## 3. MODELO DE SEGURIDAD NEXUS
+
+Toda funcionalidad debe validar simultáneamente:
+
+1. autenticación
+2. autorización
+3. validación de datos
+4. trazabilidad
+5. protección de información
+6. control de acceso
+7. auditoría
+
+---
+
+## 4. CLASIFICACIÓN DE ACTIVOS
+
+Todo sistema debe identificar y proteger:
+
+### ACTIVOS CRÍTICOS
+- datos de usuarios
+- credenciales
+- tokens
+- configuración del sistema
+- lógica de negocio
+
+---
+
+### NIVELES DE CLASIFICACIÓN
+
+- PUBLIC
+- INTERNAL
+- CONFIDENTIAL
+- RESTRICTED
+
+Cada nivel define:
+
+- acceso permitido
+- nivel de protección
+- logging obligatorio
+
+---
+
+## 5. CONTROL DE ACCESO (ACCESS CONTROL)
+
+### 5.1 AUTENTICACIÓN
+
+- JWT obligatorio
+- expiración controlada
+- refresh token seguro
+- invalidación de sesiones
+
+---
+
+### 5.2 AUTORIZACIÓN
+
+Cada request debe validar:
+
+- usuario autenticado
+- organizationId
+- permisos específicos
+
+---
+
+### 5.3 PRINCIPIO DE MENOR PRIVILEGIO
+
+- acceso mínimo necesario
+- sin permisos globales innecesarios
+
+---
+
+### 5.4 CONTROL DE SESIONES
+
+- expiración obligatoria
+- invalidación en logout
+- detección de sesiones inválidas
+
+---
+
+## 6. SEGURIDAD MULTI-TENANT (CRÍTICO)
+
+OBLIGATORIO:
+
+- aislamiento total de datos
+- filtros por organizationId en TODAS las queries
+- validación en backend
+
+---
+
+### PROHIBIDO
+
+❌ confiar en frontend  
+❌ exponer datos cruzados  
+❌ consultas sin filtro tenant  
+
+---
+
+## 7. VALIDACIÓN Y SANITIZACIÓN DE DATOS
+
+Todo input debe:
+
+- validarse (tipo, formato, rango)
+- sanitizarse
+- normalizarse
+
+---
+
+### PROTECCIÓN CONTRA ATAQUES
+
+Prevenir:
+
+- SQL Injection
+- XSS
+- CSRF
+- injection de payloads
+- manipulación de parámetros
+
+---
+
+## 8. GESTIÓN DE SECRETOS
+
+### OBLIGATORIO
+
+- no hardcodear secretos
+- usar variables de entorno
+- proteger claves API
+- rotación periódica de secretos
+
+---
+
+### PROHIBIDO
+
+❌ credenciales en código  
+❌ tokens expuestos  
+❌ claves en frontend  
+
+---
+
+## 9. PROTECCIÓN DE DATOS
+
+### 9.1 DATOS SENSIBLES
+
+Nunca exponer:
+
+- contraseñas
+- tokens
+- datos internos
+- estructura DB
+
+---
+
+### 9.2 ENCRIPTACIÓN
+
+- bcrypt para contraseñas
+- JWT firmados
+- cifrado de datos sensibles si aplica
+
+---
+
+## 10. MANEJO DE ERRORES SEGUROS
+
+Errores deben:
+
+- ser controlados
+- no revelar información interna
+
+---
+
+### PROHIBIDO
+
+❌ stack traces en producción  
+❌ errores detallados  
+❌ filtración de lógica interna  
+
+---
+
+## 11. LOGGING Y AUDITORÍA DE SEGURIDAD
+
+Registrar:
+
+- accesos
+- intentos fallidos
+- acciones críticas
+- cambios sensibles
+
+---
+
+### REGLAS
+
+✔ logs estructurados  
+✔ trazables  
+✔ no contener datos sensibles  
+
+---
+
+## 12. RATE LIMIT Y PROTECCIÓN
+
+Implementar:
+
+- rate limiting
+- throttling
+- protección brute force
+
+---
+
+## 13. GESTIÓN DE INCIDENTES DE SEGURIDAD
+
+Flujo obligatorio:
+
+1. detectar
+2. registrar
+3. contener
+4. corregir
+5. prevenir
+
+---
+
+## 14. SEGURIDAD EN EL SDLC (DESARROLLO)
+
+Cada implementación debe:
+
+✔ validar inputs  
+✔ cumplir contratos  
+✔ evitar exposición de datos  
+✔ pasar auditoría de seguridad  
+
+---
+
+## 15. MODELADO DE AMENAZAS
+
+Antes de implementar:
+
+- identificar posibles ataques
+- evaluar impacto
+- definir mitigación
+
+---
+
+## 16. CONTROL DE CAMBIOS SEGUROS
+
+Todo cambio debe:
+
+- evaluarse en seguridad
+- no introducir vulnerabilidades
+- validarse antes de cerrar
+
+---
+
+## 17. AUDITORÍA DE SEGURIDAD
+
+El sistema debe permitir:
+
+- rastrear accesos
+- identificar acciones
+- detectar anomalías
+- reconstruir eventos
+
+---
+
+## 18. GESTIÓN DE RIESGOS
+
+Cada cambio debe evaluar:
+
+- impacto
+- probabilidad
+- mitigación
+
+---
+
+## 19. HARDENING DEL SISTEMA
+
+El sistema debe:
+
+✔ minimizar superficie de ataque  
+✔ limitar accesos  
+✔ proteger endpoints críticos  
+✔ evitar exposición innecesaria  
+
+---
+
+## 20. DEFINICIÓN DE SISTEMA SEGURO
+
+Un sistema es seguro si:
+
+✔ controla accesos  
+✔ protege datos  
+✔ registra acciones  
+✔ resiste ataques  
+✔ maneja errores correctamente  
+✔ es auditable  
+
+---
+
+## 21. ANTI-PATRONES CRÍTICOS
+
+❌ confiar en frontend  
+❌ no validar inputs  
+❌ hardcodear secretos  
+❌ exponer datos sensibles  
+❌ no registrar accesos  
+❌ permisos excesivos  
+
+---
+
+## 22. CRITERIOS DE RECHAZO
+
+Una implementación debe rechazarse si:
+
+- permite acceso indebido
+- no valida inputs
+- expone datos
+- rompe aislamiento tenant
+- no es trazable
+
+---
+
+## 23. DEFINICIÓN DE CUMPLIMIENTO ISO 27001
+
+NEXUS cumple ISO 27001 si:
+
+✔ protege activos  
+✔ controla accesos  
+✔ gestiona riesgos  
+✔ audita eventos  
+✔ responde a incidentes  
+✔ previene vulnerabilidades  
+
+---
+
+## 24. REGLA FINAL (ABSOLUTA)
+
+Si una funcionalidad puede:
+
+- ser explotada
+- exponer información
+- comprometer integridad
+- romper aislamiento
+
+Entonces:
+
+> ❌ NO se implementa  
+> ✔ debe rediseñarse obligatoriamente

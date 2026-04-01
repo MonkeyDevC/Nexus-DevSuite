@@ -1,0 +1,44 @@
+---
+description: Memoria operativa del agente NEXUS — invariantes, decisiones, contratos y riesgos (SSOT)
+alwaysApply: true
+---
+
+# 🧾 NEXUS Agent Memory — Estado Operativo
+
+## Propósito
+
+Mantener **persistente** (en el repo) lo “importante” para operar como *Master Developer* de NEXUS DevSuite sin perder contexto entre sesiones, sin inventar supuestos y sin romper SSOT.
+
+## Cómo se usa (reglas)
+
+- **Fuente**: esta memoria complementa `/.cursor/rules/*.mdc` y el código; no los reemplaza.
+- **Formato**: entradas cortas, auditables, sin ambigüedad.
+- **Cuándo escribir**: solo cuando se introduce un cambio material (contrato, invariante, decisión arquitectónica, convención, riesgo/mitigación).
+- **Qué NO escribir**: resúmenes largos, duplicación de documentos existentes, listas de tareas temporales.
+
+## Invariantes globales (no negociables)
+
+- **SSOT**: backend como autoridad; frontend representa (ver `NEXUS_CORE`, `NEXUS_ARCHITECTURE_CONTEXT`).
+- **Multi-tenant**: aislamiento por `organizationId` en toda operación que aplique; nunca confiar en frontend (ver `NEXUS_ISO_27001_SECURITY`).
+- **Contratos API**: respuestas consistentes:
+  - éxito: `{ success: true, data: {}, meta: {} }`
+  - error: `{ success: false, code: "ERROR_CODE", message: "…", details: {} }`
+  (ver `NEXUS_EXECUTION_ENGINE`, `NEXUS_QUALITY_SECURITY`)
+- **QA obligatoria**: happy path + negativos + edge cases + regresión (ver `NEXUS_QUALITY_SECURITY`).
+
+## Decisiones/Convenciones vigentes (inicial)
+
+- **Estándares de código (cada tarea)**: criterio mental, naming y “dejar el código mejor” en `NEXUS_CODE_STANDARDS_MEMORY.mdc`; detalle técnico en `NEXUS_CODE_MAINTENANCE_STANDARDS.mdc`.
+- **Gobernanza**: `/.cursor/rules/` es la memoria/SSOT operativa del agente (ver `NEXUS_AGENT_MEMORY_BOOTSTRAP.mdc`).
+- **Ejecución**: no se implementa sin análisis+diseño+validación previa (ver `NEXUS_EXECUTION_ENGINE`).
+- **Código**: creación, edición y mantenimiento de código según `NEXUS_CODE_MAINTENANCE_STANDARDS.mdc` (legibilidad, capas, nombres, React, HTTP, pruebas, checklist de cierre).
+- **Dominio Scrum (producto)**: jerarquía Project → Feature → Story, invariantes, UX/API/datos alineados a `NEXUS_SCRUM_DOMAIN_MEMORY.mdc`.
+
+## Contratos relevantes (pendiente de registrar cuando existan cambios)
+
+- (vacío) — registrar aquí endpoints/shape de request/response cuando se definan o cambien.
+
+## Riesgos aceptados y mitigaciones (pendiente)
+
+- (vacío) — registrar aquí solo si se acepta un trade-off explícito y su mitigación verificable.
+

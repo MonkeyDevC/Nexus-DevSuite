@@ -1,0 +1,316 @@
+---
+description: Contexto arquitectónico, reglas estructurales y límites de diseño de NEXUS DevSuite
+alwaysApply: true
+---
+
+# 🧱 NEXUS ARCHITECTURE CONTEXT (v2)
+
+## 1. VISIÓN DEL SISTEMA
+
+NEXUS DevSuite es un:
+
+> SaaS modular, multi-tenant, orientado a la gestión integral del ciclo de desarrollo de software
+
+Dominios principales:
+
+- Features
+- User Stories
+- Sprints
+- Incidents
+- Releases
+- Dashboard + Admin
+
+El sistema debe evolucionar hacia una arquitectura:
+
+✔ escalable  
+✔ mantenible  
+✔ desacoplada  
+✔ preparada para crecimiento empresarial  
+
+---
+
+## 2. STACK ACTUAL (BASE OPERATIVA)
+
+### FRONTEND
+- HTML5
+- JavaScript Vanilla (SPA con hash router `#/`)
+- Bootstrap
+- Sin gestión de estado centralizada
+- Lógica parcialmente acoplada
+
+---
+
+### BACKEND
+- Node.js
+- Express
+- Sequelize (ORM)
+- JWT (autenticación)
+- Arquitectura por capas:
+
+
+controllers → services → models → database
+
+
+---
+
+## 3. PRINCIPIOS ARQUITECTÓNICOS (NO NEGOCIABLES)
+
+### 3.1 SEPARACIÓN DE RESPONSABILIDADES
+
+- Frontend → UI + interacción
+- Backend → lógica, reglas, persistencia
+
+❌ Prohibido lógica de negocio en frontend
+
+---
+
+### 3.2 SINGLE SOURCE OF TRUTH (SSOT)
+
+- Toda lógica vive en backend
+- El frontend nunca decide reglas
+
+---
+
+### 3.3 ARQUITECTURA MODULAR
+
+Cada dominio debe:
+
+- ser independiente
+- no depender directamente de otros dominios
+- comunicarse solo vía contratos
+
+---
+
+### 3.4 MULTI-TENANT (CRÍTICO)
+
+Toda operación debe validar:
+
+- organizationId
+- aislamiento de datos
+
+❌ Nunca mezclar datos entre tenants
+
+---
+
+### 3.5 CONTRATOS EXPLÍCITOS
+
+Toda comunicación frontend ↔ backend debe:
+
+- tener estructura fija
+- manejar errores estandarizados
+- evitar null ambiguo
+
+---
+
+### 3.6 CAPAS BIEN DEFINIDAS
+
+#### CONTROLLER
+- recibe request
+- valida input
+- delega a service
+
+#### SERVICE
+- contiene lógica de negocio
+- aplica reglas
+- orquesta operaciones
+
+#### MODEL
+- representa datos
+- acceso a base de datos
+
+❌ Prohibido saltar capas  
+❌ Prohibido lógica en controllers  
+
+---
+
+## 4. FLUJO DE DATOS (OBLIGATORIO)
+
+El flujo SIEMPRE debe ser:
+
+
+Frontend → API → Controller → Service → Model → DB
+↓
+Frontend ← API ← Controller ← Service ← Model
+
+
+❌ Nunca romper este flujo  
+❌ Nunca acceder a DB desde frontend  
+
+---
+
+## 5. PROBLEMAS ACTUALES (DEUDA TÉCNICA)
+
+### 5.1 HTTP INCONSISTENTE
+- fetch + axios mezclados
+- sin capa central
+- manejo de errores fragmentado
+
+---
+
+### 5.2 DUPLICACIÓN DE LÓGICA
+- validaciones repetidas
+- lógica distribuida incorrectamente
+
+---
+
+### 5.3 UI NO ESCALABLE
+- sin componentes
+- difícil migración a React
+
+---
+
+### 5.4 CONTRATOS INESTABLES
+- respuestas inconsistentes
+- estados ambiguos
+
+---
+
+## 6. OBJETIVO ARQUITECTÓNICO (TARGET STATE)
+
+### 6.1 HTTP LAYER UNIFICADO (PRIORIDAD 1)
+- cliente único API
+- manejo centralizado de:
+  - tokens
+  - refresh
+  - errores
+  - headers
+
+---
+
+### 6.2 FRONTEND MODULAR
+- separación por dominios
+- componentes reutilizables
+- preparado para React
+
+---
+
+### 6.3 BACKEND CONSISTENTE
+- servicios claros
+- lógica centralizada
+- sin duplicaciones
+
+---
+
+### 6.4 SSOT REAL
+- backend como única autoridad
+- frontend solo presenta
+
+---
+
+## 7. ORDEN DE MIGRACIÓN (INQUEBRANTABLE)
+
+1. Infra transversal → HTTP layer
+2. Features + Stories
+3. Sprints
+4. Incidents
+5. Releases
+6. Dashboard + Admin
+7. Auditoría de paridad funcional
+8. Eliminación legacy
+
+❌ No alterar este orden  
+
+---
+
+## 8. REGLAS DE MIGRACIÓN
+
+### PROHIBIDO
+
+❌ eliminar legacy sin reemplazo validado  
+❌ romper flujos existentes  
+❌ migrar múltiples dominios simultáneamente  
+❌ reescribir sin validar impacto  
+
+---
+
+### OBLIGATORIO
+
+✔ validar paridad funcional por módulo  
+✔ mantener compatibilidad  
+✔ aislar cambios  
+✔ documentar decisiones  
+
+---
+
+## 9. DEFINICIÓN DE MÓDULO (FORMAL)
+
+Un módulo es válido si:
+
+- tiene endpoints propios
+- tiene servicios encapsulados
+- no accede directamente a otros módulos
+- expone contratos claros
+
+---
+
+## 10. REGLAS DE DEPENDENCIA
+
+- módulos NO deben llamarse entre sí directamente
+- deben comunicarse vía services o APIs
+
+❌ evitar acoplamiento cruzado  
+
+---
+
+## 11. PRINCIPIO DE AISLAMIENTO
+
+Cada cambio debe:
+
+- afectar solo su módulo
+- no generar efectos secundarios
+
+---
+
+## 12. PRINCIPIO DE ESTABILIDAD
+
+Antes de optimizar o migrar:
+
+> el sistema debe funcionar correctamente
+
+---
+
+## 13. SISTEMA DE DECISIÓN ARQUITECTÓNICA
+
+Antes de implementar algo:
+
+validar:
+
+- ¿respeta SSOT?
+- ¿rompe modularidad?
+- ¿introduce duplicación?
+- ¿afecta otros módulos?
+
+Si alguna respuesta es sí → rediseñar
+
+---
+
+## 14. ANTI-PATRONES CRÍTICOS
+
+❌ lógica en frontend  
+❌ duplicación de validaciones  
+❌ acceso directo entre módulos  
+❌ contratos inconsistentes  
+❌ mezcla de responsabilidades  
+
+---
+
+## 15. DEFINICIÓN DE ARQUITECTURA CORRECTA
+
+Una arquitectura es correcta si:
+
+✔ es predecible  
+✔ es modular  
+✔ es escalable  
+✔ es entendible  
+
+---
+
+## 16. REGLA FINAL (ABSOLUTA)
+
+Toda decisión debe responder:
+
+> ¿esto mejora claridad, escalabilidad y mantenibilidad?
+
+Si la respuesta es NO:
+
+❌ NO se implementa

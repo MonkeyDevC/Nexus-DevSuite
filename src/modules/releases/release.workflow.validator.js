@@ -23,9 +23,16 @@ function validateReleaseTransition(currentStatus, nextStatus) {
     });
   }
   if (Array.isArray(allowed) && allowed.length === 0) {
-    throw new AppError("No se permite cambiar estado desde ARCHIVED", {
+    if (currentStatus === "ARCHIVED") {
+      throw new AppError("No se puede modificar una release archivada", {
+        statusCode: 400,
+        code: ERROR_CODES.RELEASE_ARCHIVED,
+        details: { from: currentStatus, to: nextStatus }
+      });
+    }
+    throw new AppError(`Transición no permitida: ${currentStatus} → ${nextStatus}`, {
       statusCode: 400,
-      code: ERROR_CODES.RELEASE_ARCHIVED,
+      code: ERROR_CODES.RELEASE_INVALID_TRANSITION,
       details: { from: currentStatus, to: nextStatus }
     });
   }

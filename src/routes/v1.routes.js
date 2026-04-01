@@ -28,6 +28,8 @@ const automationRulesRoutes = require("../modules/automation/automation.rules.ro
 const workflowRoutes = require("../modules/workflow/workflow.routes");
 const rulesEngineRoutes = require("../modules/rules-engine/rulesEngine.routes");
 const { buildFeatureDisabledResponse } = require("../config/optionalModules");
+const { env } = require("../config/env");
+const devToolsRoutes = require("../system/dev-tools/devTools.routes");
 
 const router = express.Router();
 
@@ -37,6 +39,9 @@ router.use("/auth", authRoutes);
 router.use("/organizations", organizationRoutes);
 router.use("/users", usersRoutes);
 router.use("/system", metricsRoutes);
+if (env.NODE_ENV === "development" && env.DEV_DATA_RESET_ENABLED === true) {
+  router.use("/system/dev-tools", devToolsRoutes);
+}
 router.use("/projects", projectsRoutes);
 router.use("/features", featureRoutes);
 router.use("/stories", storiesRoutes);

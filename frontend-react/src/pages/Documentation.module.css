@@ -1,0 +1,116 @@
+/* Tipografía y espaciado para HTML heredado (.nexus-doc-body) sin estilos Bootstrap */
+
+.exportBlock {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ds-space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--ds-space-4);
+}
+
+.exportHint {
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-muted);
+  line-height: var(--ds-line-height-body);
+  margin: var(--ds-space-1) 0 0;
+}
+
+.exportActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+}
+
+.docShell {
+  min-width: 0;
+  max-height: min(70vh, 720px);
+  overflow: auto;
+  padding-right: var(--ds-space-2);
+}
+
+.docProse {
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-body);
+  color: var(--ds-color-text);
+}
+
+.docProse :global(.nexus-doc-body h2) {
+  font-size: var(--ds-font-size-lg);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+  margin: var(--ds-space-6) 0 var(--ds-space-2);
+}
+
+.docProse :global(.nexus-doc-body h2:first-child) {
+  margin-top: 0;
+}
+
+.docProse :global(.nexus-doc-body h3) {
+  font-size: var(--ds-font-size-md);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+  margin: var(--ds-space-4) 0 var(--ds-space-2);
+}
+
+.docProse :global(.nexus-doc-body p) {
+  margin: 0 0 var(--ds-space-3);
+}
+
+.docProse :global(.nexus-doc-body ul),
+.docProse :global(.nexus-doc-body ol) {
+  margin: 0 0 var(--ds-space-3);
+  padding-left: 1.25rem;
+}
+
+.docProse :global(.nexus-doc-body li) {
+  margin-bottom: var(--ds-space-1);
+}
+
+.docProse :global(.nexus-doc-body table) {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--ds-font-size-xs);
+  margin: 0 0 var(--ds-space-4);
+}
+
+.docProse :global(.nexus-doc-body th),
+.docProse :global(.nexus-doc-body td) {
+  border: 1px solid var(--ds-color-border);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  text-align: left;
+  vertical-align: top;
+}
+
+.docProse :global(.nexus-doc-body th) {
+  background: var(--ds-color-surface-raised);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+}
+
+.docProse :global(.nexus-doc-body pre) {
+  background: var(--ds-color-surface-raised);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  padding: var(--ds-space-3);
+  overflow-x: auto;
+  font-size: var(--ds-font-size-xs);
+  margin: 0 0 var(--ds-space-3);
+}
+
+.docProse :global(.nexus-doc-body code) {
+  font-family: var(--ds-font-family-mono, ui-monospace, monospace);
+  font-size: 0.92em;
+}
+
+.docLink {
+  color: var(--ds-color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.docLink:hover {
+  color: var(--ds-color-primary-hover, var(--ds-color-primary));
+}

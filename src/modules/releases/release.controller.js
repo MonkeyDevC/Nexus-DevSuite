@@ -102,6 +102,39 @@ async function patchReleaseController(req, res, next) {
   }
 }
 
+async function putReleaseController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await releaseService.putRelease(req.params.id, req.body, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function startReleaseController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await releaseService.startRelease(req.params.id, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function publishReleaseController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await releaseService.finalizeRelease(req.params.id, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 async function createHotfixController(req, res, next) {
   try {
     assertRequestValid(req);
@@ -117,7 +150,7 @@ async function deleteReleaseController(req, res, next) {
   try {
     assertRequestValid(req);
     const data = await releaseService.deleteRelease(req.params.id, req.organizationId);
-    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+    res.status(200).json({ success: true, data: { id: data.id }, meta: {} });
   } catch (e) {
     next(e);
   }
@@ -142,6 +175,9 @@ module.exports = {
   assignFeatureController,
   removeFeatureController,
   patchReleaseController,
+  putReleaseController,
+  startReleaseController,
+  publishReleaseController,
   createHotfixController,
   deleteReleaseController,
   deleteReleasesBulkController

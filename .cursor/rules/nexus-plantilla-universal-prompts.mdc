@@ -1,214 +1,302 @@
+# PLANTILLA UNIVERSAL DE PROMPTS — NEXUS V3 (ENTERPRISE ENGINEERING STANDARD)
+
+Esta plantilla define un estándar profesional para construir software sin ambigüedad, sin reprocesos y con alta mantenibilidad.
+
+Está optimizada para:
+- sistemas complejos (SaaS, plataformas)
+- desarrollo multi-capa (frontend + backend)
+- agentes de código (Cursor, GPT, etc.)
+- evolución continua del producto
+
 ---
-description: Plantilla universal para redactar prompts técnicos con estándar Nexus
-alwaysApply: true
----
-# Plantilla Universal de Prompts — Estándar NEXUS (Nivel Profesional)
-Usa esta estructura para redactar prompts claros, auditables y ejecutables sin ambigüedad.
 
-## GUÍA V2 — MEJORA REAL (NIVEL PRO)
+# 1) ROL (PRECISIÓN ABSOLUTA)
 
-Objetivo de esta V2:
-- Eliminar ambigüedad de implementación
-- Reducir reprocesos por validaciones mal ubicadas
-- Asegurar comportamiento correcto por estados/modos del sistema
-- Exigir contratos explícitos de dominio
+Define el rol con nivel, responsabilidad y stack.
 
-## 1) ROL
-Define el rol con nivel exacto y stack.
-Formato:
+Formato obligatorio:
+
 ```text
-ROL: [nivel exacto + stack]
-Ejemplo: Principal Software Architect (Node.js + Express + SPA)
-```
-## 2) OBJETIVO (MEJORADO — CON INVARIANTES)
-Declara exactamente el resultado esperado y el estado final del sistema.
-Debe ser:
-- concreto
-- verificable
-- sin interpretación abierta
+ROL: [nivel exacto] + [responsabilidad] + [stack]
+
+Ejemplo:
+ROL: Principal Product Engineer + Frontend Architect (React + Tailwind + SPA + Design Systems)
+
+2) OBJETIVO (DETERMINISTA + VERIFICABLE)
+
+Define el resultado final SIN ambigüedad.
+
+Debe responder:
+
+¿Qué cambia?
+¿Cómo queda el sistema?
+¿Qué ya no existe?
 
 Agregar obligatoriamente:
 
-```text
 INVARIANTES DE DOMINIO:
-- [Regla 1 que nunca puede romperse]
-- [Regla 2 que nunca puede romperse]
-- [Regla 3 que nunca puede romperse]
-```
+- [regla que nunca puede romperse]
+- [regla crítica de negocio]
+- [regla técnica estructural]
 
-Ejemplo (workflows):
-- Un workflow ACTIVE no puede modificarse
-- No puede haber ciclos en el grafo
-- Debe existir máximo un start node (en ejecución)
-- `version` es inmutable
+Agregar también:
 
-Ejemplo:
-```text
-OBJETIVO:
-Dejar el sistema sin errores, sin warnings, con frontend estable y listo para iniciar Fase 2.
-```
-## 3) DECISIÓN ARQUITECTÓNICA (MEJORADO — ANTI-AMBIGÜEDAD)
-Define una sola estrategia técnica y descarta las alternativas.
-Ejemplo:
-- Eliminar módulos incompletos del runtime
-- NO usar stubs
-- NO usar FEATURE_DISABLED
-- NO usar safeRequire
+ESTADO FINAL DEL SISTEMA:
+- [cómo queda backend]
+- [cómo queda frontend]
+- [cómo se comporta el sistema]
+3) DECISIÓN ARQUITECTÓNICA (ÚNICA Y EXCLUYENTE)
 
-Si aplica, agregar obligatoriamente:
+Definir UNA sola estrategia.
 
-```text
+Prohibido:
+
+soluciones híbridas sin control
+fallback ocultos
+lógica “por si acaso”
+
+Formato:
+
+DECISIÓN:
+- [estrategia elegida]
+
+DESCARTADO:
+- [opción A]
+- [opción B]
+- [opción C]
+
+Si aplica:
+
 MODOS DEL SISTEMA:
-- Modo construcción: [qué valida y qué no]
-- Modo ejecución: [qué valida y qué no]
+- Construcción
+- Ejecución
 
-DÓNDE SE EJECUTA CADA MODO:
-- [método/endpoint A] => modo construcción
-- [método/endpoint B] => modo ejecución
-```
+DISTRIBUCIÓN:
+- método X → construcción
+- método Y → ejecución
+4) MODELO MENTAL DEL SISTEMA (NUEVO — CRÍTICO)
 
-## 4) ALCANCE CONTROLADO
-Define exactamente qué módulos/capas se tocan.
+Define cómo debe entenderse el sistema.
+
+MODELO MENTAL:
+- [qué representa esta parte del sistema]
+- [qué responsabilidad tiene]
+- [qué NO es]
+
 Ejemplo:
-- `ai-review`
-- `rules-engine`
-- `workflow-intelligence`
-No permitir cambios fuera de alcance.
+“El detalle de proyecto NO es un modal, es un workspace operativo”
 
-Reglas adicionales obligatorias:
-- Prohibido inferir cambios fuera del alcance aunque parezcan lógicos
-- Si algo falta para completar el alcance, se reporta como gap y no se implementa sin autorización
+Esto evita errores de diseño estructural.
 
-## 5) TAREAS ESTRUCTURADAS POR CAPAS
-Divide siempre por bloques:
-1. **Backend**: rutas, services, controllers, dependencias, modelos
-2. **Frontend**: `index.html`, router, vistas, assets
-3. **Contratos**: APIs, shape de respuestas, consistencia entre capas
-4. **Base de datos (si aplica)**: modelos, migraciones, relaciones
-Cada bloque debe contener instrucciones accionables y concretas.
+5) ALCANCE CONTROLADO (CERRADO)
 
-### 5.5) REGLAS DE EJECUCIÓN (NUEVO BLOQUE CRÍTICO)
+Define exactamente qué se toca.
+
+ALCANCE:
+- módulo A
+- módulo B
+- módulo C
+
+Reglas:
+
+❌ Prohibido tocar fuera del alcance
+❌ Prohibido inferir cambios adicionales
+✔ Reportar gaps sin implementar
+6) ARQUITECTURA POR CAPAS (EXPANDIDO)
+
+Dividir SIEMPRE:
+
+Backend
+controllers
+services
+rutas
+validaciones
+dependencias
+Frontend
+layout
+vistas
+componentes
+estado
+routing
+UI / DESIGN SYSTEM (NUEVO — CLAVE)
+tokens
+componentes base
+patrones visuales
+consistencia
+Contratos
+request/response
+errores
+consistencia
+Base de datos (si aplica)
+modelos
+relaciones
+migraciones
+7) ARQUITECTURA DE UI (NUEVO — CRÍTICO PARA NEXUS)
+
 Definir explícitamente:
-- Cuándo se ejecutan validaciones
-- En qué métodos se ejecutan
-- Qué métodos no deben ejecutar validaciones estrictas
+
+UI ARCHITECTURE:
+- Layout principal
+- Jerarquía visual
+- Componentes clave
+- Reglas de composición
 
 Ejemplo:
-- `addNode` => NO validación estricta
-- `addEdge` => solo validación estructural
-- `validateWorkflow` => validación completa
-- `activateWorkflow` => siempre valida antes de transición
 
-## 6) RESTRICCIONES (muy importante)
-Declara explícitamente lo que no se puede hacer.
-Ejemplo:
-- NO implementar nuevas funcionalidades
-- NO refactorizar fuera del alcance
-- NO cambiar arquitectura innecesariamente
-- NO agregar dependencias nuevas
-- NO anticipar fases futuras
-- NO implementar lógica "por si acaso"
-- NO endurecer validaciones fuera del contexto definido
+Shell (sidebar + header + main)
+Workspace surface
+Cards
+Tabs
+Toolbars
+8) COMPONENTES (OBLIGATORIO)
 
-## 7) VALIDACIÓN OBLIGATORIA
-Incluye pruebas obligatorias al final de la ejecución.
+Listar componentes a crear o reutilizar:
+
+COMPONENTES:
+- ComponentA (responsabilidad)
+- ComponentB (responsabilidad)
+
+Reglas:
+
+✔ Reutilizables
+✔ Semánticos
+❌ No genéricos sin propósito
+9) REGLAS DE EJECUCIÓN (CRÍTICO)
+
+Definir comportamiento exacto:
+
+EJECUCIÓN:
+- método X → sin validación
+- método Y → validación parcial
+- método Z → validación estricta
+10) UX Y COMPORTAMIENTO (NUEVO — CLAVE)
+UX:
+- comportamiento esperado
+- estados visuales
+- interacción usuario
+- empty states
+- loading states
+- error states
+11) RESTRICCIONES (OBLIGATORIO)
+
+Lista explícita:
+
+NO agregar features
+NO refactorizar fuera del alcance
+NO duplicar lógica
+NO introducir deuda técnica
+NO romper contratos existentes
+12) VALIDACIÓN OBLIGATORIA
+Técnica
+
 Backend:
-- `npm run dev`
-- sin errores
-- sin warnings
+
+corre sin errores
+endpoints funcionan
+
 Frontend:
-- consola sin errores
-- network sin 404
-- navegación SPA funcional
-Sistema:
-- endpoints críticos respondiendo correctamente
-- login funcional
-- rutas protegidas funcionando
 
-Agregar obligatoriamente:
-
-```text
-VALIDACIÓN POR ESCENARIOS:
+sin errores consola
+navegación correcta
+UX
+interfaz usable
+estados correctos
+Escenarios
 - Happy path
-- Casos negativos
-- Casos límite (edge cases)
-```
+- Error
+- Edge cases
+13) CRITERIOS DE ACEPTACIÓN (BINARIOS)
 
-Ejemplo:
-- crear workflow vacío
-- construir incrementalmente
-- validar completo
-- intentar activar inválido
-- intentar modificar ACTIVE
+Debe cumplirse TODO:
 
-## 8) CRITERIOS DE ACEPTACIÓN (MEJORADO — POR MODOS)
-La tarea solo cierra si todas las condiciones son verdaderas:
-- ✔ Construcción funciona
-- ✔ Ejecución valida correctamente
-- ✔ No hay conflictos entre modos
-- ✔ No hay validaciones contradictorias
-No aceptar resultados parciales.
+✔ Funciona
+✔ No rompe nada
+✔ Código limpio
+✔ UX correcta
+✔ Arquitectura respetada
+14) OUTPUT OBLIGATORIO
 
-## 9) OUTPUT OBLIGATORIO
-La respuesta final debe incluir siempre:
-1. Lista exacta de archivos modificados
-2. Problemas encontrados
-3. Cambios aplicados
-4. Validación ejecutada (evidencia real)
-5. Confirmación final explícita:
-   - `OBJETIVO COMPLETADO`, o
-   - `FASE X CERRADA`
+Siempre exigir:
 
-## 10) CONTRATOS DE DOMINIO (NUEVO BLOQUE CRÍTICO)
-Agregar siempre cuando aplique lógica de dominio:
+Archivos modificados
+Problemas detectados
+Cambios aplicados
+Validación real
+Estado final:
+OBJETIVO COMPLETADO
+15) CONTRATOS DE DOMINIO (CRÍTICO)
+CONTRATOS:
+- endpoint validación
+- endpoint transición
 
-```text
-CONTRATOS DE DOMINIO:
-- Endpoint de validación estricta (ej. /validate)
-- Endpoint de transición de estado (ej. /activate)
-```
+Reglas:
 
-Reglas obligatorias:
-- No debe existir lógica crítica sin endpoint explícito
-- No debe haber validación estricta implícita en operaciones de construcción
+❌ Nada implícito
+✔ Todo explícito
+16) ORDEN DE IMPLEMENTACIÓN
 
-## 11) ORDEN DE IMPLEMENTACIÓN (NUEVO BLOQUE ANTI-REPROCESOS)
-Definir orden obligatorio:
-1. Persistencia (DB)
-2. Modelo
-3. Service base
-4. Validaciones estructurales
-5. Validaciones de dominio
-6. Modos (si aplica)
-7. Endpoints de dominio
+SIEMPRE:
 
-## 12) CHECKLIST DE HARDENING FINAL (NUEVO BLOQUE)
-Antes de cerrar fase, verificar explícitamente:
-- ✔ Validaciones ubicadas correctamente (no en controller)
-- ✔ No hay lógica duplicada
-- ✔ No hay validaciones contradictorias
-- ✔ No hay reglas implícitas no expuestas
-- ✔ No hay acoplamiento indebido
-- ✔ Contratos API completos
+Modelo
+Service
+Validaciones
+UI base
+UI avanzada
+Integración
+Validación
+17) HARDENING FINAL
 
-## Conclusión (crítica)
-La V1 era útil para construir.
+Checklist obligatorio:
 
-La V2 es:
-- determinista
-- sin ambigüedad
-- orientada a dominio real
-- resistente a reprocesos
+✔ Sin duplicación
+✔ Sin lógica implícita
+✔ Sin validaciones mal ubicadas
+✔ Sin acoplamiento indebido
+✔ Componentes reutilizables
+✔ Código legible
+18) CALIDAD DE CÓDIGO (NUEVO — CRÍTICO)
+CODE QUALITY:
+- nombres claros
+- funciones pequeñas
+- separación de responsabilidades
+- sin efectos secundarios ocultos
+- sin lógica duplicada
+19) DISEÑO VISUAL (NUEVO — CLAVE PARA FRONTEND)
+DESIGN:
+- jerarquía clara
+- espaciado consistente
+- tokens respetados
+- accesibilidad básica
+- dark mode compatible
+20) ANTI-PATRONES (NUEVO — PRO LEVEL)
 
-La mejora clave:
-- Pasar de "qué construir"
-- a "cómo debe comportarse el sistema en todos sus estados"
+Prohibido:
 
-## Reglas de oro (resumen)
-- Definir una sola estrategia
-- Incluir validación obligatoria
-- Usar criterios binarios de aceptación
-- Limitar alcance de forma estricta
-- Exigir evidencia real de ejecución
-- No generar saltos de línea vacíos en el prompt final (formato continuo y compacto)
-Si falta alguno de estos puntos, el prompt no está listo.
+lógica en el lugar incorrecto
+componentes gigantes
+estilos hardcodeados repetidos
+validaciones duplicadas
+UI sin estructura
+código “temporal” permanente
+CONCLUSIÓN
+
+V3 NO es solo una plantilla.
+
+Es un sistema de control que garantiza:
+
+arquitectura correcta
+UX consistente
+código mantenible
+cero ambigüedad
+mínima retrabajo
+REGLAS DE ORO (VERSIÓN FINAL)
+Una sola estrategia
+Todo explícito
+Nada implícito
+Validación obligatoria
+Alcance cerrado
+Código mantenible
+UX consistente
+Resultado verificable
+
+Si falta uno → el prompt NO está listo.

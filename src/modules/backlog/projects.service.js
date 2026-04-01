@@ -4,10 +4,10 @@
  */
 
 const { getModels } = require("../../infrastructure/db/loadModels");
-const { Op } = require("sequelize");
 const projectsRepository = require("./projects.repository");
 const featureRepository = require("./feature.repository");
 const userStoryRepository = require("./userStory.repository");
+const authRepository = require("../auth/auth.repository");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
 
@@ -96,21 +96,144 @@ function normalizeStoryStatus(status) {
   return aliases[normalized] || normalized;
 }
 
+function normalizeProjectName(value) {
+  const normalized = String(value == null ? "" : value).trim().replace(/\s+/g, " ");
+  return normalized;
+}
+
+function normalizeDescription(value) {
+  if (value == null) return "";
+  return String(value);
+}
+
+const MAX_PROJECT_CRITERIA_ITEMS = 50;
+const MAX_PROJECT_CRITERIA_ITEM_LEN = 2000;
+const MAX_PROJECT_EVIDENCE_MARKDOWN_LEN = 120000;
+
+function normalizeProjectCriteriaFromDb(value) {
+  if (value == null) return [];
+  if (Array.isArray(value)) {
+    return value.map((x) => (x == null ? "" : String(x))).map((s) => s.slice(0, MAX_PROJECT_CRITERIA_ITEM_LEN));
+  }
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return normalizeProjectCriteriaFromDb(parsed);
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function normalizeProjectCriteriaForUpdate(value) {
+  if (!Array.isArray(value)) {
+    throw new AppError("criterios debe ser un arreglo", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  const out = [];
+  for (const item of value.slice(0, MAX_PROJECT_CRITERIA_ITEMS)) {
+    const s = String(item == null ? "" : item).trim().slice(0, MAX_PROJECT_CRITERIA_ITEM_LEN);
+    if (s.length > 0) out.push(s);
+  }
+  return out;
+}
+
+function normalizeEvidenceMarkdownForUpdate(value) {
+  const s = value == null ? "" : String(value);
+  return s.slice(0, MAX_PROJECT_EVIDENCE_MARKDOWN_LEN);
+}
+
 function toPlain(project) {
   if (!project) return null;
   const p = typeof project.toJSON === "function" ? project.toJSON() : project;
+  const org = p.organization;
+  const organization_name =
+    org && typeof org === "object" && org.name != null && String(org.name).trim()
+      ? String(org.name).trim()
+      : null;
   return {
     id: p.id,
     number: p.number,
     name: p.name,
-    description: p.description,
+    normalized_name: p.normalized_name == null ? "" : String(p.normalized_name),
+    description: p.description == null ? "" : String(p.description),
+    acceptance_criteria: normalizeProjectCriteriaFromDb(p.acceptance_criteria),
+    implementation_criteria: normalizeProjectCriteriaFromDb(p.implementation_criteria),
+    evidence_markdown: p.evidence_markdown == null ? "" : String(p.evidence_markdown),
     status: p.status,
     organization_id: p.organization_id,
+    organization_name,
     created_by: p.created_by,
     archived_at: p.archived_at,
+    version: p.version,
     created_at: p.created_at,
     updated_at: p.updated_at
   };
+}
+
+function toNormalizedName(value) {
+  return normalizeProjectName(value).toLowerCase();
+}
+
+function assertTenant(context) {
+  const organizationId = context && context.organizationId;
+  if (!organizationId) {
+    throw new AppError("Tenant no resuelto", {
+      statusCode: 400,
+      code: ERROR_CODES.TENANT_REQUIRED
+    });
+  }
+  return organizationId;
+}
+
+function assertExpectedVersion(expectedVersion) {
+  if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+    throw new AppError("expected_version invalido", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+}
+
+function assertVersionMatch(expectedVersion, currentVersion) {
+  if (Number(expectedVersion) !== Number(currentVersion)) {
+    throw new AppError("Conflicto de concurrencia en Project", {
+      statusCode: 409,
+      code: ERROR_CODES.PROJECT_CONFLICT
+    });
+  }
+}
+
+function assertProjectVisible(project, organizationId) {
+  if (!project || String(project.organization_id) !== String(organizationId)) {
+    throw new AppError("Proyecto no encontrado", {
+      statusCode: 404,
+      code: ERROR_CODES.PROJECT_NOT_FOUND
+    });
+  }
+}
+
+async function createProjectAuditEvent(context, operation, projectId, organizationId) {
+  if (!context || !context.user || !context.user.id) return;
+  await authRepository.createAuditLog({
+    user_id: context.user.id,
+    action: operation.toUpperCase(),
+    entity: "PROJECT",
+    entity_id: projectId,
+    request_id: context.requestId || null,
+    metadata: {
+      project_id: projectId,
+      organization_id: organizationId,
+      user_id: context.user.id,
+      operation,
+      timestamp: new Date().toISOString()
+    },
+    ip_address: context.ip || null,
+    user_agent: context.userAgent || null
+  });
 }
 
 function isUuid(value) {
@@ -209,54 +332,105 @@ function validateImportPayload(payload) {
 }
 
 async function createProject(payload, context) {
-  const organizationId = context.organizationId;
-  if (!organizationId) {
-    throw new AppError("Tenant no resuelto", {
+  const organizationId = assertTenant(context);
+  const normalizedName = normalizeProjectName(payload && payload.name);
+  if (!normalizedName) {
+    throw new AppError("name es obligatorio", {
       statusCode: 400,
-      code: ERROR_CODES.TENANT_REQUIRED
+      code: ERROR_CODES.PROJECT_NAME_REQUIRED
     });
   }
-  const existing = await projectsRepository.findByNameAndOrganization(payload.name, organizationId);
+  const normalizedNameToken = toNormalizedName(normalizedName);
+  const existing = await projectsRepository.findByNameAndOrganization(normalizedNameToken, organizationId);
   if (existing) {
     throw new AppError("Ya existe un proyecto con ese nombre", {
       statusCode: 409,
-      code: ERROR_CODES.PROJECT_ALREADY_EXISTS
+      code: ERROR_CODES.PROJECT_NAME_DUPLICATE
     });
   }
-  const { getModels } = require("../../infrastructure/db/loadModels");
   const { Project } = getModels();
   const sequelize = Project.sequelize;
   const created = await sequelize.transaction(async (t) => {
-    const maxNumber = await projectsRepository.getMaxProjectNumber(t);
-    const nextNumber = (maxNumber || 0) + 1;
-    return projectsRepository.create(
+    const nextNumber = await projectsRepository.getNextProjectNumberForOrganization(organizationId, t);
+    const entity = await projectsRepository.create(
       {
-        ...payload,
+        name: normalizedName,
+        normalized_name: normalizedNameToken,
+        description: normalizeDescription(payload && payload.description),
+        status: "ACTIVE",
         organization_id: organizationId,
         created_by: context.user && context.user.id,
-        number: nextNumber
+        number: nextNumber,
+        version: 1
       },
       { transaction: t }
     );
+    return entity;
   });
+  await createProjectAuditEvent(context, "create", created.id, organizationId);
   return toPlain(created);
 }
 
 async function getProjectById(id, organizationId) {
-  const project = await projectsRepository.findById(id);
+  const { Organization } = getModels();
+  const project = await projectsRepository.findById(id, {
+    include: [{ model: Organization, as: "organization", attributes: ["name"] }]
+  });
   if (!project) {
     throw new AppError("Proyecto no encontrado", {
       statusCode: 404,
       code: ERROR_CODES.PROJECT_NOT_FOUND
     });
   }
-  if (organizationId != null && project.organization_id !== organizationId) {
-    throw new AppError("No tiene acceso a este proyecto", {
-      statusCode: 403,
-      code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
-    });
+  if (organizationId != null) {
+    assertProjectVisible(project, organizationId);
   }
   return toPlain(project);
+}
+
+function computeListProgressPct(featActive, featDone, stActive, stDone) {
+  const parts = [];
+  if (featActive > 0) parts.push(featDone / featActive);
+  if (stActive > 0) parts.push(stDone / stActive);
+  if (parts.length === 0) return 0;
+  const ratio = parts.reduce((a, b) => a + b, 0) / parts.length;
+  return Math.min(100, Math.max(0, Math.round(ratio * 100)));
+}
+
+function maxIsoFromDates(values) {
+  const times = values
+    .filter((v) => v != null && v !== "")
+    .map((v) => new Date(v).getTime())
+    .filter((t) => !Number.isNaN(t));
+  if (times.length === 0) return null;
+  return new Date(Math.max(...times)).toISOString();
+}
+
+function toListPlainWithMetrics(projectRow, agg) {
+  const plain = toPlain(projectRow);
+  const a = agg || {};
+  const progress_pct = computeListProgressPct(
+    a.feat_active || 0,
+    a.feat_done || 0,
+    a.st_active || 0,
+    a.st_done || 0
+  );
+  const last_activity_at = maxIsoFromDates([
+    plain.updated_at,
+    a.feat_max_u,
+    a.st_max_u,
+    a.sprint_max_u
+  ]);
+  return {
+    ...plain,
+    team_member_count: a.team_count != null ? Number(a.team_count) : 0,
+    current_sprint:
+      a.current_sprint_id && a.current_sprint_name != null
+        ? { id: String(a.current_sprint_id), name: String(a.current_sprint_name) }
+        : null,
+    progress_pct,
+    last_activity_at: last_activity_at || (plain.updated_at != null ? new Date(plain.updated_at).toISOString() : null)
+  };
 }
 
 async function listProjects(params) {
@@ -265,34 +439,29 @@ async function listProjects(params) {
   const status = params && params.status;
   const organizationId = params && params.organizationId;
   const { items, total } = await projectsRepository.list({ page, limit, status, organizationId });
+  const ids = items.map((p) => p.id);
+  const aggregates = await projectsRepository.getListAggregates(ids);
+  const data = items.map((p) => toListPlainWithMetrics(p, aggregates.get(String(p.id))));
   return {
-    data: items.map(toPlain),
+    data,
     meta: { total, page, limit, totalPages: total === 0 ? 0 : Math.ceil(total / limit) }
   };
 }
 
-async function archiveProject(id, organizationId) {
-  const project = await projectsRepository.findById(id);
-  if (!project) {
-    throw new AppError("Proyecto no encontrado", {
-      statusCode: 404,
-      code: ERROR_CODES.PROJECT_NOT_FOUND
-    });
-  }
-  if (organizationId != null && project.organization_id !== organizationId) {
-    throw new AppError("No tiene acceso a este proyecto", {
-      statusCode: 403,
-      code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
-    });
-  }
-  const updated = await projectsRepository.update(id, {
-    status: "ARCHIVED",
-    archived_at: new Date()
-  });
-  return toPlain(updated);
+async function archiveProject(id, organizationId, expectedVersion) {
+  return archiveProjectWithContext(id, { organizationId, expectedVersion });
 }
 
 async function updateProject(id, payload, organizationId) {
+  return updateProjectWithContext(id, payload, { organizationId });
+}
+
+async function deleteProject(id, organizationId, expectedVersion) {
+  return deleteProjectWithContext(id, { organizationId, expectedVersion });
+}
+
+async function updateProjectWithContext(id, payload, context) {
+  const organizationId = assertTenant(context);
   const project = await projectsRepository.findById(id);
   if (!project) {
     throw new AppError("Proyecto no encontrado", {
@@ -300,30 +469,86 @@ async function updateProject(id, payload, organizationId) {
       code: ERROR_CODES.PROJECT_NOT_FOUND
     });
   }
-  if (organizationId != null && project.organization_id !== organizationId) {
-    throw new AppError("No tiene acceso a este proyecto", {
-      statusCode: 403,
-      code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
+  assertProjectVisible(project, organizationId);
+
+  if (project.status === "ARCHIVED") {
+    throw new AppError("Proyecto archivado", {
+      statusCode: 409,
+      code: ERROR_CODES.PROJECT_ARCHIVED
     });
   }
+
+  const expectedVersion = payload ? payload.expected_version : undefined;
+  assertExpectedVersion(expectedVersion);
+  assertVersionMatch(expectedVersion, project.version);
+
   const updates = {};
-  if (payload.name != null) updates.name = payload.name.trim();
-  if (payload.description != null) updates.description = payload.description.trim();
-  if (Object.keys(updates).length === 0) return toPlain(project);
-  if (updates.name && updates.name !== project.name) {
-    const existing = await projectsRepository.findByNameAndOrganization(updates.name, project.organization_id);
-    if (existing) {
-      throw new AppError("Ya existe un proyecto con ese nombre", {
+  if (payload && payload.name !== undefined) {
+    const normalizedName = normalizeProjectName(payload.name);
+    if (!normalizedName) {
+      throw new AppError("name es obligatorio", {
+        statusCode: 400,
+        code: ERROR_CODES.PROJECT_NAME_REQUIRED
+      });
+    }
+    updates.name = normalizedName;
+    updates.normalized_name = toNormalizedName(normalizedName);
+  }
+  if (payload && payload.description !== undefined) {
+    updates.description = normalizeDescription(payload.description);
+  }
+  if (payload && payload.status !== undefined) {
+    const st = String(payload.status).toUpperCase();
+    if (st !== "ACTIVE" && st !== "ARCHIVED") {
+      throw new AppError("status invalido", {
+        statusCode: 400,
+        code: ERROR_CODES.VALIDATION_ERROR
+      });
+    }
+    if (project.status === "ACTIVE" && st === "ARCHIVED") {
+      updates.status = "ARCHIVED";
+      updates.archived_at = new Date();
+    } else if (project.status === "ACTIVE" && st === "ACTIVE") {
+      /* sin cambio de estado */
+    } else if (String(project.status) !== st) {
+      throw new AppError("Transicion de estado invalida", {
         statusCode: 409,
-        code: ERROR_CODES.PROJECT_ALREADY_EXISTS
+        code: ERROR_CODES.PROJECT_INVALID_TRANSITION
       });
     }
   }
+  if (payload && payload.acceptance_criteria !== undefined) {
+    updates.acceptance_criteria = normalizeProjectCriteriaForUpdate(payload.acceptance_criteria);
+  }
+  if (payload && payload.implementation_criteria !== undefined) {
+    updates.implementation_criteria = normalizeProjectCriteriaForUpdate(payload.implementation_criteria);
+  }
+  if (payload && payload.evidence_markdown !== undefined) {
+    updates.evidence_markdown = normalizeEvidenceMarkdownForUpdate(payload.evidence_markdown);
+  }
+
+  if (updates.normalized_name && updates.normalized_name !== project.normalized_name) {
+    const existing = await projectsRepository.findByNameAndOrganization(updates.normalized_name, project.organization_id);
+    if (existing && String(existing.id) !== String(project.id)) {
+      throw new AppError("Ya existe un proyecto con ese nombre", {
+        statusCode: 409,
+        code: ERROR_CODES.PROJECT_NAME_DUPLICATE
+      });
+    }
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return toPlain(project);
+  }
+
+  updates.version = Number(project.version) + 1;
   const updated = await projectsRepository.update(id, updates);
+  await createProjectAuditEvent(context, "update", id, organizationId);
   return toPlain(updated);
 }
 
-async function deleteProject(id, organizationId) {
+async function archiveProjectWithContext(id, context) {
+  const organizationId = assertTenant(context);
   const project = await projectsRepository.findById(id);
   if (!project) {
     throw new AppError("Proyecto no encontrado", {
@@ -331,94 +556,190 @@ async function deleteProject(id, organizationId) {
       code: ERROR_CODES.PROJECT_NOT_FOUND
     });
   }
-  if (organizationId != null && project.organization_id !== organizationId) {
-    throw new AppError("No tiene acceso a este proyecto", {
-      statusCode: 403,
-      code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
+  assertProjectVisible(project, organizationId);
+
+  if (project.status !== "ACTIVE") {
+    throw new AppError("Transicion de estado invalida", {
+      statusCode: 409,
+      code: ERROR_CODES.PROJECT_INVALID_TRANSITION
     });
   }
 
-  const { Project } = getModels();
+  const expectedVersion = context && context.expectedVersion;
+  assertExpectedVersion(expectedVersion);
+  assertVersionMatch(expectedVersion, project.version);
 
+  const updated = await projectsRepository.update(id, {
+    status: "ARCHIVED",
+    archived_at: new Date(),
+    version: Number(project.version) + 1
+  });
+  await createProjectAuditEvent(context, "archive", id, organizationId);
+  return toPlain(updated);
+}
+
+/**
+ * Elimina en cascada datos ligados a los projectIds (features, historias, sprints, incidents, documents, proyecto).
+ * Debe ejecutarse dentro de una transacción activa.
+ */
+async function cascadeDeleteProjectsByIds(sequelize, projectIds, transaction) {
+  const ph = buildPlaceholders(projectIds);
+
+  async function safeExec(sql, replacements) {
+    try {
+      await sequelize.query(sql, { replacements, transaction });
+      return true;
+    } catch (e) {
+      const code = e && (e.original?.code || e.parent?.code || e.code);
+      if (code === "ER_NO_SUCH_TABLE") {
+        return false;
+      }
+      throw e;
+    }
+  }
+
+  // 1) Eliminar dependencias del Delivery Workspace (code_deliveries y sus hijos)
+  // Motivo: user_stories tiene FK RESTRICT desde code_deliveries.user_story_id (y otros enlaces).
+  const deliveryRows = await sequelize.query(
+    `SELECT id FROM code_deliveries WHERE project_id IN (${ph})`,
+    { type: sequelize.QueryTypes.SELECT, replacements: projectIds, transaction }
+  );
+  const deliveryIds = deliveryRows.map((r) => r.id);
+  if (deliveryIds.length > 0) {
+    const dph = buildPlaceholders(deliveryIds);
+    await safeExec(`DELETE FROM review_comments WHERE delivery_id IN (${dph})`, deliveryIds);
+    await safeExec(`DELETE FROM delivery_reviews WHERE delivery_id IN (${dph})`, deliveryIds);
+    await safeExec(`DELETE FROM delivery_commits WHERE delivery_id IN (${dph})`, deliveryIds);
+    await safeExec(`DELETE FROM delivery_files WHERE delivery_id IN (${dph})`, deliveryIds);
+    // WorkOrder tiene delivery_id -> code_deliveries (desvincular antes de borrar deliveries)
+    await safeExec(`UPDATE work_orders SET delivery_id = NULL WHERE project_id IN (${ph})`, projectIds);
+    await safeExec(`DELETE FROM code_deliveries WHERE id IN (${dph})`, deliveryIds);
+  }
+
+  const featureRows = await sequelize.query(
+    `SELECT id FROM features WHERE project_id IN (${ph})`,
+    { type: sequelize.QueryTypes.SELECT, replacements: projectIds, transaction }
+  );
+  const featureIds = featureRows.map((r) => r.id);
+
+  if (featureIds.length > 0) {
+    const fph = buildPlaceholders(featureIds);
+    // Work Orders / Tasks vinculados a stories del proyecto
+    const storyRows = await sequelize.query(
+      `SELECT id FROM user_stories WHERE feature_id IN (${fph})`,
+      { type: sequelize.QueryTypes.SELECT, replacements: featureIds, transaction }
+    );
+    const storyIds = storyRows.map((r) => r.id);
+    if (storyIds.length > 0) {
+      const sph = buildPlaceholders(storyIds);
+      await safeExec(
+        `DELETE FROM implementation_steps WHERE work_order_id IN (SELECT id FROM work_orders WHERE user_story_id IN (${sph}))`,
+        storyIds
+      );
+      await safeExec(`DELETE FROM tasks WHERE user_story_id IN (${sph})`, storyIds);
+      await safeExec(`UPDATE work_orders SET delivery_id = NULL WHERE user_story_id IN (${sph})`, storyIds);
+      await safeExec(`DELETE FROM work_orders WHERE user_story_id IN (${sph})`, storyIds);
+    }
+
+    await sequelize.query(`UPDATE user_stories SET sprint_id = NULL WHERE feature_id IN (${fph})`, {
+      replacements: featureIds,
+      transaction
+    });
+    await sequelize.query(`DELETE FROM user_stories WHERE feature_id IN (${fph})`, {
+      replacements: featureIds,
+      transaction
+    });
+  }
+
+  // 2) Eliminar Work Orders / Tasks directos por project (si existen)
+  await safeExec(
+    `DELETE FROM implementation_steps WHERE work_order_id IN (SELECT id FROM work_orders WHERE project_id IN (${ph}))`,
+    projectIds
+  );
+  await safeExec(`DELETE FROM tasks WHERE project_id IN (${ph})`, projectIds);
+  await safeExec(`UPDATE work_orders SET delivery_id = NULL WHERE project_id IN (${ph})`, projectIds);
+  await safeExec(`DELETE FROM work_orders WHERE project_id IN (${ph})`, projectIds);
+
+  await sequelize.query(`DELETE FROM sprints WHERE project_id IN (${ph})`, {
+    replacements: projectIds,
+    transaction
+  });
+  await sequelize.query(`UPDATE features SET release_id = NULL WHERE project_id IN (${ph})`, {
+    replacements: projectIds,
+    transaction
+  });
+  await sequelize.query(`DELETE FROM features WHERE project_id IN (${ph})`, {
+    replacements: projectIds,
+    transaction
+  });
+
+  const incidentRows = await sequelize.query(
+    `SELECT id FROM incidents WHERE project_id IN (${ph})`,
+    { type: sequelize.QueryTypes.SELECT, replacements: projectIds, transaction }
+  );
+  const incidentIds = incidentRows.map((r) => r.id);
+  if (incidentIds.length > 0) {
+    const incPh = buildPlaceholders(incidentIds);
+    await sequelize.query(
+      `DELETE FROM improvements WHERE project_id IN (${ph}) OR incident_id IN (${incPh})`,
+      { replacements: [...projectIds, ...incidentIds], transaction }
+    );
+  } else {
+    await sequelize.query(`DELETE FROM improvements WHERE project_id IN (${ph})`, {
+      replacements: projectIds,
+      transaction
+    });
+  }
+
+  await sequelize.query(`DELETE FROM incidents WHERE project_id IN (${ph})`, {
+    replacements: projectIds,
+    transaction
+  });
+
+  const docRows = await sequelize.query(
+    `SELECT id FROM documents WHERE project_id IN (${ph})`,
+    { type: sequelize.QueryTypes.SELECT, replacements: projectIds, transaction }
+  );
+  const docIds = docRows.map((r) => r.id);
+  if (docIds.length > 0) {
+    const dph = buildPlaceholders(docIds);
+    await sequelize.query(`DELETE FROM document_versions WHERE document_id IN (${dph})`, {
+      replacements: docIds,
+      transaction
+    });
+  }
+  await sequelize.query(`DELETE FROM documents WHERE project_id IN (${ph})`, {
+    replacements: projectIds,
+    transaction
+  });
+  await sequelize.query(`DELETE FROM projects WHERE id IN (${ph})`, {
+    replacements: projectIds,
+    transaction
+  });
+}
+
+async function deleteProjectWithContext(id, context) {
+  const organizationId = assertTenant(context);
+  const project = await projectsRepository.findById(id);
+  if (!project) {
+    throw new AppError("Proyecto no encontrado", {
+      statusCode: 404,
+      code: ERROR_CODES.PROJECT_NOT_FOUND
+    });
+  }
+  assertProjectVisible(project, organizationId);
+
+  const expectedVersion = context && context.expectedVersion;
+  assertExpectedVersion(expectedVersion);
+  assertVersionMatch(expectedVersion, project.version);
+
+  const { Project } = getModels();
   const sequelize = Project.sequelize;
-  const projectId = String(project.id);
+  const projectIds = [String(project.id)];
 
   try {
     await sequelize.transaction(async (t) => {
-      const featureRows = await sequelize.query(
-        "SELECT id FROM features WHERE project_id = :projectId",
-        { type: sequelize.QueryTypes.SELECT, replacements: { projectId }, transaction: t }
-      );
-      const featureIds = featureRows.map((r) => r.id);
-
-      if (featureIds.length > 0) {
-        const placeholders = featureIds.map(() => "?").join(",");
-        await sequelize.query(
-          `UPDATE user_stories SET sprint_id = NULL WHERE feature_id IN (${placeholders})`,
-          { replacements: featureIds, transaction: t }
-        );
-        await sequelize.query(
-          `DELETE FROM user_stories WHERE feature_id IN (${placeholders})`,
-          { replacements: featureIds, transaction: t }
-        );
-      }
-
-      await sequelize.query("DELETE FROM sprints WHERE project_id = :projectId", {
-        replacements: { projectId },
-        transaction: t
-      });
-      await sequelize.query("UPDATE features SET release_id = NULL WHERE project_id = :projectId", {
-        replacements: { projectId },
-        transaction: t
-      });
-      await sequelize.query("DELETE FROM features WHERE project_id = :projectId", {
-        replacements: { projectId },
-        transaction: t
-      });
-
-      const incidentRows = await sequelize.query(
-        "SELECT id FROM incidents WHERE project_id = :projectId",
-        { type: sequelize.QueryTypes.SELECT, replacements: { projectId }, transaction: t }
-      );
-      const incidentIds = incidentRows.map((r) => r.id);
-      if (incidentIds.length > 0) {
-        const incPlaceholders = incidentIds.map(() => "?").join(",");
-        await sequelize.query(
-          `DELETE FROM improvements WHERE project_id = ? OR incident_id IN (${incPlaceholders})`,
-          { replacements: [projectId, ...incidentIds], transaction: t }
-        );
-      } else {
-        await sequelize.query("DELETE FROM improvements WHERE project_id = :projectId", {
-          replacements: { projectId },
-          transaction: t
-        });
-      }
-
-      await sequelize.query("DELETE FROM incidents WHERE project_id = :projectId", {
-        replacements: { projectId },
-        transaction: t
-      });
-
-      const docRows = await sequelize.query(
-        "SELECT id FROM documents WHERE project_id = :projectId",
-        { type: sequelize.QueryTypes.SELECT, replacements: { projectId }, transaction: t }
-      );
-      const docIds = docRows.map((r) => r.id);
-      if (docIds.length > 0) {
-        const docPlaceholders = docIds.map(() => "?").join(",");
-        await sequelize.query(
-          `DELETE FROM document_versions WHERE document_id IN (${docPlaceholders})`,
-          { replacements: docIds, transaction: t }
-        );
-      }
-      await sequelize.query("DELETE FROM documents WHERE project_id = :projectId", {
-        replacements: { projectId },
-        transaction: t
-      });
-      await sequelize.query("DELETE FROM projects WHERE id = :projectId", {
-        replacements: { projectId },
-        transaction: t
-      });
+      await cascadeDeleteProjectsByIds(sequelize, projectIds, t);
     });
   } catch (err) {
     const mysqlMessage = err.original?.message || err.parent?.message || err.message;
@@ -429,6 +750,7 @@ async function deleteProject(id, organizationId) {
     });
   }
 
+  await createProjectAuditEvent(context, "delete", project.id, organizationId);
   return { id: project.id, deleted: true };
 }
 
@@ -468,82 +790,7 @@ async function deleteProjectsBulk(ids, organizationId) {
 
   try {
     await sequelize.transaction(async (t) => {
-      const ph = buildPlaceholders(projectIds);
-
-      const featureRows = await sequelize.query(
-        `SELECT id FROM features WHERE project_id IN (${ph})`,
-        { type: sequelize.QueryTypes.SELECT, replacements: projectIds, transaction: t }
-      );
-      const featureIds = featureRows.map((r) => r.id);
-
-      if (featureIds.length > 0) {
-        const fph = buildPlaceholders(featureIds);
-        await sequelize.query(
-          `UPDATE user_stories SET sprint_id = NULL WHERE feature_id IN (${fph})`,
-          { replacements: featureIds, transaction: t }
-        );
-        await sequelize.query(`DELETE FROM user_stories WHERE feature_id IN (${fph})`, {
-          replacements: featureIds,
-          transaction: t
-        });
-      }
-
-      await sequelize.query(`DELETE FROM sprints WHERE project_id IN (${ph})`, {
-        replacements: projectIds,
-        transaction: t
-      });
-      await sequelize.query(`UPDATE features SET release_id = NULL WHERE project_id IN (${ph})`, {
-        replacements: projectIds,
-        transaction: t
-      });
-      await sequelize.query(`DELETE FROM features WHERE project_id IN (${ph})`, {
-        replacements: projectIds,
-        transaction: t
-      });
-
-      const incidentRows = await sequelize.query(
-        `SELECT id FROM incidents WHERE project_id IN (${ph})`,
-        { type: sequelize.QueryTypes.SELECT, replacements: projectIds, transaction: t }
-      );
-      const incidentIds = incidentRows.map((r) => r.id);
-      if (incidentIds.length > 0) {
-        const incPh = buildPlaceholders(incidentIds);
-        await sequelize.query(
-          `DELETE FROM improvements WHERE project_id IN (${ph}) OR incident_id IN (${incPh})`,
-          { replacements: [...projectIds, ...incidentIds], transaction: t }
-        );
-      } else {
-        await sequelize.query(`DELETE FROM improvements WHERE project_id IN (${ph})`, {
-          replacements: projectIds,
-          transaction: t
-        });
-      }
-
-      await sequelize.query(`DELETE FROM incidents WHERE project_id IN (${ph})`, {
-        replacements: projectIds,
-        transaction: t
-      });
-
-      const docRows = await sequelize.query(
-        `SELECT id FROM documents WHERE project_id IN (${ph})`,
-        { type: sequelize.QueryTypes.SELECT, replacements: projectIds, transaction: t }
-      );
-      const docIds = docRows.map((r) => r.id);
-      if (docIds.length > 0) {
-        const dph = buildPlaceholders(docIds);
-        await sequelize.query(`DELETE FROM document_versions WHERE document_id IN (${dph})`, {
-          replacements: docIds,
-          transaction: t
-        });
-      }
-      await sequelize.query(`DELETE FROM documents WHERE project_id IN (${ph})`, {
-        replacements: projectIds,
-        transaction: t
-      });
-      await sequelize.query(`DELETE FROM projects WHERE id IN (${ph})`, {
-        replacements: projectIds,
-        transaction: t
-      });
+      await cascadeDeleteProjectsByIds(sequelize, projectIds, t);
     });
   } catch (err) {
     const mysqlMessage = err.original?.message || err.parent?.message || err.message;
@@ -582,8 +829,9 @@ async function importProjects(payload, context) {
     for (let pIdx = 0; pIdx < payload.projects.length; pIdx += 1) {
       const node = payload.projects[pIdx];
       const projectData = node.project;
-      const projectName = String(projectData.name).trim();
-      const existing = await projectsRepository.findByNameAndOrganization(projectName, organizationId);
+      const projectName = normalizeProjectName(projectData.name);
+      const normalizedProjectName = toNormalizedName(projectName);
+      const existing = await projectsRepository.findByNameAndOrganization(normalizedProjectName, organizationId);
       if (existing) {
         throwImportError(`Ya existe un proyecto con el nombre '${projectName}'.`, `projects[${pIdx}].project.name`);
       }
@@ -593,10 +841,12 @@ async function importProjects(payload, context) {
         {
           number: maxProjectNumber,
           name: projectName,
-          description: projectData.description != null ? String(projectData.description) : "",
+          normalized_name: normalizedProjectName,
+          description: normalizeDescription(projectData.description),
           status: normalizeStatusToken(projectData.status),
           organization_id: organizationId,
-          created_by: context.user && context.user.id
+          created_by: context.user && context.user.id,
+          version: 1
         },
         { transaction: t }
       );
@@ -656,8 +906,11 @@ module.exports = {
   getProjectById,
   listProjects,
   archiveProject,
+  archiveProjectWithContext,
   updateProject,
+  updateProjectWithContext,
   deleteProject,
+  deleteProjectWithContext,
   deleteProjectsBulk,
   importProjects
 };

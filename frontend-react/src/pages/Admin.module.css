@@ -1,0 +1,32 @@
+/* Admin — bloque JSON métricas (superficie local) */
+.metricsPre {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: var(--ds-space-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: var(--ds-font-size-xs);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ds-color-text-heading);
+  background: var(--ds-color-surface-raised);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+}
+
+.sectionLead {
+  margin: 0 0 var(--ds-space-4);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-muted);
+  line-height: var(--ds-line-height-body);
+}
+
+.sectionTitle {
+  margin: 0 0 var(--ds-space-1);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-md);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+}

@@ -105,7 +105,7 @@ describe("ChangeRequest ETAPA 3 - QA negativo", () => {
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.0.0`, description: "R" })
+      .send({ name: "Rel", version: `${baseMajor}.0.0`, description: "R" })
       .expect(201);
     const releaseId = releaseRes.body.data.id;
     const res = await request(app)
@@ -122,7 +122,7 @@ describe("ChangeRequest ETAPA 3 - QA negativo", () => {
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.0.1`, description: "R" })
+      .send({ name: "Rel", version: `${baseMajor}.0.1`, description: "R" })
       .expect(201);
     const releaseId = releaseRes.body.data.id;
     const crRes = await request(app)
@@ -144,14 +144,14 @@ describe("ChangeRequest ETAPA 3 - QA negativo", () => {
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.0.2`, description: "R" })
+      .send({ name: "Rel", version: `${baseMajor}.0.2`, description: "R" })
       .expect(201);
     const releaseId = releaseRes.body.data.id;
     const crId = await createApprovedCRForRelease(releaseId);
     const otherReleaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.0.3`, description: "Other" })
+      .send({ name: "Rel", version: `${baseMajor}.0.3`, description: "Other" })
       .expect(201);
     const otherReleaseId = otherReleaseRes.body.data.id;
     const res = await request(app)
@@ -167,7 +167,7 @@ describe("ChangeRequest ETAPA 3 - QA negativo", () => {
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.0.4`, description: "R" })
+      .send({ name: "Rel", version: `${baseMajor}.0.4`, description: "R" })
       .expect(201);
     const crRes = await request(app)
       .post("/api/v1/change-requests")
@@ -189,7 +189,7 @@ describe("ChangeRequest ETAPA 3 - QA negativo", () => {
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.0.5`, description: "R" })
+      .send({ name: "Rel", version: `${baseMajor}.0.5`, description: "R" })
       .expect(201);
     const crRes = await request(app)
       .post("/api/v1/change-requests")
@@ -218,7 +218,7 @@ describe("ChangeRequest ETAPA 3 - QA negativo", () => {
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.0.6`, description: "R" })
+      .send({ name: "Rel", version: `${baseMajor}.0.6`, description: "R" })
       .expect(201);
     const releaseId = releaseRes.body.data.id;
     const crId = await createApprovedCRForRelease(releaseId);

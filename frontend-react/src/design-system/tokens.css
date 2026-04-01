@@ -1,0 +1,356 @@
+/**
+ * Nexus DevSuite — Design System tokens (única fuente para componentes /design-system y shell).
+ * Prefijo --ds-* para no colisionar con alias legacy en index.css.
+ *
+ * Tema: por defecto light. `prefers-color-scheme: dark` aplica dark salvo `:root.light`.
+ * `:root.dark` fuerza dark; `:root.light` fuerza light.
+ */
+:root {
+  /* Color — brand (referencia TailAdmin-style, adaptado Nexus) */
+  --ds-color-primary: #465fff;
+  --ds-color-primary-hover: #3b4ef0;
+  --ds-color-primary-muted: rgba(70, 95, 255, 0.12);
+  --ds-color-primary-border: rgba(70, 95, 255, 0.45);
+
+  /* Color — surfaces (app) */
+  --ds-color-bg: #ffffff;
+  --ds-color-surface: #ffffff;
+  --ds-color-surface-raised: #f8fafc;
+  --ds-color-border: #e4e7ec;
+  --ds-color-border-subtle: #eff1f5;
+  --ds-color-app-canvas: #f2f4f7;
+
+  /* Shell — layout admin (sidebar / header / búsqueda) */
+  --ds-color-shell-sidebar-from: #1e3a5f;
+  --ds-color-shell-sidebar-to: #152a45;
+  --ds-color-shell-sidebar-border: rgba(255, 255, 255, 0.06);
+  --ds-color-shell-sidebar-shadow: rgba(15, 23, 42, 0.08);
+  --ds-color-shell-header-bg: var(--ds-color-surface);
+  --ds-color-shell-header-border: var(--ds-color-border);
+  --ds-color-shell-header-shadow: rgba(15, 23, 42, 0.04);
+  --ds-color-shell-brand-hover-bg: rgba(255, 255, 255, 0.04);
+  --ds-color-shell-focus-ring: rgba(147, 197, 253, 0.85);
+  --ds-color-shell-nav-section: rgba(248, 250, 252, 0.45);
+  --ds-color-shell-nav-link: rgba(248, 250, 252, 0.82);
+  --ds-color-shell-nav-link-hover-bg: rgba(255, 255, 255, 0.08);
+  --ds-color-shell-nav-active-bg: rgba(70, 95, 255, 0.35);
+  --ds-color-shell-nav-active-ring: rgba(147, 197, 253, 0.25);
+  --ds-color-shell-divider: rgba(255, 255, 255, 0.1);
+  --ds-color-shell-scope-muted: rgba(248, 250, 252, 0.38);
+  --ds-color-shell-hint-border: rgba(255, 255, 255, 0.14);
+  --ds-color-shell-topbar-brand-hover: rgba(15, 23, 42, 0.04);
+  --ds-color-shell-header-heading: #101828;
+  --ds-color-shell-header-muted: #667085;
+  --ds-color-shell-search-border: var(--ds-color-border);
+  --ds-color-shell-search-placeholder: #98a2b3;
+  --ds-color-shell-search-fg: #344054;
+  --ds-color-shell-search-focus-border: rgba(70, 95, 255, 0.45);
+  --ds-color-shell-search-focus-ring: rgba(70, 95, 255, 0.15);
+  --ds-color-shell-user-email: #667085;
+  --ds-color-shell-avatar-from: #465fff;
+  --ds-color-shell-avatar-to: #3b4ef0;
+  --ds-color-shell-logout-fg: #475467;
+  --ds-color-shell-logout-bg: #f2f4f7;
+  --ds-color-shell-logout-border: var(--ds-color-border);
+  --ds-color-shell-logout-hover-bg: #e4e7ec;
+  --ds-color-shell-logout-hover-border: #d0d5dd;
+  --ds-color-shell-backdrop: rgba(15, 23, 42, 0.45);
+  --ds-color-shell-menu-toggle-fg: #344054;
+  --ds-color-shell-menu-toggle-border: var(--ds-color-border);
+  --ds-color-shell-menu-toggle-bg: var(--ds-color-surface-raised);
+  --ds-color-white: #ffffff;
+
+  /* Color — text */
+  --ds-color-text: #475467;
+  --ds-color-text-heading: #101828;
+  --ds-color-text-muted: #667085;
+  --ds-color-text-on-primary: #ffffff;
+  --ds-color-on-solid: #ffffff;
+
+  /* Color — semantic */
+  --ds-color-success: #12b76a;
+  --ds-color-success-muted: rgba(18, 183, 106, 0.12);
+  --ds-color-warning: #d97706;
+  --ds-color-warning-muted: rgba(217, 119, 6, 0.12);
+  --ds-color-danger: #f04438;
+  --ds-color-danger-hover: #d92d20;
+  --ds-color-danger-muted: rgba(240, 68, 56, 0.1);
+  --ds-color-neutral-muted: rgba(71, 84, 103, 0.12);
+
+  /* States */
+  --ds-color-focus-ring: var(--ds-color-primary);
+  --ds-color-disabled-fg: #98a2b3;
+  --ds-color-disabled-bg: #f2f4f7;
+  --ds-color-error: #f04438;
+  --ds-color-error-border: #fda29b;
+
+  /* Spacing (4px base) */
+  --ds-space-0: 0;
+  --ds-space-1: 0.25rem;
+  --ds-space-2: 0.5rem;
+  --ds-space-3: 0.75rem;
+  --ds-space-4: 1rem;
+  --ds-space-4-5: 1.125rem;
+  --ds-space-5: 1.25rem;
+  --ds-space-6: 1.5rem;
+  --ds-space-8: 2rem;
+  --ds-space-10: 2.5rem;
+
+  /* Typography */
+  --ds-font-family-sans: system-ui, "Segoe UI", Roboto, sans-serif;
+  --ds-font-family-heading: system-ui, "Segoe UI", Roboto, sans-serif;
+  --ds-font-size-xs: 0.75rem;
+  --ds-font-size-sm: 0.875rem;
+  --ds-font-size-md: 1rem;
+  --ds-font-size-lg: 1.125rem;
+  --ds-font-size-xl: 1.25rem;
+  --ds-line-height-tight: 1.25;
+  --ds-line-height-body: 1.45;
+  --ds-font-weight-regular: 400;
+  --ds-font-weight-medium: 500;
+  --ds-font-weight-semibold: 600;
+
+  /* Radius */
+  --ds-radius-sm: 0.375rem;
+  --ds-radius-md: 0.5rem;
+  --ds-radius-lg: 0.65rem;
+  --ds-radius-shell: 0.625rem;
+  --ds-radius-full: 9999px;
+
+  /* Shadow */
+  --ds-shadow-sm: rgba(0, 0, 0, 0.06) 0 1px 2px;
+  --ds-shadow-md: rgba(0, 0, 0, 0.1) 0 4px 12px -2px, rgba(0, 0, 0, 0.06) 0 2px 4px -2px;
+  --ds-shadow-lg: rgba(15, 23, 42, 0.12) 0 8px 24px -4px, rgba(15, 23, 42, 0.07) 0 4px 8px -4px;
+  --ds-shadow-xl: rgba(15, 23, 42, 0.16) 0 14px 36px -6px, rgba(15, 23, 42, 0.08) 0 6px 14px -4px;
+
+  /* Motion */
+  --ds-duration-fast: 120ms;
+  --ds-duration-standard: 300ms;
+  --ds-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Layout / z-index shell */
+  --ds-layout-page-max-width: 90rem;
+  --ds-layout-topbar-height: 3.5rem;
+  --ds-layout-min-height-viewport: 100svh;
+  --ds-layout-sidebar-width: 16rem;
+  /* Logo horizontal en sidebar (marca completa) */
+  --ds-layout-sidebar-brand-logo-max-height: 4.25rem;
+  --ds-z-backdrop: 40;
+  --ds-z-sidebar-drawer: 50;
+  --ds-z-topbar: 30;
+  --ds-z-modal: 105;
+  --ds-color-modal-backdrop: rgba(15, 23, 42, 0.45);
+
+  /* Panel listado proyectos (mock tipo invoice / admin oscuro en /projects) */
+  --ds-projects-shell-bg: #1a222c;
+  --ds-projects-shell-inner: #1e2732;
+  --ds-projects-shell-thead: #242d3a;
+  --ds-projects-shell-border: rgba(148, 163, 184, 0.16);
+  --ds-projects-shell-text: #f1f5f9;
+  --ds-projects-shell-muted: #8a99af;
+  --ds-projects-tab-active-bg: #3c50e0;
+  --ds-projects-tab-pill-on-active: rgba(15, 23, 42, 0.32);
+  --ds-projects-tab-pill-muted-bg: rgba(255, 255, 255, 0.08);
+  --ds-projects-input-bg: rgba(0, 0, 0, 0.2);
+  --ds-projects-pager-active-bg: rgba(60, 80, 224, 0.5);
+  --ds-projects-link: #93b4ff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --ds-color-primary: #7c8cff;
+    --ds-color-primary-hover: #9aa5ff;
+    --ds-color-primary-muted: rgba(124, 140, 255, 0.18);
+    --ds-color-primary-border: rgba(124, 140, 255, 0.5);
+
+    --ds-color-bg: #16171d;
+    --ds-color-surface: #1c1d24;
+    --ds-color-surface-raised: #23242d;
+    --ds-color-border: #2e303a;
+    --ds-color-border-subtle: #25262e;
+    --ds-color-app-canvas: #12131a;
+
+    --ds-color-shell-sidebar-from: #151b2e;
+    --ds-color-shell-sidebar-to: #0f1420;
+    --ds-color-shell-sidebar-border: rgba(255, 255, 255, 0.06);
+    --ds-color-shell-sidebar-shadow: rgba(0, 0, 0, 0.35);
+    --ds-color-shell-header-bg: var(--ds-color-surface);
+    --ds-color-shell-header-border: var(--ds-color-border);
+    --ds-color-shell-header-shadow: rgba(0, 0, 0, 0.25);
+    --ds-color-shell-header-heading: #f3f4f6;
+    --ds-color-shell-header-muted: #9ca3af;
+    --ds-color-shell-search-border: var(--ds-color-border);
+    --ds-color-shell-search-placeholder: #8b92a1;
+    --ds-color-shell-search-fg: #e5e7eb;
+    --ds-color-shell-topbar-brand-hover: rgba(255, 255, 255, 0.06);
+    --ds-color-shell-user-email: #9ca3af;
+    --ds-color-shell-avatar-from: #7c8cff;
+    --ds-color-shell-avatar-to: #465fff;
+    --ds-color-shell-logout-fg: #d1d5db;
+    --ds-color-shell-logout-bg: #23242d;
+    --ds-color-shell-logout-border: var(--ds-color-border);
+    --ds-color-shell-logout-hover-bg: #2e303a;
+    --ds-color-shell-logout-hover-border: #3d4150;
+    --ds-color-shell-backdrop: rgba(0, 0, 0, 0.55);
+    --ds-color-shell-menu-toggle-fg: #e5e7eb;
+    --ds-color-shell-menu-toggle-border: var(--ds-color-border);
+    --ds-color-shell-menu-toggle-bg: var(--ds-color-surface-raised);
+
+    --ds-color-text: #9ca3af;
+    --ds-color-text-heading: #f3f4f6;
+    --ds-color-text-muted: #8b92a1;
+    --ds-color-text-on-primary: #0a0c14;
+    --ds-color-on-solid: #ffffff;
+
+    --ds-color-success: #3ccb7f;
+    --ds-color-success-muted: rgba(60, 203, 127, 0.15);
+    --ds-color-warning: #fbbf24;
+    --ds-color-warning-muted: rgba(251, 191, 36, 0.12);
+    --ds-color-danger: #f97066;
+    --ds-color-danger-hover: #f04438;
+    --ds-color-danger-muted: rgba(249, 112, 102, 0.12);
+    --ds-color-neutral-muted: rgba(156, 163, 175, 0.12);
+
+    --ds-color-disabled-fg: #6b7280;
+    --ds-color-disabled-bg: #2a2b35;
+    --ds-color-error: #f97066;
+    --ds-color-error-border: #fda29b;
+
+    --ds-shadow-sm: rgba(0, 0, 0, 0.35) 0 1px 2px;
+    --ds-shadow-md: rgba(0, 0, 0, 0.45) 0 8px 24px -4px, rgba(0, 0, 0, 0.25) 0 2px 8px -2px;
+    --ds-shadow-lg: rgba(0, 0, 0, 0.5) 0 10px 32px -4px, rgba(0, 0, 0, 0.32) 0 4px 12px -4px;
+    --ds-shadow-xl: rgba(0, 0, 0, 0.55) 0 16px 42px -6px, rgba(0, 0, 0, 0.38) 0 8px 16px -4px;
+  }
+}
+
+/* Forzar tema oscuro (UIContext) */
+:root.dark {
+  --ds-color-primary: #7c8cff;
+  --ds-color-primary-hover: #9aa5ff;
+  --ds-color-primary-muted: rgba(124, 140, 255, 0.18);
+  --ds-color-primary-border: rgba(124, 140, 255, 0.5);
+
+  --ds-color-bg: #16171d;
+  --ds-color-surface: #1c1d24;
+  --ds-color-surface-raised: #23242d;
+  --ds-color-border: #2e303a;
+  --ds-color-border-subtle: #25262e;
+  --ds-color-app-canvas: #12131a;
+
+  --ds-color-shell-sidebar-from: #151b2e;
+  --ds-color-shell-sidebar-to: #0f1420;
+  --ds-color-shell-sidebar-border: rgba(255, 255, 255, 0.06);
+  --ds-color-shell-sidebar-shadow: rgba(0, 0, 0, 0.35);
+  --ds-color-shell-header-bg: var(--ds-color-surface);
+  --ds-color-shell-header-border: var(--ds-color-border);
+  --ds-color-shell-header-shadow: rgba(0, 0, 0, 0.25);
+  --ds-color-shell-header-heading: #f3f4f6;
+  --ds-color-shell-header-muted: #9ca3af;
+  --ds-color-shell-search-border: var(--ds-color-border);
+  --ds-color-shell-search-placeholder: #8b92a1;
+  --ds-color-shell-search-fg: #e5e7eb;
+  --ds-color-shell-topbar-brand-hover: rgba(255, 255, 255, 0.06);
+  --ds-color-shell-user-email: #9ca3af;
+  --ds-color-shell-avatar-from: #7c8cff;
+  --ds-color-shell-avatar-to: #465fff;
+  --ds-color-shell-logout-fg: #d1d5db;
+  --ds-color-shell-logout-bg: #23242d;
+  --ds-color-shell-logout-border: var(--ds-color-border);
+  --ds-color-shell-logout-hover-bg: #2e303a;
+  --ds-color-shell-logout-hover-border: #3d4150;
+  --ds-color-shell-backdrop: rgba(0, 0, 0, 0.55);
+  --ds-color-shell-menu-toggle-fg: #e5e7eb;
+  --ds-color-shell-menu-toggle-border: var(--ds-color-border);
+  --ds-color-shell-menu-toggle-bg: var(--ds-color-surface-raised);
+
+  --ds-color-text: #9ca3af;
+  --ds-color-text-heading: #f3f4f6;
+  --ds-color-text-muted: #8b92a1;
+  --ds-color-text-on-primary: #0a0c14;
+  --ds-color-on-solid: #ffffff;
+
+  --ds-color-success: #3ccb7f;
+  --ds-color-success-muted: rgba(60, 203, 127, 0.15);
+  --ds-color-warning: #fbbf24;
+  --ds-color-warning-muted: rgba(251, 191, 36, 0.12);
+  --ds-color-danger: #f97066;
+  --ds-color-danger-hover: #f04438;
+  --ds-color-danger-muted: rgba(249, 112, 102, 0.12);
+  --ds-color-neutral-muted: rgba(156, 163, 175, 0.12);
+
+  --ds-color-disabled-fg: #6b7280;
+  --ds-color-disabled-bg: #2a2b35;
+  --ds-color-error: #f97066;
+  --ds-color-error-border: #fda29b;
+
+  --ds-shadow-sm: rgba(0, 0, 0, 0.35) 0 1px 2px;
+  --ds-shadow-md: rgba(0, 0, 0, 0.45) 0 8px 24px -4px, rgba(0, 0, 0, 0.25) 0 2px 8px -2px;
+  --ds-shadow-lg: rgba(0, 0, 0, 0.5) 0 10px 32px -4px, rgba(0, 0, 0, 0.32) 0 4px 12px -4px;
+  --ds-shadow-xl: rgba(0, 0, 0, 0.55) 0 16px 42px -6px, rgba(0, 0, 0, 0.38) 0 8px 16px -4px;
+}
+
+/* Forzar tema claro (UIContext) */
+:root.light {
+  --ds-color-primary: #465fff;
+  --ds-color-primary-hover: #3b4ef0;
+  --ds-color-primary-muted: rgba(70, 95, 255, 0.12);
+  --ds-color-primary-border: rgba(70, 95, 255, 0.45);
+
+  --ds-color-bg: #ffffff;
+  --ds-color-surface: #ffffff;
+  --ds-color-surface-raised: #f8fafc;
+  --ds-color-border: #e4e7ec;
+  --ds-color-border-subtle: #eff1f5;
+  --ds-color-app-canvas: #f2f4f7;
+
+  --ds-color-shell-sidebar-from: #1e3a5f;
+  --ds-color-shell-sidebar-to: #152a45;
+  --ds-color-shell-sidebar-border: rgba(255, 255, 255, 0.06);
+  --ds-color-shell-sidebar-shadow: rgba(15, 23, 42, 0.08);
+  --ds-color-shell-header-bg: var(--ds-color-surface);
+  --ds-color-shell-header-border: var(--ds-color-border);
+  --ds-color-shell-header-shadow: rgba(15, 23, 42, 0.04);
+  --ds-color-shell-header-heading: #101828;
+  --ds-color-shell-header-muted: #667085;
+  --ds-color-shell-search-border: var(--ds-color-border);
+  --ds-color-shell-search-placeholder: #98a2b3;
+  --ds-color-shell-search-fg: #344054;
+  --ds-color-shell-topbar-brand-hover: rgba(15, 23, 42, 0.04);
+  --ds-color-shell-user-email: #667085;
+  --ds-color-shell-avatar-from: #465fff;
+  --ds-color-shell-avatar-to: #3b4ef0;
+  --ds-color-shell-logout-fg: #475467;
+  --ds-color-shell-logout-bg: #f2f4f7;
+  --ds-color-shell-logout-border: var(--ds-color-border);
+  --ds-color-shell-logout-hover-bg: #e4e7ec;
+  --ds-color-shell-logout-hover-border: #d0d5dd;
+  --ds-color-shell-backdrop: rgba(15, 23, 42, 0.45);
+  --ds-color-shell-menu-toggle-fg: #344054;
+  --ds-color-shell-menu-toggle-border: var(--ds-color-border);
+  --ds-color-shell-menu-toggle-bg: var(--ds-color-surface-raised);
+
+  --ds-color-text: #475467;
+  --ds-color-text-heading: #101828;
+  --ds-color-text-muted: #667085;
+  --ds-color-text-on-primary: #ffffff;
+  --ds-color-on-solid: #ffffff;
+
+  --ds-color-success: #12b76a;
+  --ds-color-success-muted: rgba(18, 183, 106, 0.12);
+  --ds-color-warning: #d97706;
+  --ds-color-warning-muted: rgba(217, 119, 6, 0.12);
+  --ds-color-danger: #f04438;
+  --ds-color-danger-hover: #d92d20;
+  --ds-color-danger-muted: rgba(240, 68, 56, 0.1);
+  --ds-color-neutral-muted: rgba(71, 84, 103, 0.12);
+
+  --ds-color-disabled-fg: #98a2b3;
+  --ds-color-disabled-bg: #f2f4f7;
+  --ds-color-error: #f04438;
+  --ds-color-error-border: #fda29b;
+
+  --ds-shadow-sm: rgba(0, 0, 0, 0.06) 0 1px 2px;
+  --ds-shadow-md: rgba(0, 0, 0, 0.1) 0 4px 12px -2px, rgba(0, 0, 0, 0.06) 0 2px 4px -2px;
+  --ds-shadow-lg: rgba(15, 23, 42, 0.12) 0 8px 24px -4px, rgba(15, 23, 42, 0.07) 0 4px 8px -4px;
+  --ds-shadow-xl: rgba(15, 23, 42, 0.16) 0 14px 36px -6px, rgba(15, 23, 42, 0.08) 0 6px 14px -4px;
+}

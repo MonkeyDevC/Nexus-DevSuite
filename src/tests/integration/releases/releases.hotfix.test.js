@@ -97,12 +97,29 @@ describe("Releases - Hotfix", () => {
     return crId;
   }
 
+  async function createStoryOnFeature(featureId) {
+    const res = await request(app)
+      .post(`/api/v1/features/${featureId}/stories`)
+      .set("Authorization", `Bearer ${masterToken}`)
+      .send({ title: "Story " + Date.now(), description: "D" })
+      .expect(201);
+    return res.body.data.id;
+  }
+
+  async function attachStoryToRelease(storyId, releaseId) {
+    await request(app)
+      .post(`/api/v1/stories/${storyId}/assign-release`)
+      .set("Authorization", `Bearer ${masterToken}`)
+      .send({ release_id: releaseId })
+      .expect(200);
+  }
+
   test("Hotfix sobre release IN_PROGRESS devuelve 400 y RELEASE_HOTFIX_NOT_ALLOWED", async () => {
     const version = `${baseMajor}.0.${100000 + (Date.now() % 800000)}`;
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version, description: "D" })
+      .send({ name: "HF-IP", version, description: "D" })
       .expect(201);
     const releaseId = releaseRes.body.data.id;
     const crId = await createApprovedCRForRelease(releaseId);
@@ -138,7 +155,7 @@ describe("Releases - Hotfix", () => {
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version, description: "R" })
+      .send({ name: "HF-Arch", version, description: "R" })
       .expect(201);
     const releaseId = releaseRes.body.data.id;
     let crId = await createApprovedCRForRelease(releaseId);
@@ -159,18 +176,16 @@ describe("Releases - Hotfix", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ change_request_id: crId })
       .expect(200);
+    const sidArch = await createStoryOnFeature(featureRes.body.data.id);
+    await attachStoryToRelease(sidArch, releaseId);
     crId = await createApprovedCRForRelease(releaseId);
     await request(app)
       .patch(`/api/v1/releases/${releaseId}/status`)
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ status: "RELEASED", change_request_id: crId })
       .expect(200);
-    crId = await createApprovedCRForRelease(releaseId);
-    await request(app)
-      .patch(`/api/v1/releases/${releaseId}/status`)
-      .set("Authorization", `Bearer ${masterToken}`)
-      .send({ status: "ARCHIVED", change_request_id: crId })
-      .expect(200);
+    const { Release } = getModels();
+    await Release.update({ status: "ARCHIVED" }, { where: { id: releaseId } });
 
     crId = await createApprovedCRForRelease(releaseId);
     const res = await request(app)
@@ -221,7 +236,7 @@ describe("Releases - Hotfix", () => {
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: originVersion, description: "Origin" })
+      .send({ name: "HF-Origin", version: originVersion, description: "Origin" })
       .expect(201);
     const releaseId = releaseRes.body.data.id;
     let crId = await createApprovedCRForRelease(releaseId);
@@ -242,6 +257,8 @@ describe("Releases - Hotfix", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ change_request_id: crId })
       .expect(200);
+    const sidO = await createStoryOnFeature(featureRes.body.data.id);
+    await attachStoryToRelease(sidO, releaseId);
     crId = await createApprovedCRForRelease(releaseId);
     await request(app)
       .patch(`/api/v1/releases/${releaseId}/status`)
@@ -276,7 +293,7 @@ describe("Releases - Hotfix", () => {
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.2.0`, description: "R" })
+      .send({ name: "HF-St", version: `${baseMajor}.2.0`, description: "R" })
       .expect(201);
     const releaseId = releaseRes.body.data.id;
     let crId = await createApprovedCRForRelease(releaseId);
@@ -297,6 +314,8 @@ describe("Releases - Hotfix", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ change_request_id: crId })
       .expect(200);
+    const sidSt = await createStoryOnFeature(featureRes.body.data.id);
+    await attachStoryToRelease(sidSt, releaseId);
     crId = await createApprovedCRForRelease(releaseId);
     await request(app)
       .patch(`/api/v1/releases/${releaseId}/status`)
@@ -329,7 +348,7 @@ describe("Releases - Hotfix", () => {
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.3.0`, description: "R" })
+      .send({ name: "HF-NC", version: `${baseMajor}.3.0`, description: "R" })
       .expect(201);
     const releaseId = releaseRes.body.data.id;
     let crId = await createApprovedCRForRelease(releaseId);
@@ -350,6 +369,8 @@ describe("Releases - Hotfix", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ change_request_id: crId })
       .expect(200);
+    const sidNc = await createStoryOnFeature(featureRes.body.data.id);
+    await attachStoryToRelease(sidNc, releaseId);
     crId = await createApprovedCRForRelease(releaseId);
     await request(app)
       .patch(`/api/v1/releases/${releaseId}/status`)
@@ -391,7 +412,7 @@ describe("Releases - Hotfix", () => {
     const releaseRes = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
-      .send({ version: `${baseMajor}.4.0`, description: "R" })
+      .send({ name: "HF-403", version: `${baseMajor}.4.0`, description: "R" })
       .expect(201);
     const releaseId = releaseRes.body.data.id;
     let crId = await createApprovedCRForRelease(releaseId);
@@ -412,6 +433,8 @@ describe("Releases - Hotfix", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ change_request_id: crId })
       .expect(200);
+    const sid403 = await createStoryOnFeature(featureRes.body.data.id);
+    await attachStoryToRelease(sid403, releaseId);
     crId = await createApprovedCRForRelease(releaseId);
     await request(app)
       .patch(`/api/v1/releases/${releaseId}/status`)

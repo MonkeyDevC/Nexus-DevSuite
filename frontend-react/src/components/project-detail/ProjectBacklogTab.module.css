@@ -1,0 +1,27 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+}
+
+.stateText {
+  margin: 0;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-sm);
+}
+
+.errorBox {
+  padding: var(--ds-space-3);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-danger-muted);
+  font-size: var(--ds-font-size-sm);
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: flex-end;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+  margin-top: calc(-1 * var(--ds-space-2));
+}
+

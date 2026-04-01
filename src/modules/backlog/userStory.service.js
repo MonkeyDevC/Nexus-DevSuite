@@ -289,31 +289,78 @@ async function updateStorySprint(id, sprintId, context) {
   }
   const project = await projectsRepository.findById(feature.project_id);
   if (project) featureService.ensureProjectInOrg(project, context.organizationId);
-  if (sprintId != null) {
-    if (story.status !== "READY") {
-      throw new AppError(
-        "Solo se pueden asignar al sprint stories en estado READY. La story está en estado " + story.status + ".",
-        { statusCode: 400, code: ERROR_CODES.STORY_NOT_READY_FOR_SPRINT }
-      );
+
+  if (sprintId == null || String(sprintId).trim() === "") {
+    const sid = story.sprint_id != null && String(story.sprint_id).trim() !== "" ? String(story.sprint_id).trim() : null;
+    if (!sid) {
+      return toPlain(story);
     }
-    const sprint = await sprintRepository.findById(sprintId);
-    if (!sprint) {
-      throw new AppError("Sprint no encontrado", { statusCode: 404, code: ERROR_CODES.NOT_FOUND });
-    }
-    if (sprint.status === "CLOSED") {
-      throw new AppError("No se puede asignar stories a un sprint cerrado", {
+    const currentSprint = await sprintRepository.findById(sid);
+    if (currentSprint && currentSprint.status === "CLOSED") {
+      throw new AppError("No se puede desasignar: el sprint está cerrado", {
         statusCode: 400,
         code: ERROR_CODES.SPRINT_CLOSED
       });
     }
-    if (sprint.project_id !== feature.project_id) {
-      throw new AppError("El sprint no pertenece al proyecto de la story", {
-        statusCode: 400,
-        code: ERROR_CODES.INVALID_ASSIGNMENT
-      });
-    }
+    await userStoryRepository.update(id, { sprint_id: null });
+    const auditCtx = ensureAuditContext(context);
+    await authRepository.createAuditLog({
+      ...auditCtx,
+      action: "STORY_UNASSIGN_SPRINT",
+      entity: "USER_STORY",
+      entity_id: id,
+      metadata: { sprint_id: sid }
+    });
+    const updated = await userStoryRepository.findById(id);
+    return toPlain(updated);
   }
-  const updated = await userStoryRepository.update(id, { sprint_id: sprintId });
+
+  const targetId = String(sprintId).trim();
+  const current = story.sprint_id != null && String(story.sprint_id).trim() !== "" ? String(story.sprint_id).trim() : null;
+  if (current === targetId) {
+    return toPlain(story);
+  }
+  if (current) {
+    throw new AppError("La story ya está asignada a un sprint; elimine la asignación antes de reasignar", {
+      statusCode: 409,
+      code: ERROR_CODES.STORY_ALREADY_IN_SPRINT,
+      details: { sprint_id: current }
+    });
+  }
+
+  if (story.status !== "READY") {
+    throw new AppError(
+      "Solo se pueden asignar al sprint stories en estado READY. La story está en estado " + story.status + ".",
+      { statusCode: 400, code: ERROR_CODES.STORY_NOT_READY_FOR_SPRINT }
+    );
+  }
+  const sprint = await sprintRepository.findById(targetId);
+  if (!sprint) {
+    throw new AppError("Sprint no encontrado", { statusCode: 404, code: ERROR_CODES.SPRINT_NOT_FOUND });
+  }
+  if (sprint.status === "CLOSED") {
+    throw new AppError("No se puede asignar stories a un sprint cerrado", {
+      statusCode: 400,
+      code: ERROR_CODES.SPRINT_CLOSED
+    });
+  }
+  if (sprint.project_id !== feature.project_id) {
+    throw new AppError("El sprint no pertenece al proyecto de la story", {
+      statusCode: 400,
+      code: ERROR_CODES.INVALID_ASSIGNMENT
+    });
+  }
+
+  await userStoryRepository.update(id, { sprint_id: targetId });
+  const auditCtx = ensureAuditContext(context);
+  await authRepository.createAuditLog({
+    ...auditCtx,
+    action: "STORY_ASSIGN_SPRINT",
+    entity: "USER_STORY",
+    entity_id: id,
+    metadata: { sprint_id: targetId }
+  });
+  const updated = await userStoryRepository.findById(id);
   return toPlain(updated);
 }
 
@@ -357,6 +404,53 @@ async function updateStory(id, payload, context) {
   return toPlain(updated);
 }
 
+const STORY_DELETABLE_STATUSES = new Set(["DRAFT", "READY", "ARCHIVED"]);
+
+async function deleteStory(id, context = {}) {
+  const story = await userStoryRepository.findById(id);
+  if (!story) {
+    throw new AppError("Story no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.STORY_NOT_FOUND
+    });
+  }
+  const feature = await featureRepository.findById(story.feature_id);
+  if (feature) {
+    const project = await projectsRepository.findById(feature.project_id);
+    if (project) featureService.ensureProjectInOrg(project, context.organizationId);
+  }
+  if (story.sprint_id != null && String(story.sprint_id).trim() !== "") {
+    throw new AppError("No se puede eliminar una story asignada a sprint", {
+      statusCode: 409,
+      code: ERROR_CODES.STORY_IN_SPRINT,
+      details: { sprint_id: story.sprint_id }
+    });
+  }
+  if (!STORY_DELETABLE_STATUSES.has(story.status)) {
+    throw new AppError("Estado de story no permite eliminacion", {
+      statusCode: 409,
+      code: ERROR_CODES.STORY_INVALID_STATE,
+      details: { status: story.status }
+    });
+  }
+  const removed = await userStoryRepository.removeById(id);
+  if (!removed) {
+    throw new AppError("Story no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.STORY_NOT_FOUND
+    });
+  }
+  const auditCtx = ensureAuditContext(context);
+  await authRepository.createAuditLog({
+    ...auditCtx,
+    action: "DELETE",
+    entity: "UserStory",
+    entity_id: id,
+    metadata: {}
+  });
+  return { id };
+}
+
 module.exports = {
   toPlain,
   createStory,
@@ -366,5 +460,6 @@ module.exports = {
   updateStoryStatus,
   assignStory,
   updateStorySprint,
-  updateStory
+  updateStory,
+  deleteStory
 };

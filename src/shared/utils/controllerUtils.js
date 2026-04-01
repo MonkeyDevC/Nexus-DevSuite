@@ -32,11 +32,12 @@ function buildContext(req) {
  * @param {object} req - Objeto request de Express
  * @throws {AppError} Si validationResult(req) no está vacío
  */
-function assertRequestValid(req) {
+function assertRequestValid(req, options = {}) {
+  const statusCode = Number.isInteger(options.statusCode) ? options.statusCode : 400;
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     throw new AppError("Datos de entrada invalidos", {
-      statusCode: 400,
+      statusCode,
       code: ERROR_CODES.VALIDATION_ERROR,
       details: errors.array()
     });

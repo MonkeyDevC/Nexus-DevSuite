@@ -15,7 +15,7 @@ const RULES_CONFIG = {
     name: "START_DEVELOPMENT",
     type: "BLOCK",
     userMessage: "No puedes iniciar desarrollo",
-    guidance: ["El sprint debe estar ACTIVO", "La historia debe estar en READY"],
+    guidance: ["El sprint debe estar IN_PROGRESS (activo)", "La historia debe estar en READY"],
     rules: [
       {
         type: "block",
@@ -25,8 +25,8 @@ const RULES_CONFIG = {
               {
                 field: "sprint.status",
                 operator: "EQUALS",
-                value: "ACTIVE",
-                expected: "ACTIVE"
+                value: "IN_PROGRESS",
+                expected: "IN_PROGRESS"
               },
               {
                 field: "story.status",
@@ -42,6 +42,22 @@ const RULES_CONFIG = {
     ]
   }
 };
+
+/**
+ * Catálogo ligero para panel (motor de reglas): sin exponer lógica interna completa.
+ * @returns {{ id: string, label: string, description: string, active: boolean }[]}
+ */
+function listRulesCatalogForDashboard() {
+  return Object.keys(RULES_CONFIG).map((id) => {
+    const c = RULES_CONFIG[id];
+    return {
+      id,
+      label: id,
+      description: Array.isArray(c.guidance) && c.guidance[0] ? String(c.guidance[0]) : String(c.userMessage || ""),
+      active: true
+    };
+  });
+}
 
 function getRuleConfig(ruleName) {
   const config = RULES_CONFIG[ruleName];
@@ -67,5 +83,6 @@ function getRuleConfig(ruleName) {
 }
 
 module.exports = {
-  getRuleConfig
+  getRuleConfig,
+  listRulesCatalogForDashboard
 };

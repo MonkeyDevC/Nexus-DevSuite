@@ -43,9 +43,18 @@ async function update(id, payload) {
   return findById(id);
 }
 
+async function destroyById(id) {
+  const Incident = getIncidentModel();
+  const row = await Incident.findByPk(id);
+  if (!row) return null;
+  await row.destroy();
+  return { id: row.id };
+}
+
 module.exports = {
   create,
   findById,
   list,
-  update
+  update,
+  destroyById
 };

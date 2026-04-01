@@ -1,0 +1,299 @@
+---
+description: Motor de ejecución técnica NEXUS — ejecución determinística, validada y alineada a arquitectura y QA
+alwaysApply: true
+---
+
+# ⚙️ NEXUS EXECUTION ENGINE (v3)
+
+## 1. PRINCIPIO FUNDAMENTAL
+
+El agente NO ejecuta directamente.
+
+Primero:
+→ analiza  
+→ diseña  
+→ valida  
+
+Luego:
+→ implementa  
+
+---
+
+## 2. FLUJO DE EJECUCIÓN OBLIGATORIO (NO OMITIBLE)
+
+Ninguna implementación puede realizarse sin este flujo:
+
+---
+
+### PASO 1 — ANÁLISIS
+
+Identificar con precisión:
+
+- estado actual del sistema
+- código existente relevante
+- contratos actuales
+- inconsistencias o deuda técnica
+
+Responder internamente:
+
+- ¿qué ya existe?
+- ¿qué falta?
+- ¿qué está mal?
+- ¿qué podría romperse?
+
+---
+
+### PASO 2 — DISEÑO
+
+Definir antes de escribir código:
+
+- solución exacta
+- contratos (input/output)
+- estructura de datos
+- flujo de datos
+- manejo de errores
+- impacto en otros módulos
+
+❗ Si no hay contrato claro → NO implementar
+
+---
+
+### PASO 3 — VALIDACIÓN PREVIA
+
+Antes de implementar validar:
+
+- respeta arquitectura
+- no rompe SSOT
+- no introduce duplicación
+- es compatible con legacy
+
+Si falla alguna:
+
+→ rediseñar
+
+---
+
+### PASO 4 — IMPLEMENTACIÓN
+
+Reglas obligatorias:
+
+- código modular
+- sin duplicaciones
+- sin efectos colaterales ocultos
+- alineado a arquitectura
+- alineado a contratos
+
+---
+
+### PASO 5 — VALIDACIÓN (QA INTEGRADO)
+
+Validar SIEMPRE:
+
+- flujo principal (happy path)
+- errores controlados
+- edge cases
+- integración con otros módulos
+- regresión (no romper nada existente)
+
+---
+
+### PASO 6 — VERIFICACIÓN FINAL
+
+Antes de cerrar:
+
+- ¿cumple contratos?
+- ¿es predecible?
+- ¿es mantenible?
+- ¿rompe algo existente?
+- ¿introduce deuda técnica?
+
+Si hay duda:
+
+→ volver a diseño
+
+---
+
+## 3. ESTÁNDARES DE IMPLEMENTACIÓN
+
+### 3.1 DISEÑO DE FUNCIONES
+
+Cada función debe:
+
+- tener responsabilidad única
+- ser determinística
+- no depender de estado oculto
+
+---
+
+### 3.2 NOMBRADO
+
+- explícito y descriptivo
+- reflejar intención real
+- prohibido nombres genéricos
+
+---
+
+### 3.3 ESTRUCTURA
+
+Separación obligatoria:
+
+- controllers → entrada/salida
+- services → lógica
+- models → datos
+
+❌ prohibido mezclar capas
+
+---
+
+### 3.4 COMPLEJIDAD
+
+- funciones cortas
+- baja anidación
+- lógica segmentada
+
+---
+
+## 4. CONTRATOS OBLIGATORIOS
+
+### RESPUESTA API (ÉXITO)
+
+```js
+{
+  success: true,
+  data: {},
+  meta: {}
+}
+RESPUESTA API (ERROR)
+{
+  success: false,
+  code: "ERROR_CODE",
+  message: "Mensaje claro",
+  details: {}
+}
+PROHIBIDO
+
+❌ null ambiguo
+❌ respuestas inconsistentes
+❌ estructuras variables
+
+5. MANEJO DE ERRORES (ESTÁNDAR)
+
+Todo error debe:
+
+ser controlado
+ser predecible
+tener código identificable
+
+Nunca:
+
+lanzar errores sin control
+romper flujo
+exponer detalles internos
+6. VALIDACIÓN DE INPUT (OBLIGATORIA)
+
+Siempre validar:
+
+tipos
+estructura
+valores permitidos
+
+❌ nunca confiar en frontend
+❌ nunca procesar sin validar
+
+7. LOGGING ESTRUCTURADO
+
+Registrar:
+
+contexto (usuario, módulo)
+acción
+entrada relevante
+resultado
+errores
+8. CONTROL DE EFECTOS COLATERALES
+
+Antes de modificar estado:
+
+identificar impacto
+evitar cambios indirectos
+asegurar aislamiento
+9. SISTEMA DE DETECCIÓN DE RIESGOS
+
+Si detectas:
+
+ambigüedad
+falta de contrato
+duplicación
+riesgo de romper integración
+
+Debes:
+
+→ ⚠ DETENER → ANALIZAR → DEFINIR → CONTINUAR
+
+10. COMPATIBILIDAD CON LEGACY
+
+Durante migración:
+
+mantener comportamiento actual
+no romper endpoints existentes
+validar paridad funcional
+11. PRINCIPIO DE AISLAMIENTO
+
+Cada cambio debe:
+
+afectar solo su módulo
+no generar efectos secundarios
+12. ANTI-PATRONES PROHIBIDOS
+
+❌ código duplicado
+❌ lógica en frontend
+❌ hardcoding
+❌ funciones gigantes
+❌ dependencias implícitas
+❌ parches rápidos
+
+13. INTEGRACIÓN CON QA
+
+Una implementación NO está completa hasta:
+
+validar happy path
+validar errores
+validar edge cases
+validar regresión
+14. CRITERIOS DE CALIDAD FINAL
+
+El código es válido solo si:
+
+✔ es claro
+✔ es consistente
+✔ es mantenible
+✔ es predecible
+✔ es testeable
+
+15. DEFINICIÓN DE IMPLEMENTACIÓN CORRECTA
+
+Una implementación está completa cuando:
+
+cumple contratos
+pasa QA
+no rompe nada existente
+es escalable
+es entendible
+16. REGLA CRÍTICA (ABSOLUTA)
+
+Si algo no está completamente claro:
+
+❌ NO implementar
+✔ definir contrato
+✔ reintentar
+
+17. REGLA FINAL (ABSOLUTA)
+
+Si una implementación:
+
+introduce deuda técnica
+rompe arquitectura
+reduce claridad
+
+Entonces:
+
+❌ NO se ejecuta

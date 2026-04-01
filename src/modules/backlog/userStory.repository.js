@@ -155,6 +155,12 @@ async function update(id, payload) {
   return findById(id);
 }
 
+async function removeById(id) {
+  const UserStory = getUserStoryModel();
+  const deleted = await UserStory.destroy({ where: { id } });
+  return deleted > 0;
+}
+
 module.exports = {
   create,
   findById,
@@ -162,6 +168,7 @@ module.exports = {
   listByFeature,
   listByProject,
   update,
+  removeById,
   getMaxStoryNumber,
   getMaxStoryNumberGlobal,
   getStoryCountsByFeatureIds,

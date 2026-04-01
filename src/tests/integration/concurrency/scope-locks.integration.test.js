@@ -84,7 +84,7 @@ describe("Scope lock concurrency", () => {
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
       .set("x-dedup-key", `dedup-lock-r1-${Date.now()}`)
-      .send({ version: `${baseMajor}.0.${Date.now() % 900000}`, description: "R1" })
+      .send({ name: "SL", version: `${baseMajor}.0.${Date.now() % 900000}`, description: "R1" })
       .expect(201);
     const releaseId = createRelease.body.data.id;
 
@@ -117,13 +117,13 @@ describe("Scope lock concurrency", () => {
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
       .set("x-dedup-key", `dedup-par-a-${Date.now()}`)
-      .send({ version: `${baseMajor}.1.${Date.now() % 900000}`, description: "RA" })
+      .send({ name: "SL", version: `${baseMajor}.1.${Date.now() % 900000}`, description: "RA" })
       .expect(201);
     const releaseB = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
       .set("x-dedup-key", `dedup-par-b-${Date.now()}`)
-      .send({ version: `${baseMajor}.2.${Date.now() % 900000}`, description: "RB" })
+      .send({ name: "SL", version: `${baseMajor}.2.${Date.now() % 900000}`, description: "RB" })
       .expect(201);
 
     const [crA, crB] = await Promise.all([
@@ -155,14 +155,14 @@ describe("Scope lock concurrency", () => {
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
       .set("x-dedup-key", dedupKey)
-      .send({ version, description: "retry test" })
+      .send({ name: "SL-retry", version, description: "retry test" })
       .expect(201);
 
     const replay = await request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
       .set("x-dedup-key", dedupKey)
-      .send({ version, description: "retry test" })
+      .send({ name: "SL-retry", version, description: "retry test" })
       .expect((res) => {
         expect([201, 409]).toContain(res.status);
       });
@@ -173,7 +173,7 @@ describe("Scope lock concurrency", () => {
         .post("/api/v1/releases")
         .set("Authorization", `Bearer ${masterToken}`)
         .set("x-dedup-key", dedupKey)
-        .send({ version, description: "retry test" })
+        .send({ name: "SL-retry", version, description: "retry test" })
         .expect(201);
       expect(replay2.headers["x-idempotent-replay"]).toBe("true");
       expect(first.body.data.id).toBe(replay2.body.data.id);
@@ -188,7 +188,7 @@ describe("Scope lock concurrency", () => {
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
       .set("x-dedup-key", `dedup-lock-base-${Date.now()}`)
-      .send({ version: `${baseMajor}.4.${Date.now() % 900000}`, description: "R lock idem" })
+      .send({ name: "SL", version: `${baseMajor}.4.${Date.now() % 900000}`, description: "R lock idem" })
       .expect(201);
     const releaseId = release.body.data.id;
 

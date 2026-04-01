@@ -1,0 +1,180 @@
+/* Card contenedora por sección (Acceptance / Implementation) — estilo panel enterprise */
+.sectionCard {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--ds-space-4);
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    var(--ds-color-surface) 48%,
+    rgba(0, 0, 0, 0.12) 100%
+  );
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: 14px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.headerRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  min-width: 0;
+  padding-bottom: var(--ds-space-3);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  min-width: 0;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ds-color-text-heading);
+  line-height: 1.3;
+}
+
+.countBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  padding: 2px 8px;
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--ds-color-text-heading);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: 999px;
+}
+
+.headerRight {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  flex-shrink: 0;
+}
+
+.addBtnHeader {
+  flex-shrink: 0;
+  font-weight: var(--ds-font-weight-semibold) !important;
+}
+
+.headerRule {
+  height: 1px;
+  margin: 0 0 var(--ds-space-4);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--ds-color-border-subtle) 12%,
+    var(--ds-color-border-subtle) 88%,
+    transparent
+  );
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--ds-space-5);
+  align-items: stretch;
+  align-content: stretch;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+@media (min-width: 48.01rem) {
+  .grid {
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 48rem) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: var(--ds-space-4);
+  }
+}
+
+.listColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  min-width: 0;
+  min-height: 0;
+  padding-right: var(--ds-space-3);
+  border-right: 1px solid var(--ds-color-border-subtle);
+}
+
+/* Misma altura que la columna del editor: rellenar la celda del grid y dejar que la lista flexione. */
+@media (min-width: 48.01rem) {
+  .listColumn {
+    align-self: stretch;
+    height: 100%;
+  }
+}
+
+@media (max-width: 48rem) {
+  .listColumn {
+    padding-right: 0;
+    border-right: none;
+    padding-bottom: var(--ds-space-3);
+    border-bottom: 1px solid var(--ds-color-border-subtle);
+  }
+}
+
+.detailColumn {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.listEmpty {
+  flex-shrink: 0;
+  margin: 0;
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-muted);
+  line-height: 1.45;
+}
+
+.detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: min(20rem, 42vh);
+  padding: var(--ds-space-4);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, var(--ds-color-surface-raised) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+}
+
+.editorEmpty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  justify-content: center;
+  align-items: flex-start;
+  flex: 1 1 auto;
+  min-height: 10rem;
+  padding: var(--ds-space-2);
+}
+
+.editorEmptyLine {
+  margin: 0;
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-muted);
+  line-height: 1.55;
+  max-width: 22rem;
+}

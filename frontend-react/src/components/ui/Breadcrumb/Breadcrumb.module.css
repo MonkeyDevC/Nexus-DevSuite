@@ -1,0 +1,43 @@
+.nav {
+  margin: 0;
+}
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  color: #94a3b8;
+}
+
+.item:not(:last-child)::after {
+  content: "/";
+  margin: 0 0.5rem;
+  color: #cbd5e1;
+  font-weight: 400;
+}
+
+.link {
+  color: #64748b;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.link:hover {
+  color: #2563eb;
+}
+
+.current {
+  color: #475569;
+  font-weight: 600;
+}

@@ -33,7 +33,7 @@ function toEngineRuleFromWorkflowRule(workflowRule) {
 }
 
 const UX_FIELD_MESSAGES = {
-  "sprint.status": "El sprint debe estar ACTIVO",
+  "sprint.status": "El sprint debe estar IN_PROGRESS",
   "story.status": "La historia debe estar en READY"
 };
 

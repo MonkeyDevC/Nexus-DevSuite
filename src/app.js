@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const helmet = require("helmet");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
@@ -61,6 +62,15 @@ const globalRateLimitMiddleware = rateLimit({
   }
 });
 
+/** En development/test no aplicar limite global (evita 429 en login/HMR/E2E). Produccion y staging si. */
+const rateLimitInDev =
+  String(process.env.RATE_LIMIT_IN_DEV || "")
+    .trim()
+    .toLowerCase() === "true";
+const applyGlobalRateLimit =
+  rateLimitInDev ||
+  (env.NODE_ENV !== "development" && env.NODE_ENV !== "test");
+
 app.disable("x-powered-by");
 // Helmet: resto de cabeceras de seguridad (sin CSP por defecto).
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -93,11 +103,33 @@ app.use(metricsMiddleware);
 app.use(auditLoggerMiddleware);
 app.use(idempotencyMiddleware);
 app.use(atomicCommitMiddleware);
-app.use(globalRateLimitMiddleware);
-app.use(express.static("public"));
+if (applyGlobalRateLimit) {
+  app.use(globalRateLimitMiddleware);
+}
+
+/**
+ * Estáticos: `public/` incluye el shell SPA (`index.html`) y el build React (`react-app/*`).
+ * Orden: estáticos antes de rutas API para que assets no pasen por routers JSON.
+ */
+app.use(express.static(path.resolve(__dirname, "../public")));
 app.get("/favicon.ico", (req, res) => res.status(204).end());
 app.use("/.well-known", (req, res) => res.status(204).end());
+
+/** API REST (contrato /api/v1). No montar estáticos encima de estos paths. */
 app.use(routes);
+
+/**
+ * SPA (React BrowserRouter): refresco en rutas internas (/dashboard, /projects, …).
+ * Excluye /api/* para no enmascarar 404 de API con HTML.
+ */
+app.get(/^\/(?!api\/).*/, (req, res, next) => {
+  if (req.method !== "GET") return next();
+  const acceptsHtml =
+    typeof req.headers.accept === "string" &&
+    req.headers.accept.includes("text/html");
+  if (!acceptsHtml) return next();
+  return res.sendFile(path.resolve(__dirname, "../public/index.html"));
+});
 app.use(notFoundMiddleware);
 app.use(errorHandlerMiddleware);
 

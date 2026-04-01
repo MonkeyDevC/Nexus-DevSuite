@@ -1,6 +1,6 @@
 /**
  * Dashboard - Rutas
- * GET /dashboard/summary — resumen para el panel (proyectos, stories, sprint activo, incidentes críticos, mis asignaciones)
+ * GET /dashboard/summary — resumen panel (KPIs, salud proyectos, actividad, reglas, CR; query ?days= ventana 1–366)
  */
 
 const express = require("express");

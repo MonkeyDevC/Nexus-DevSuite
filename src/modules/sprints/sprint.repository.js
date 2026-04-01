@@ -3,6 +3,7 @@
  * Único punto de acceso a datos de sprints.
  */
 
+const { Op } = require("sequelize");
 const { getModels } = require("../../infrastructure/db/loadModels");
 
 function getSprintModel() {
@@ -55,11 +56,24 @@ async function remove(id) {
   return n > 0;
 }
 
+/**
+ * Cuenta sprints por proyecto y estado. excludeId excluye un sprint (p. ej. al activar el actual).
+ */
+async function countByProjectStatus(projectId, status, { excludeId } = {}) {
+  const Sprint = getSprintModel();
+  const where = { project_id: projectId, status };
+  if (excludeId) {
+    where.id = { [Op.ne]: excludeId };
+  }
+  return Sprint.count({ where });
+}
+
 module.exports = {
   create,
   findById,
   list,
   update,
   countStoriesBySprintId,
+  countByProjectStatus,
   remove
 };

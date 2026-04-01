@@ -63,6 +63,25 @@ function resolveExplicitRules(rules) {
   return rules;
 }
 
+function assertSprintCreateDates(payload) {
+  const start = payload.start_date;
+  const end = payload.end_date;
+  if (start == null || String(start).trim() === "" || end == null || String(end).trim() === "") {
+    throw new AppError("start_date y end_date son obligatorias", {
+      statusCode: 422,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  const s = String(start).trim().slice(0, 10);
+  const e = String(end).trim().slice(0, 10);
+  if (e < s) {
+    throw new AppError("end_date debe ser posterior a start_date", {
+      statusCode: 422,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+}
+
 async function createSprint(projectId, payload, context) {
   const project = await projectsRepository.findById(projectId);
   if (!project) {
@@ -72,12 +91,13 @@ async function createSprint(projectId, payload, context) {
     });
   }
   featureService.ensureProjectInOrg(project, context.organizationId);
+  assertSprintCreateDates(payload);
   const created = await sprintRepository.create({
     project_id: projectId,
     name: payload.name,
     goal: payload.goal ?? null,
-    start_date: payload.start_date ?? null,
-    end_date: payload.end_date ?? null,
+    start_date: String(payload.start_date).trim().slice(0, 10),
+    end_date: String(payload.end_date).trim().slice(0, 10),
     status: "PLANNED",
     created_by: context.user?.id
   });
@@ -135,6 +155,19 @@ async function updateSprintStatus(sprintId, nextStatus, context, rules = null) {
     });
   }
   validateSprintTransition(currentStatus, nextStatus);
+
+  if (nextStatus === "IN_PROGRESS") {
+    const otherActive = await sprintRepository.countByProjectStatus(sprint.project_id, "IN_PROGRESS", {
+      excludeId: sprintId
+    });
+    if (otherActive > 0) {
+      throw new AppError("Ya existe un sprint IN_PROGRESS en este proyecto", {
+        statusCode: 409,
+        code: ERROR_CODES.SPRINT_ALREADY_ACTIVE
+      });
+    }
+  }
+
   const explicitRules = resolveExplicitRules(rules);
   if (explicitRules) {
     const rulesResult = await rulesEngineService.evaluateRules(
@@ -177,8 +210,8 @@ async function updateSprintStatus(sprintId, nextStatus, context, rules = null) {
       throw new AppError(
         "No se puede cerrar el sprint: hay stories en estado IN_PROGRESS o BLOCKED. Complételas o muévalas al backlog.",
         {
-          statusCode: 400,
-          code: ERROR_CODES.SPRINT_CLOSE_STORIES_IN_PROGRESS
+          statusCode: 409,
+          code: ERROR_CODES.SPRINT_HAS_ACTIVE_WORK
         }
       );
     }
@@ -296,6 +329,23 @@ async function assignStoryToSprint(sprintId, storyId, context) {
     throw new AppError("La story no pertenece al mismo proyecto que el sprint", {
       statusCode: 400,
       code: ERROR_CODES.SPRINT_STORY_PROJECT_MISMATCH
+    });
+  }
+  if (story.status !== "READY") {
+    throw new AppError(
+      "Solo se pueden asignar al sprint stories en estado READY",
+      { statusCode: 400, code: ERROR_CODES.STORY_NOT_READY_FOR_SPRINT }
+    );
+  }
+  const existingSprint = story.sprint_id != null && String(story.sprint_id).trim() !== "" ? String(story.sprint_id).trim() : null;
+  if (existingSprint && existingSprint === String(sprintId).trim()) {
+    return toPlain(await sprintRepository.findById(sprintId));
+  }
+  if (existingSprint) {
+    throw new AppError("La story ya está asignada a un sprint; elimine la asignación antes de reasignar", {
+      statusCode: 409,
+      code: ERROR_CODES.STORY_ALREADY_IN_SPRINT,
+      details: { sprint_id: existingSprint }
     });
   }
   await userStoryRepository.update(storyId, { sprint_id: sprintId });
@@ -429,8 +479,8 @@ async function deleteSprint(sprintId, context) {
   if (project) featureService.ensureProjectInOrg(project, context.organizationId);
   if (sprint.status !== "PLANNED") {
     throw new AppError("Solo se puede eliminar un sprint en estado PLANNED", {
-      statusCode: 400,
-      code: ERROR_CODES.SPRINT_CANNOT_DELETE
+      statusCode: 409,
+      code: ERROR_CODES.SPRINT_INVALID_STATE
     });
   }
   await sprintRepository.remove(sprintId);
@@ -442,7 +492,7 @@ async function deleteSprint(sprintId, context) {
     entity_id: sprintId,
     metadata: { project_id: sprint.project_id, name: sprint.name }
   });
-  return { deleted: true, id: sprintId };
+  return { id: sprintId };
 }
 
 module.exports = {

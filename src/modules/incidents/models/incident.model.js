@@ -6,6 +6,7 @@
 const { DataTypes } = require("sequelize");
 
 const INCIDENT_SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+const INCIDENT_PRIORITIES = ["LOW", "MEDIUM", "HIGH"];
 const INCIDENT_STATUSES = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"];
 
 function defineIncidentModel(sequelize) {
@@ -33,6 +34,15 @@ function defineIncidentModel(sequelize) {
         type: DataTypes.ENUM(...INCIDENT_SEVERITIES),
         allowNull: false,
         defaultValue: "MEDIUM"
+      },
+      priority: {
+        type: DataTypes.ENUM(...INCIDENT_PRIORITIES),
+        allowNull: false,
+        defaultValue: "MEDIUM"
+      },
+      story_id: {
+        type: DataTypes.UUID,
+        allowNull: true
       },
       status: {
         type: DataTypes.ENUM(...INCIDENT_STATUSES),
@@ -74,4 +84,5 @@ function defineIncidentModel(sequelize) {
 
 module.exports = defineIncidentModel;
 module.exports.INCIDENT_SEVERITIES = INCIDENT_SEVERITIES;
+module.exports.INCIDENT_PRIORITIES = INCIDENT_PRIORITIES;
 module.exports.INCIDENT_STATUSES = INCIDENT_STATUSES;

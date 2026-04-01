@@ -85,6 +85,8 @@ function loadModels(sequelize) {
   Release.belongsTo(User, { foreignKey: "created_by", as: "creator" });
   Release.hasMany(Feature, { foreignKey: "release_id", as: "features" });
   Feature.belongsTo(Release, { foreignKey: "release_id", as: "release" });
+  Release.hasMany(UserStory, { foreignKey: "release_id", as: "release_stories" });
+  UserStory.belongsTo(Release, { foreignKey: "release_id", as: "release" });
   Release.hasMany(ReleaseFeature, { foreignKey: "release_id", as: "release_features" });
   ReleaseFeature.belongsTo(Release, { foreignKey: "release_id", as: "release" });
   Feature.hasMany(ReleaseFeature, { foreignKey: "feature_id", as: "release_features" });

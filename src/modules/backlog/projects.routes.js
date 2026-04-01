@@ -22,12 +22,15 @@ const {
 const {
   createProjectValidator,
   updateProjectValidator,
+  archiveProjectValidator,
+  deleteProjectValidator,
   projectIdParamValidator,
   projectIdAsParamValidator,
   createFeatureValidator,
   listQueryValidator,
   bulkDeleteProjectsValidator,
-  reorderBacklogValidator
+  reorderBacklogValidator,
+  evidenceImageQueryValidator
 } = require("./backlog.validator");
 const {
   createSprintController,
@@ -49,6 +52,8 @@ const {
 } = require("../incidents/incident.validator");
 const { authenticateMiddleware } = require("../../middlewares/authenticate.middleware");
 const { authorizeMiddleware } = require("../../middlewares/authorize.middleware");
+const { uploadEvidenceImageController } = require("./evidenceUpload.controller");
+const { uploadEvidenceImageMemory } = require("./evidenceUpload.middleware");
 
 const router = express.Router();
 
@@ -63,9 +68,19 @@ router.post("/:projectId/incidents", authenticateMiddleware, authorizeMiddleware
 router.get("/:projectId/stories", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), projectIdAsParamValidator, listQueryValidator, listProjectStoriesController);
 router.get("/:projectId/backlog", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), projectIdAsParamValidator, getProjectBacklogController);
 router.post("/:projectId/backlog/order", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), projectIdAsParamValidator, reorderBacklogValidator, reorderProjectBacklogController);
+router.post(
+  "/:projectId/evidence-images",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  projectIdAsParamValidator,
+  evidenceImageQueryValidator,
+  uploadEvidenceImageMemory.single("file"),
+  uploadEvidenceImageController
+);
 router.get("/:id", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), projectIdParamValidator, getProjectController);
+router.put("/:id", authenticateMiddleware, authorizeMiddleware("MASTER"), projectIdParamValidator, updateProjectValidator, updateProjectController);
 router.patch("/:id", authenticateMiddleware, authorizeMiddleware("MASTER"), projectIdParamValidator, updateProjectValidator, updateProjectController);
-router.patch("/:id/archive", authenticateMiddleware, authorizeMiddleware("MASTER"), projectIdParamValidator, archiveProjectController);
+router.patch("/:id/archive", authenticateMiddleware, authorizeMiddleware("MASTER"), projectIdParamValidator, archiveProjectValidator, archiveProjectController);
 router.post(
   "/bulk-delete",
   authenticateMiddleware,
@@ -73,7 +88,7 @@ router.post(
   bulkDeleteProjectsValidator,
   deleteProjectsBulkController
 );
-router.delete("/:id", authenticateMiddleware, authorizeMiddleware("MASTER"), projectIdParamValidator, deleteProjectController);
+router.delete("/:id", authenticateMiddleware, authorizeMiddleware("MASTER"), projectIdParamValidator, deleteProjectValidator, deleteProjectController);
 router.post(
   "/:projectId/features",
   authenticateMiddleware,

@@ -364,6 +364,7 @@ async function listChangeRequestsByProject(projectId, params = {}, context = {})
   }
 
   const { Feature } = getModels();
+  const sequelize = Feature.sequelize;
   const features = await Feature.findAll({
     where: { project_id: projectId },
     attributes: ["id", "release_id"],
@@ -376,6 +377,18 @@ async function listChangeRequestsByProject(projectId, params = {}, context = {})
     if (f.id) featureIds.push(f.id);
     if (f.release_id) releaseIdsSet.add(f.release_id);
   });
+
+  const [storyReleaseRows] = await sequelize.query(
+    `SELECT DISTINCT us.release_id AS rid
+     FROM user_stories us
+     INNER JOIN features f ON f.id = us.feature_id
+     WHERE f.project_id = :projectId AND us.release_id IS NOT NULL`,
+    { replacements: { projectId } }
+  );
+  (storyReleaseRows || []).forEach((row) => {
+    if (row && row.rid) releaseIdsSet.add(row.rid);
+  });
+
   const releaseIds = Array.from(releaseIdsSet);
   const entityIds = [...featureIds, ...releaseIds];
 

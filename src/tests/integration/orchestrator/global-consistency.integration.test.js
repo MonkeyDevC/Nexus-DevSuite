@@ -77,13 +77,13 @@ async function runSameSequence() {
     .post("/api/v1/releases")
     .set("Authorization", `Bearer ${masterToken}`)
     .set("x-dedup-key", "determinism-d1")
-    .send({ version: `${BASE_MAJOR}.0.1`, description: "determinism-r1" })
+    .send({ name: "GC", version: `${BASE_MAJOR}.0.1`, description: "determinism-r1" })
     .expect(201);
   const seq2 = await request(app)
     .post("/api/v1/releases")
     .set("Authorization", `Bearer ${masterToken}`)
     .set("x-dedup-key", "determinism-d2")
-    .send({ version: `${BASE_MAJOR}.0.2`, description: "determinism-r2" })
+    .send({ name: "GC", version: `${BASE_MAJOR}.0.2`, description: "determinism-r2" })
     .expect(201);
   await sleep(120);
   const commits = await orchestratorRepository.listCommittedLedgerOrdered();
@@ -145,13 +145,13 @@ describe("Global consistency and deterministic replay", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .set("x-dedup-key", dedupKey)
       .set("x-scope-lock-hold-ms", "200")
-      .send({ version, description: "same dedup A" });
+      .send({ name: "GC-dedup", version, description: "same dedup A" });
     await sleep(15);
     const reqB = request(app)
       .post("/api/v1/releases")
       .set("Authorization", `Bearer ${masterToken}`)
       .set("x-dedup-key", dedupKey)
-      .send({ version, description: "same dedup A" });
+      .send({ name: "GC-dedup", version, description: "same dedup A" });
 
     const [resA, resB] = await Promise.all([reqA, reqB]);
     expect([resA.status, resB.status].sort()).toEqual([201, 409]);
@@ -187,7 +187,7 @@ describe("Global consistency and deterministic replay", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .set("x-dedup-key", dedup)
       .set("x-expected-global-hash", "ffff".repeat(16))
-      .send({ version: `${BASE_MAJOR}.2.1`, description: "bad expected hash" })
+      .send({ name: "GC", version: `${BASE_MAJOR}.2.1`, description: "bad expected hash" })
       .expect(201);
     let commit = null;
     for (let i = 0; i < 20; i += 1) {

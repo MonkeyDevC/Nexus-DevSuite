@@ -1,0 +1,197 @@
+/**
+ * Layout documento legal (Terms / Privacy) — coherente con shell login.
+ */
+
+.docFrame {
+  width: 100%;
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+.docCard {
+  background: #ffffff;
+  border-radius: var(--login-radius-card, 22px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.04),
+    0 8px 32px -8px rgba(15, 23, 42, 0.15);
+  overflow: hidden;
+}
+
+.docTopBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.docBrand {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.backToLogin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #1d4ed8;
+  text-decoration: none;
+  border-radius: 8px;
+  border: 1px solid #bfdbfe;
+  background: #ffffff;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.backToLogin:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+
+.backToLogin:focus {
+  outline: none;
+}
+
+.backToLogin:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.docBody {
+  padding: clamp(24px, 4vw, 40px) clamp(20px, 4vw, 36px);
+  max-height: min(70vh, 720px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.docTitle {
+  margin: 0 0 8px;
+  font-size: clamp(1.5rem, 3vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.docUpdated {
+  margin: 0 0 28px;
+  font-size: 0.8125rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.docSection {
+  margin-bottom: 1.5rem;
+}
+
+.docSection:last-of-type {
+  margin-bottom: 0;
+}
+
+.docSection h2 {
+  margin: 0 0 10px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.02em;
+}
+
+.docSection p {
+  margin: 0 0 10px;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: #334155;
+}
+
+.docSection p:last-child {
+  margin-bottom: 0;
+}
+
+.docSection ul {
+  margin: 0 0 10px;
+  padding-left: 1.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.docSection li {
+  margin-bottom: 6px;
+}
+
+.docCrossLink {
+  margin-top: 8px;
+  font-size: 0.875rem;
+}
+
+.docCrossLink a {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.docCrossLink a:hover {
+  text-decoration: underline;
+}
+
+.docCrossLink a:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.docActions {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.backToLoginPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 10px;
+  border: none;
+  background: #3b82f6;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.backToLoginPrimary:hover {
+  background: #2563eb;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+}
+
+.backToLoginPrimary:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .docBody {
+    max-height: none;
+  }
+}

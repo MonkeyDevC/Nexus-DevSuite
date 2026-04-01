@@ -1,0 +1,113 @@
+.wrap {
+  box-sizing: border-box;
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-body);
+}
+
+.thead {
+  background: var(--ds-color-surface-raised);
+  border-bottom: 1px solid var(--ds-color-border);
+}
+
+.th {
+  padding: var(--ds-space-3) var(--ds-space-4);
+  text-align: left;
+  font-weight: var(--ds-font-weight-semibold);
+  font-size: var(--ds-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ds-color-text-muted);
+  white-space: nowrap;
+}
+
+.thEnd {
+  text-align: right;
+}
+
+.thCenter {
+  text-align: center;
+}
+
+.thStart {
+  text-align: left;
+}
+
+.tbody .tr {
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  transition: background-color var(--ds-duration-fast) var(--ds-ease-standard);
+}
+
+.tbody .tr:hover {
+  background: var(--ds-color-neutral-muted);
+}
+
+.tbody .tr:last-child {
+  border-bottom: none;
+}
+
+.td {
+  padding: var(--ds-space-3) var(--ds-space-4);
+  color: var(--ds-color-text);
+  vertical-align: middle;
+}
+
+.tdEnd {
+  text-align: right;
+}
+
+.tdCenter {
+  text-align: center;
+}
+
+.tdStart {
+  text-align: left;
+}
+
+.dense .th,
+.dense .td {
+  padding-block: var(--ds-space-2);
+  padding-inline: var(--ds-space-3);
+}
+
+.emptyRow .td {
+  padding: var(--ds-space-8) var(--ds-space-4);
+  text-align: center;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-sm);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2) var(--ds-space-4);
+  border-bottom: 1px solid var(--ds-color-border);
+  background: var(--ds-color-surface);
+  border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0;
+}
+
+.toolbar + .wrap {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top: none;
+}
+
+.caption {
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-medium);
+  color: var(--ds-color-text-muted);
+}

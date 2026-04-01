@@ -1,0 +1,242 @@
+---
+description: Memoria de dominio Scrum para Nexus DevSuite (estructura, reglas, comportamiento del sistema)
+alwaysApply: true
+---
+
+# SCRUM DOMAIN MEMORY — NEXUS DEVSUITE
+
+Esta memoria define cómo Nexus DevSuite modela, interpreta y aplica Scrum dentro del sistema.
+
+NO es teoría.  
+Es la forma en que Scrum vive dentro del producto.
+
+---
+
+# PRINCIPIO RECTOR
+
+Scrum en Nexus DevSuite NO es solo gestión de tareas.
+
+Es un sistema estructurado de:
+
+- planificación
+- ejecución
+- trazabilidad
+- control
+- mejora continua
+
+Toda funcionalidad relacionada con proyectos, backlog, features, stories, sprints y releases debe respetar este modelo.
+
+---
+
+# MODELO DE DOMINIO SCRUM EN NEXUS
+
+## Jerarquía principal
+
+Project
+
+→ contiene contexto organizacional
+
+Feature
+
+→ representa una capacidad funcional de negocio
+
+User Story
+
+→ representa una unidad de valor entregable
+
+Sprint
+
+→ ventana de ejecución
+
+Release
+
+→ agrupación de entregables
+
+---
+
+## Relación estructural
+
+- Un Project contiene múltiples Features
+- Una Feature contiene múltiples User Stories
+- Las User Stories pueden asignarse a un Sprint
+- Un Sprint contiene múltiples User Stories activas
+- Un Release agrupa Features o entregables completados
+
+---
+
+# DEFINICIÓN DE CADA ENTIDAD
+
+## Project
+
+- Unidad organizacional de trabajo
+- Contiene backlog completo
+- Actúa como contexto operativo (workspace)
+
+## Feature
+
+- Representa una funcionalidad de alto nivel
+- Debe ser medible, priorizable y trazable
+- Puede tener estado (draft, active, completed)
+
+## User Story
+
+- Unidad mínima de valor entregable
+- Debe cumplir formato:
+  “Como [rol], quiero [acción], para [beneficio]”
+- Debe ser:
+  - pequeña
+  - estimable
+  - verificable
+
+## Sprint
+
+- Iteración de tiempo fija
+- Contiene stories comprometidas
+- Tiene objetivo claro
+
+## Backlog
+
+- Lista priorizada de trabajo
+- Evoluciona continuamente
+- Es responsabilidad del Product Owner
+
+---
+
+# REGLAS DE DOMINIO SCRUM (CRÍTICAS)
+
+## Sobre Features
+
+- No deben ser demasiado grandes (evitar “epics disfrazadas”)
+- Deben poder dividirse en stories claras
+
+## Sobre User Stories
+
+- Deben ser independientes
+- Deben tener criterios de aceptación claros
+- No deben depender de múltiples features simultáneamente
+
+## Sobre Backlog
+
+- Siempre debe estar ordenado por prioridad
+- No debe contener elementos ambiguos o incompletos
+
+## Sobre Sprint
+
+- No se deben agregar nuevas stories una vez iniciado (salvo reglas explícitas del sistema)
+- Debe tener scope claro
+- Debe ser medible
+
+---
+
+# INVARIANTES SCRUM (OBLIGATORIO)
+
+- Una User Story debe pertenecer a una Feature
+- Una Feature debe pertenecer a un Project
+- Una Story no puede estar en múltiples Sprints activos simultáneamente
+- Una Story completada no puede volver a estado “draft”
+- Un Sprint cerrado no puede modificarse
+
+---
+
+# COMPORTAMIENTO DEL AGENTE (CRÍTICO)
+
+Cuando el agente:
+
+## 1. Cree funcionalidades Scrum
+
+Debe:
+
+- respetar jerarquía Project → Feature → Story
+- evitar estructuras planas
+- asegurar trazabilidad
+
+## 2. Diseñe UI
+
+Debe:
+
+- reflejar la jerarquía Scrum
+- evitar mezclar niveles (feature vs story)
+- mantener claridad visual entre entidades
+
+## 3. Cree APIs
+
+Debe:
+
+- mantener consistencia de relaciones
+- evitar endpoints ambiguos
+- respetar contratos claros
+
+## 4. Modele datos
+
+Debe:
+
+- garantizar integridad relacional
+- evitar duplicación de información
+- mantener claridad de ownership
+
+---
+
+# SCRUM + UX (IMPORTANTE)
+
+La interfaz debe permitir:
+
+- ver backlog organizado
+- entender relación Feature → Story
+- navegar fácilmente entre niveles
+- visualizar progreso
+- entender estado de ejecución
+
+---
+
+# SCRUM + WORKSPACE (INTEGRACIÓN CON TU SISTEMA)
+
+- El ProjectDetailWorkspace es el punto central
+- FeatureDetail y StoryDetail son niveles secundarios
+- El backlog es una vista estructural del trabajo
+- El sistema debe facilitar:
+  - planificación
+  - ejecución
+  - seguimiento
+
+---
+
+# ANTI-PATRONES (PROHIBIDO)
+
+- tratar stories como tareas genéricas sin contexto
+- mezclar feature y story en la misma capa sin diferenciación
+- crear backlog sin priorización
+- permitir entidades huérfanas (story sin feature)
+- duplicar estructuras Scrum
+- crear flujos que rompan trazabilidad
+
+---
+
+# CRITERIO FINAL
+
+Antes de considerar correcta cualquier implementación relacionada con Scrum, validar:
+
+- ¿Respeta la jerarquía?
+- ¿Es trazable?
+- ¿Es entendible para un equipo ágil real?
+- ¿Permite planificación y seguimiento?
+- ¿Evita ambigüedad?
+
+Si alguna respuesta es NO → corregir.
+
+---
+
+# CONCLUSIÓN
+
+Scrum en Nexus DevSuite no es una funcionalidad.
+
+Es un sistema base del producto.
+
+Todas las decisiones relacionadas con:
+
+- backlog
+- features
+- stories
+- sprints
+- releases
+
+deben alinearse con esta memoria.

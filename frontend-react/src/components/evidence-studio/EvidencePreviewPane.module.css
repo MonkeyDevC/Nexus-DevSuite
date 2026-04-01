@@ -1,0 +1,191 @@
+/* Tipografía documental y preview seguro (Evidence Studio) */
+
+.previewShell {
+  box-sizing: border-box;
+  width: 100%;
+  align-self: stretch;
+  min-height: 12rem;
+  height: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: var(--ds-space-4);
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-surface-raised);
+  scrollbar-gutter: stable;
+}
+
+.previewEmpty {
+  margin: 0;
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-muted);
+}
+
+.docRoot {
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-body);
+  color: var(--ds-color-text);
+}
+
+.docH1 {
+  margin: 0 0 var(--ds-space-3);
+  font-size: var(--ds-font-size-lg);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+  line-height: var(--ds-line-height-tight);
+}
+
+.docH2 {
+  margin: var(--ds-space-4) 0 var(--ds-space-2);
+  font-size: var(--ds-font-size-md);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+  line-height: var(--ds-line-height-tight);
+}
+
+.docP {
+  margin: 0 0 var(--ds-space-3);
+}
+
+.docUl,
+.docOl,
+.docChecklist {
+  margin: 0 0 var(--ds-space-3);
+  padding-left: var(--ds-space-5);
+}
+
+.docChecklist {
+  list-style: none;
+  padding-left: var(--ds-space-4);
+}
+
+.docChecklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-2);
+  margin-bottom: var(--ds-space-1);
+}
+
+.checkMark {
+  flex-shrink: 0;
+  font-size: var(--ds-font-size-sm);
+  opacity: 0.85;
+}
+
+.docHr {
+  border: none;
+  border-top: 1px solid var(--ds-color-border);
+  margin: var(--ds-space-4) 0;
+}
+
+.docPre {
+  margin: 0 0 var(--ds-space-3);
+  padding: var(--ds-space-3);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  border: 1px solid var(--ds-color-border-subtle);
+  overflow-x: auto;
+  font-family: var(--ds-font-family-mono, monospace);
+  font-size: var(--ds-font-size-xs);
+}
+
+.docPre code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.docBlockquote {
+  margin: 0 0 var(--ds-space-3);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-left: 3px solid var(--ds-color-primary);
+  background: rgba(59, 130, 246, 0.06);
+  border-radius: 0 var(--ds-radius-md) var(--ds-radius-md) 0;
+}
+
+.docQuoteP {
+  margin: 0 0 var(--ds-space-2);
+}
+
+.docQuoteP:last-child {
+  margin-bottom: 0;
+}
+
+.docLink {
+  color: var(--ds-color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.docLink:hover {
+  opacity: 0.9;
+}
+
+.inlineStrong {
+  font-weight: var(--ds-font-weight-semibold);
+}
+
+.inlineEm {
+  font-style: italic;
+}
+
+.imageCard {
+  display: block;
+  margin: var(--ds-space-3) 0;
+  border-radius: var(--ds-radius-md);
+  overflow: hidden;
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-surface);
+}
+
+.imageEl {
+  display: block;
+  width: 100%;
+  max-height: 20rem;
+  object-fit: contain;
+  background: var(--ds-color-surface-raised);
+}
+
+.imageCaption {
+  display: block;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-muted);
+  background: var(--ds-color-surface-raised);
+}
+
+.imagePlaceholder {
+  display: block;
+  margin: var(--ds-space-3) 0;
+  padding: var(--ds-space-4);
+  border-radius: var(--ds-radius-md);
+  border: 1px dashed var(--ds-color-border);
+  text-align: center;
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-muted);
+}
+
+.previewError {
+  min-height: 8rem;
+  padding: var(--ds-space-3);
+}
+
+.previewErrorTitle {
+  margin: 0 0 var(--ds-space-2);
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-medium);
+  color: var(--ds-color-warning);
+}
+
+.previewErrorFallback {
+  margin: 0;
+  padding: var(--ds-space-3);
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-surface);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--ds-font-size-xs);
+  font-family: var(--ds-font-family-mono, monospace);
+  color: var(--ds-color-text);
+}

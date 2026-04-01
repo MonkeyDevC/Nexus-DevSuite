@@ -1,0 +1,19 @@
+.card {
+  box-sizing: border-box;
+  background: var(--ds-color-surface);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.paddingDefault {
+  padding: var(--ds-space-4);
+}
+
+.paddingCompact {
+  padding: var(--ds-space-3);
+}
+
+.paddingSpacious {
+  padding: var(--ds-space-6);
+}

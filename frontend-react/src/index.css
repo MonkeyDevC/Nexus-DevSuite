@@ -1,0 +1,105 @@
+/**
+ * Variables legacy de la app: delegan en tokens DS (--ds-* definidos en design-system/tokens.css).
+ * SSOT cromático: tokens.css (cargado después en main.jsx).
+ */
+:root {
+  --text: var(--ds-color-text);
+  --text-h: var(--ds-color-text-heading);
+  --bg: var(--ds-color-bg);
+  --border: var(--ds-color-border);
+  --code-bg: var(--ds-color-surface-raised);
+  --accent: var(--ds-color-primary);
+  --accent-bg: var(--ds-color-primary-muted);
+  --accent-border: var(--ds-color-primary-border);
+  --social-bg: var(--ds-color-neutral-muted);
+  --shadow: var(--ds-shadow-md);
+
+  --sans: var(--ds-font-family-sans);
+  --heading: var(--ds-font-family-heading);
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 18px/145% var(--sans);
+  letter-spacing: 0.18px;
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  #social .button-icon {
+    filter: invert(1) brightness(2);
+  }
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/* App shell: ancho completo del viewport (sidebar + main deben usar todo el espacio útil). */
+#root {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  text-align: left;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+h1,
+h2 {
+  font-family: var(--heading);
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+h1 {
+  font-size: 56px;
+  letter-spacing: -1.68px;
+  margin: 32px 0;
+  @media (max-width: 1024px) {
+    font-size: 36px;
+    margin: 20px 0;
+  }
+}
+h2 {
+  font-size: 24px;
+  line-height: 118%;
+  letter-spacing: -0.24px;
+  margin: 0 0 8px;
+  @media (max-width: 1024px) {
+    font-size: 20px;
+  }
+}
+p {
+  margin: 0;
+}
+
+code,
+.counter {
+  font-family: var(--mono);
+  display: inline-flex;
+  border-radius: 4px;
+  color: var(--text-h);
+}
+
+code {
+  font-size: 15px;
+  line-height: 135%;
+  padding: 4px 8px;
+  background: var(--code-bg);
+}

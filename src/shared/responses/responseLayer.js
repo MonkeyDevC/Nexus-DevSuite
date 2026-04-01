@@ -35,6 +35,7 @@ function buildError(options) {
 
   const body = {
     success: false,
+    data: null,
     error: {
       code,
       message

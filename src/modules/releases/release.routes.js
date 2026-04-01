@@ -13,6 +13,9 @@ const {
   assignFeatureController,
   removeFeatureController,
   patchReleaseController,
+  putReleaseController,
+  startReleaseController,
+  publishReleaseController,
   createHotfixController,
   deleteReleaseController,
   deleteReleasesBulkController
@@ -24,6 +27,9 @@ const {
   assignFeatureValidator,
   removeFeatureValidator,
   patchReleaseValidator,
+  putReleaseValidator,
+  releaseStartBodyValidator,
+  releasePublishBodyValidator,
   listReleasesQueryValidator,
   hotfixValidator,
   bulkDeleteReleasesValidator
@@ -50,6 +56,22 @@ router.post(
   releasesScopeLockMiddleware,
   bulkDeleteReleasesValidator,
   deleteReleasesBulkController
+);
+router.post(
+  "/:id/start",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER"),
+  releasesScopeLockMiddleware,
+  releaseStartBodyValidator,
+  startReleaseController
+);
+router.post(
+  "/:id/release",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER"),
+  releasesScopeLockMiddleware,
+  releasePublishBodyValidator,
+  publishReleaseController
 );
 router.get("/:id", authenticateMiddleware, authorizeMiddleware("MASTER"), releaseIdParamValidator, getReleaseController);
 router.delete(
@@ -101,6 +123,15 @@ router.patch(
   releaseIdParamValidator,
   patchReleaseValidator,
   patchReleaseController
+);
+router.put(
+  "/:id",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER"),
+  releasesScopeLockMiddleware,
+  releaseIdParamValidator,
+  putReleaseValidator,
+  putReleaseController
 );
 
 module.exports = router;

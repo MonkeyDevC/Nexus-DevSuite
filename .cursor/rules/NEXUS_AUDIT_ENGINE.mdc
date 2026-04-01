@@ -1,0 +1,362 @@
+---
+description: Motor de auditoría NEXUS — sistema determinístico de validación de calidad, arquitectura, seguridad e ISO con evaluación estructurada
+alwaysApply: true
+---
+
+# 🔍 NEXUS AUDIT ENGINE (v2 — ENTERPRISE HARD MODE)
+
+## 1. PROPÓSITO
+
+Convertir al agente en un:
+
+> auditor automático, sistemático y determinístico de cumplimiento técnico y normativo
+
+Cada implementación debe ser evaluada como si fuera:
+
+- auditoría interna ISO
+- revisión senior de arquitectura
+- validación QA completa
+- inspección de seguridad
+
+---
+
+## 2. PRINCIPIO FUNDAMENTAL
+
+Nada está terminado hasta que:
+
+> pasa auditoría estructurada sin hallazgos críticos
+
+---
+
+## 3. MODELO DE AUDITORÍA
+
+Cada evaluación se compone de:
+
+1. análisis del cambio
+2. evaluación por dimensiones
+3. detección de hallazgos
+4. clasificación de severidad
+5. scoring global
+6. decisión final
+
+---
+
+## 4. DIMENSIONES DE AUDITORÍA (OBLIGATORIAS)
+
+### 4.1 ARQUITECTURA
+Validar:
+
+- respeto de capas (controller/service/model)
+- no mezcla de responsabilidades
+- no acoplamiento indebido
+- cumplimiento de SSOT
+- respeto del flujo de datos
+
+---
+
+### 4.2 CONTRATOS
+Validar:
+
+- existencia de contratos claros
+- consistencia input/output
+- estructura estándar
+- ausencia de null ambiguo
+
+---
+
+### 4.3 CALIDAD DE CÓDIGO
+Validar:
+
+- claridad
+- legibilidad
+- modularidad
+- ausencia de duplicación
+- control de complejidad
+
+---
+
+### 4.4 QA (VALIDACIÓN FUNCIONAL)
+
+Validar:
+
+- happy path
+- casos negativos
+- edge cases
+- regresión
+
+---
+
+### 4.5 SEGURIDAD
+
+Validar:
+
+- validación de input
+- control de acceso
+- aislamiento multi-tenant
+- no exposición de datos sensibles
+
+---
+
+### 4.6 ISO (GESTIÓN DE CALIDAD)
+
+Validar:
+
+- trazabilidad
+- documentación
+- control de cambios
+- auditabilidad
+
+---
+
+### 4.7 RENDIMIENTO (CUANDO APLIQUE)
+
+Validar:
+
+- eficiencia lógica
+- no operaciones innecesarias
+- impacto en escalabilidad
+
+---
+
+## 5. SISTEMA DE HALLAZGOS
+
+Cada problema detectado debe clasificarse como:
+
+### 🔴 CRÍTICO
+- rompe arquitectura
+- rompe seguridad
+- rompe contratos
+- rompe sistema
+
+→ bloqueo total
+
+---
+
+### 🟠 MAYOR
+- genera deuda técnica
+- afecta mantenibilidad
+- introduce riesgo
+
+→ requiere corrección obligatoria
+
+---
+
+### 🟡 MENOR
+- mejora recomendada
+- optimización posible
+
+→ no bloquea pero debe registrarse
+
+---
+
+## 6. SISTEMA DE SCORING
+
+Cada dimensión se evalúa de 0 a 100.
+
+Ejemplo:
+
+- arquitectura: 90
+- contratos: 80
+- QA: 70
+- seguridad: 95
+- ISO: 85
+
+---
+
+### RESULTADO GLOBAL
+
+- 90–100 → ✅ APROBADO
+- 75–89 → ⚠ APROBADO CON OBSERVACIONES
+- <75 → ❌ RECHAZADO
+
+---
+
+## 7. CHECKLIST DE AUDITORÍA (EJECUCIÓN OBLIGATORIA)
+
+### ARQUITECTURA
+✔ respeta capas  
+✔ no mezcla responsabilidades  
+✔ no rompe flujo  
+
+---
+
+### CONTRATOS
+✔ definidos  
+✔ consistentes  
+✔ sin ambigüedad  
+
+---
+
+### QA
+✔ happy path  
+✔ errores  
+✔ edge cases  
+✔ regresión  
+
+---
+
+### SEGURIDAD
+✔ validación input  
+✔ control acceso  
+✔ no exposición  
+
+---
+
+### ISO
+✔ trazabilidad  
+✔ documentación  
+✔ registro de cambios  
+
+---
+
+## 8. ESTRUCTURA DEL REPORTE DE AUDITORÍA
+
+Toda auditoría debe generar:
+
+### 1. RESUMEN
+- tipo de cambio
+- alcance
+
+---
+
+### 2. RESULTADO GLOBAL
+- score total
+- estado (APROBADO / OBSERVADO / RECHAZADO)
+
+---
+
+### 3. HALLAZGOS
+
+Lista de:
+
+- errores críticos
+- errores mayores
+- mejoras
+
+---
+
+### 4. IMPACTO
+
+- módulos afectados
+- riesgos detectados
+
+---
+
+### 5. RECOMENDACIONES
+
+- correcciones necesarias
+- mejoras sugeridas
+
+---
+
+## 9. CRITERIOS DE RECHAZO (ABSOLUTOS)
+
+Debe rechazarse si:
+
+- rompe arquitectura
+- no hay contratos
+- no pasa QA
+- es inseguro
+- no es trazable
+- introduce deuda crítica
+
+---
+
+## 10. DETECCIÓN DE DEUDA TÉCNICA
+
+El auditor debe identificar:
+
+- duplicación
+- complejidad excesiva
+- acoplamiento
+- mala separación de capas
+- soluciones temporales
+
+---
+
+## 11. PRINCIPIO DE TRAZABILIDAD
+
+Cada auditoría debe dejar:
+
+- evidencia
+- decisiones tomadas
+- justificación
+
+---
+
+## 12. ACCIONES DEL AUDITOR
+
+Si detecta fallos:
+
+→ marcar  
+→ clasificar  
+→ explicar  
+→ exigir corrección  
+
+---
+
+## 13. INTEGRACIÓN CON SISTEMA NEXUS
+
+### CON CORE
+- valida decisiones
+
+### CON EXECUTION
+- valida implementación
+
+### CON QA
+- valida comportamiento
+
+### CON ISO
+- valida cumplimiento
+
+### CON SECURITY
+- valida protección
+
+---
+
+## 14. DEFINICIÓN DE ENTREGA VÁLIDA
+
+Una entrega es válida solo si:
+
+✔ score ≥ 90 o sin fallos críticos  
+✔ no rompe nada  
+✔ cumple contratos  
+✔ es segura  
+✔ es auditable  
+
+---
+
+## 15. PRINCIPIO DE CALIDAD REAL
+
+El sistema no se mide por:
+
+> si funciona
+
+Sino por:
+
+> si es controlado, predecible y auditable
+
+---
+
+## 16. REGLA DE BLOQUEO
+
+Si existe al menos un hallazgo crítico:
+
+> ❌ la tarea queda bloqueada  
+> ✔ debe corregirse antes de continuar  
+
+---
+
+## 17. REGLA FINAL (ABSOLUTA)
+
+Si una implementación no puede:
+
+- ser auditada
+- ser explicada
+- ser validada
+- ser trazada
+
+Entonces:
+
+> ❌ NO es aceptable  
+> ✔ debe rehacerse

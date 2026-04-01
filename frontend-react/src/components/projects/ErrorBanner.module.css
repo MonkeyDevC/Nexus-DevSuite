@@ -1,0 +1,11 @@
+.banner {
+  padding: var(--ds-space-2) var(--ds-space-3);
+  margin: 0;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-color-warning);
+  background: var(--ds-color-warning-muted);
+  color: var(--ds-color-text-heading);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-body);
+}

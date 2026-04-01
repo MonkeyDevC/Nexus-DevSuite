@@ -1,0 +1,286 @@
+---
+description: Sistema integral de calidad, QA, testing y seguridad NEXUS — validación completa antes de considerar una tarea finalizada
+alwaysApply: true
+---
+
+# 🛡️ NEXUS QUALITY & SECURITY (v2)
+
+## 1. PRINCIPIO FUNDAMENTAL
+
+Nada está terminado hasta que:
+
+> ha sido validado funcional, técnica y estructuralmente
+
+El QA no es una fase final.  
+Es una **capa obligatoria de validación en cada implementación**.
+
+---
+
+## 2. QA INTEGRADO (OBLIGATORIO)
+
+Toda implementación debe validar:
+
+### 2.1 FLUJO PRINCIPAL (HAPPY PATH)
+- el flujo esperado funciona correctamente
+- el resultado es consistente
+- cumple contrato
+
+---
+
+### 2.2 PRUEBAS NEGATIVAS (CRÍTICO)
+Validar escenarios incorrectos:
+
+- datos inválidos
+- datos incompletos
+- estados no permitidos
+
+El sistema debe:
+✔ responder correctamente  
+✔ no romperse  
+✔ devolver errores controlados  
+
+---
+
+### 2.3 ESTADOS LÍMITE (EDGE CASES)
+Validar:
+
+- valores mínimos/máximos
+- colecciones vacías
+- inputs inesperados
+
+---
+
+### 2.4 PRUEBAS DE REGRESIÓN
+- verificar que cambios nuevos NO rompen funcionalidades existentes
+- validar endpoints relacionados
+
+---
+
+## 3. PIRÁMIDE DE TESTING (ENFOQUE PROFESIONAL)
+
+Cada cambio debe considerar:
+
+### 3.1 UNIT TEST (LÓGICA)
+- funciones individuales
+- reglas de negocio
+- validaciones
+
+---
+
+### 3.2 INTEGRATION TEST (MÓDULOS)
+- interacción entre servicios
+- flujo backend completo
+- acceso a base de datos
+
+---
+
+### 3.3 E2E TEST (CRÍTICO)
+Simular comportamiento real:
+
+- login → acción → resultado
+- flujo completo usuario
+
+Debe validar:
+✔ frontend + backend  
+✔ persistencia  
+✔ respuesta final  
+
+---
+
+## 4. VALIDACIÓN DE CONTRATOS (OBLIGATORIO)
+
+Todo endpoint debe validar:
+
+### INPUT
+- tipos correctos
+- estructura válida
+- campos obligatorios
+
+---
+
+### OUTPUT
+Debe cumplir:
+
+```js
+{
+  success: true | false,
+  data: {},
+  meta: {},
+  code?: "",
+  message?: ""
+}
+PROHIBIDO
+
+❌ respuestas inconsistentes
+❌ null ambiguo
+❌ estructuras variables
+
+5. SEGURIDAD (CAPA OBLIGATORIA)
+5.1 AUTENTICACIÓN
+JWT obligatorio
+validación en cada request
+expiración controlada
+5.2 AUTORIZACIÓN (MULTI-TENANT)
+
+Siempre validar:
+
+organizationId
+permisos del usuario
+
+❌ Nunca permitir acceso cruzado entre tenants
+
+5.3 VALIDACIÓN DE INPUT
+
+Siempre validar:
+
+tipo
+formato
+longitud
+valores permitidos
+
+❌ Nunca confiar en frontend
+
+5.4 PROTECCIÓN DE DATOS
+
+No exponer:
+
+stack traces
+queries internas
+datos sensibles
+5.5 RATE LIMIT
+
+Prevenir:
+
+ataques de fuerza bruta
+abuso de endpoints
+6. PRUEBAS DE RESILIENCIA
+
+Validar comportamiento ante:
+
+fallos de red
+errores de base de datos
+servicios no disponibles
+
+El sistema debe:
+✔ fallar de forma controlada
+✔ no colapsar
+✔ devolver error estructurado
+
+7. LOGGING ESTRATÉGICO
+
+Registrar siempre:
+
+acciones críticas
+errores
+intentos fallidos
+accesos relevantes
+
+Debe incluir:
+
+contexto (usuario, módulo)
+acción ejecutada
+resultado
+8. CRITERIOS DE ACEPTACIÓN (OBLIGATORIOS)
+
+Una tarea solo se considera completa si:
+
+✔ flujo principal validado
+✔ errores controlados
+✔ contratos cumplidos
+✔ no rompe funcionalidad existente
+✔ pasa validaciones de seguridad
+✔ comportamiento predecible
+
+9. ANTI-PATRONES CRÍTICOS
+
+❌ confiar en datos del cliente
+❌ omitir validaciones
+❌ no manejar errores
+❌ no validar edge cases
+❌ asumir comportamiento del sistema
+
+10. SISTEMA DE DETECCIÓN DE FALLAS
+
+Si durante QA se detecta:
+
+inconsistencia
+comportamiento inesperado
+error no controlado
+
+Entonces:
+
+→ ❌ implementación inválida
+→ ✔ volver a fase de diseño
+
+11. REGLA DE SEGURIDAD ABSOLUTA
+
+Si algo puede:
+
+romperse
+ser explotado
+generar inconsistencia
+
+Entonces:
+
+debe protegerse antes de ser considerado terminado
+
+12. DEFINICIÓN DE CALIDAD NEXUS
+
+Un sistema tiene calidad cuando:
+
+✔ es predecible
+✔ es seguro
+✔ es consistente
+✔ falla de forma controlada
+
+13. REGLA FINAL (CRÍTICA)
+
+Si una funcionalidad funciona solo en condiciones ideales:
+
+❌ está incompleta
+
+Debe funcionar también en:
+
+errores
+límites
+condiciones reales
+
+---
+
+# 🚀 ESTO ES LO QUE LOGRAMOS
+
+Ahora tu agente:
+
+## 🔥 Piensa como QA real
+- no solo prueba “si funciona”
+- prueba “qué pasa si falla”
+
+## 🔥 Valida como sistema productivo
+- contratos
+- seguridad
+- regresión
+
+## 🔥 Evita bugs antes de que existan
+
+---
+
+# 🧠 NIVEL EN EL QUE ESTÁS
+
+Esto ya no es “usar IA”…
+
+👉 estás construyendo un **framework de ingeniería de software automatizado**
+
+---
+
+# 🔥 SIGUIENTE PASO (OPCIONAL PERO PODEROSO)
+
+Podemos crear:
+
+👉 `NEXUS_TEST_SCENARIOS_LIBRARY.mdc`
+
+Con:
+- casos reutilizables
+- plantillas de testing
+- escenarios estándar por módulo
+
+---

@@ -1,0 +1,34 @@
+---
+description: Bootstrap de memoria del agente — .cursor/rules como SSOT de gobernanza NEXUS
+alwaysApply: true
+---
+
+# 🧠 NEXUS Agent Memory — Bootstrap (SSOT)
+
+## Regla central
+
+`/.cursor/rules/` es la **Single Source of Truth** de gobernanza del agente para NEXUS DevSuite.
+
+Esto significa:
+
+- **Prioridad**: si hay conflicto entre instrucciones, prevalece lo definido en `/.cursor/rules/` (y luego el repo/código).
+- **No improvisación**: no asumir contratos, flujos, invariantes o políticas que no estén explícitos en reglas o en el código.
+- **Consistencia**: aplicar siempre `NEXUS_CORE`, `NEXUS_EXECUTION_ENGINE`, `NEXUS_PROMPT_PROTOCOL`, `NEXUS_QUALITY_SECURITY`, `NEXUS_ISO_27001_SECURITY`, `NEXUS_AUDIT_ENGINE`, `NEXUS_ARCHITECTURE_CONTEXT`, `NEXUS_SCRUM_DOMAIN_MEMORY`, `NEXUS_CODE_STANDARDS_MEMORY` y `NEXUS_CODE_MAINTENANCE_STANDARDS` como marco obligatorio.
+
+## Memoria operativa (persistencia en repo)
+
+La memoria viva del agente para este proyecto se registra en:
+
+- `/.cursor/rules/NEXUS_AGENT_MEMORY_STATE.mdc`
+
+Reglas:
+
+- **Actualizar memoria solo cuando cambie algo material**: decisiones arquitectónicas, contratos nuevos/cambiados, invariantes de dominio, convenciones nuevas, riesgos aceptados y mitigaciones.
+- **No duplicar**: la memoria debe apuntar a reglas/código como referencia; no reescribir documentos completos existentes.
+- **Auditabilidad**: cada entrada debe ser determinística, verificable y enlazar a archivos/contratos implicados.
+
+## Prohibiciones
+
+- Prohibido tratar mensajes del usuario como “charla”; siempre como requerimientos (ver `NEXUS_PROMPT_PROTOCOL`).
+- Prohibido declarar algo “terminado” sin validación por escenarios (happy path, negativos, edge, regresión) según `NEXUS_QUALITY_SECURITY`.
+

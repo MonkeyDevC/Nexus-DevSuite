@@ -5,6 +5,7 @@
 const { body, param, query } = require("express-validator");
 
 const createReleaseValidator = [
+  body("name").trim().notEmpty().withMessage("name es obligatorio").isLength({ max: 255 }),
   body("version").trim().notEmpty().withMessage("version es obligatorio").isLength({ max: 50 }),
   body("description").optional().trim()
 ];
@@ -32,8 +33,28 @@ const removeFeatureValidator = [
 
 const patchReleaseValidator = [
   param("id").isUUID(),
+  body("version").not().exists().withMessage("version no permitido en PATCH; use PUT /releases/:id"),
+  body("name").not().exists().withMessage("name no permitido en PATCH; use PUT /releases/:id"),
   body("description").optional().trim(),
   body("change_request_id").optional().isUUID()
+];
+
+const putReleaseValidator = [
+  param("id").isUUID(),
+  body("change_request_id").notEmpty().isUUID().withMessage("change_request_id es obligatorio"),
+  body("name").optional().trim().isLength({ min: 1, max: 255 }),
+  body("version").optional().trim().isLength({ min: 1, max: 50 }),
+  body("description").optional({ nullable: true })
+];
+
+const releaseStartBodyValidator = [
+  param("id").isUUID(),
+  body("change_request_id").notEmpty().isUUID().withMessage("change_request_id es obligatorio en body")
+];
+
+const releasePublishBodyValidator = [
+  param("id").isUUID(),
+  body("change_request_id").notEmpty().isUUID().withMessage("change_request_id es obligatorio en body")
 ];
 
 const listReleasesQueryValidator = [
@@ -61,6 +82,9 @@ module.exports = {
   assignFeatureValidator,
   removeFeatureValidator,
   patchReleaseValidator,
+  putReleaseValidator,
+  releaseStartBodyValidator,
+  releasePublishBodyValidator,
   listReleasesQueryValidator,
   hotfixValidator,
   bulkDeleteReleasesValidator

@@ -1,15 +1,17 @@
 /**
- * Módulo Releases - Service
- * Reglas: SemVer, anti-downgrade, workflow, RELEASE_EMPTY, ARCHIVED bloqueado, inmutabilidad version, auditoría.
+ * Módulo Releases - Service (WAVE 4)
+ * Asignación canónica: user_stories.release_id. features.release_id = legacy (solo lectura / saneamiento delete).
  */
 
 const releaseRepository = require("./release.repository");
 const featureRepository = require("../backlog/feature.repository");
+const userStoryRepository = require("../backlog/userStory.repository");
+const projectsRepository = require("../backlog/projects.repository");
 const authRepository = require("../auth/auth.repository");
 const changeRequestService = require("../changeRequests/changeRequest.service");
 const rulesEngineService = require("../rules-engine/rulesEngine.service");
 const { logStateTransition } = require("../orchestrator/stateTransitionLogger.service");
-const { validateSemVer, compareSemVer, parseSemVer } = require("./semver.validator");
+const { validateSemVer, validateReleaseVersionString, compareSemVer, parseSemVer } = require("./semver.validator");
 const { validateReleaseTransition } = require("./release.workflow.validator");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
@@ -19,12 +21,14 @@ function toPlain(release) {
   const r = typeof release.toJSON === "function" ? release.toJSON() : release;
   return {
     id: r.id,
+    name: r.name != null ? String(r.name) : null,
     version: r.version,
     status: r.status,
     description: r.description,
     organization_id: r.organization_id,
     created_by: r.created_by,
     released_at: r.released_at,
+    release_date: r.released_at ?? null,
     created_at: r.created_at,
     updated_at: r.updated_at
   };
@@ -46,11 +50,21 @@ function ensureAuditContext(context) {
   };
 }
 
-function rejectVersionInPayload(payload) {
-  if (payload && Object.prototype.hasOwnProperty.call(payload, "version")) {
-    throw new AppError("El campo version no puede modificarse", {
+function assertReleaseNotFrozen(release) {
+  if (release && release.status === "RELEASED") {
+    throw new AppError("La release está publicada y no admite cambios", {
       statusCode: 400,
-      code: ERROR_CODES.RELEASE_VERSION_IMMUTABLE
+      code: ERROR_CODES.RELEASE_FROZEN
+    });
+  }
+}
+
+function assertChangeRequestIdRequired(context) {
+  const id = context && context.changeRequestId;
+  if (id == null || String(id).trim() === "") {
+    throw new AppError("Se requiere change_request_id en el cuerpo de la solicitud", {
+      statusCode: 400,
+      code: ERROR_CODES.CHANGE_REQUEST_REQUIRED
     });
   }
 }
@@ -68,11 +82,30 @@ function resolveExplicitRules(rules) {
   return rules;
 }
 
-async function createRelease(payload, context = {}) {
-  const { version, description } = payload || {};
-  validateSemVer(version);
+/**
+ * @param {string} name
+ */
+function validateReleaseName(name) {
+  if (typeof name !== "string" || !name.trim()) {
+    throw new AppError("name es obligatorio", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+  if (name.trim().length > 255) {
+    throw new AppError("name excede 255 caracteres", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
+  }
+}
 
-  const existing = await releaseRepository.findByVersion(version);
+async function createRelease(payload, context = {}) {
+  const { name, version, description } = payload || {};
+  validateReleaseName(name);
+  validateReleaseVersionString(version);
+
+  const existing = await releaseRepository.findByVersion(version.trim());
   if (existing) {
     throw new AppError("Ya existe una release con esa versión", {
       statusCode: 409,
@@ -80,16 +113,9 @@ async function createRelease(payload, context = {}) {
     });
   }
 
-  const latestReleased = await releaseRepository.findLatestReleased();
-  if (latestReleased && compareSemVer(version, latestReleased.version) <= 0) {
-    throw new AppError("La nueva versión debe ser mayor que la última release publicada", {
-      statusCode: 400,
-      code: ERROR_CODES.RELEASE_VERSION_NOT_ALLOWED
-    });
-  }
-
   const organizationId = context.organizationId;
   const created = await releaseRepository.create({
+    name: name.trim(),
     version: version.trim(),
     description: description || null,
     status: "PLANNED",
@@ -114,15 +140,32 @@ async function getReleaseById(id, organizationId) {
     });
   }
   const { getModels } = require("../../infrastructure/db/loadModels");
-  const { Feature } = getModels();
+  const { Feature, UserStory } = getModels();
   const features = await Feature.findAll({
     where: { release_id: id },
     attributes: ["id", "title", "status", "project_id", "number"],
     order: [["created_at", "DESC"]],
     raw: true
   });
+  const storyRows = await UserStory.findAll({
+    where: { release_id: id },
+    attributes: ["id", "title", "status", "number", "feature_id"],
+    include: [{ model: Feature, as: "feature", attributes: ["project_id"] }],
+    order: [["created_at", "DESC"]]
+  });
   const plain = toPlain(release);
   plain.features = features || [];
+  plain.stories = (storyRows || []).map((s) => {
+    const j = typeof s.toJSON === "function" ? s.toJSON() : s;
+    return {
+      id: j.id,
+      title: j.title,
+      status: j.status,
+      number: j.number,
+      feature_id: j.feature_id,
+      project_id: j.feature != null ? j.feature.project_id : null
+    };
+  });
   return plain;
 }
 
@@ -144,8 +187,11 @@ async function listReleases(options = {}) {
   };
 }
 
-async function updateStatus(id, nextStatus, context, rules = null) {
+async function updateStatus(id, nextStatus, context, rules = null, { requireChangeRequestId = false } = {}) {
   await getReleaseById(id, context.organizationId);
+  if (requireChangeRequestId) {
+    assertChangeRequestIdRequired(context);
+  }
   const changeRequestId = context.changeRequestId;
   const validatedCr = await changeRequestService.validateAndConsumeChangeRequest(changeRequestId, "RELEASE", id, context);
 
@@ -174,7 +220,7 @@ async function updateStatus(id, nextStatus, context, rules = null) {
         from_status: release.status,
         to_status: nextStatus
       },
-        explicitRules
+      explicitRules
     );
     if (!rulesResult.allowed) {
       throw new AppError("Transición de release bloqueada por rules engine", {
@@ -186,9 +232,9 @@ async function updateStatus(id, nextStatus, context, rules = null) {
   }
 
   if (nextStatus === "RELEASED") {
-    const count = await releaseRepository.countFeaturesByReleaseId(id);
-    if (count === 0) {
-      throw new AppError("No se puede publicar una release sin features asociadas", {
+    const storyCount = await releaseRepository.countStoriesByReleaseId(id);
+    if (storyCount === 0) {
+      throw new AppError("No se puede publicar una release sin stories asociadas", {
         statusCode: 400,
         code: ERROR_CODES.RELEASE_EMPTY
       });
@@ -196,7 +242,7 @@ async function updateStatus(id, nextStatus, context, rules = null) {
   }
 
   const updatePayload = { status: nextStatus };
-  if (release.status === "QA" && nextStatus === "RELEASED") {
+  if (nextStatus === "RELEASED") {
     updatePayload.released_at = new Date();
   }
 
@@ -222,6 +268,16 @@ async function updateStatus(id, nextStatus, context, rules = null) {
   return toPlain(updated);
 }
 
+async function startRelease(id, context) {
+  assertChangeRequestIdRequired(context);
+  return updateStatus(id, "IN_PROGRESS", context, null, { requireChangeRequestId: true });
+}
+
+async function finalizeRelease(id, context) {
+  assertChangeRequestIdRequired(context);
+  return updateStatus(id, "RELEASED", context, null, { requireChangeRequestId: true });
+}
+
 async function assignFeatureToRelease(releaseId, featureId, context) {
   await getReleaseById(releaseId, context.organizationId);
 
@@ -232,6 +288,7 @@ async function assignFeatureToRelease(releaseId, featureId, context) {
       code: ERROR_CODES.RELEASE_NOT_FOUND
     });
   }
+  assertReleaseNotFrozen(release);
   if (release.status === "ARCHIVED") {
     throw new AppError("No se puede asignar features a una release archivada", {
       statusCode: 400,
@@ -281,6 +338,7 @@ async function removeFeatureFromRelease(releaseId, featureId, context) {
       code: ERROR_CODES.RELEASE_NOT_FOUND
     });
   }
+  assertReleaseNotFrozen(release);
   if (release.status === "ARCHIVED") {
     throw new AppError("No se puede desasociar features de una release archivada", {
       statusCode: 400,
@@ -311,12 +369,11 @@ async function removeFeatureFromRelease(releaseId, featureId, context) {
   return await getReleaseById(releaseId, context.organizationId);
 }
 
-async function updateReleaseDescription(id, payload, context) {
+async function putRelease(id, payload, context) {
   await getReleaseById(id, context.organizationId);
   const changeRequestId = context.changeRequestId ?? payload?.change_request_id;
   const validatedCr = await changeRequestService.validateAndConsumeChangeRequest(changeRequestId, "RELEASE", id, context);
 
-  rejectVersionInPayload(payload);
   const release = await releaseRepository.findById(id);
   if (!release) {
     throw new AppError("Release no encontrada", {
@@ -330,15 +387,147 @@ async function updateReleaseDescription(id, payload, context) {
       code: ERROR_CODES.RELEASE_ARCHIVED
     });
   }
-  const updated = await releaseRepository.update(id, { description: payload?.description ?? release.description });
+  assertReleaseNotFrozen(release);
+
+  const updatePayload = {};
+  if (payload && Object.prototype.hasOwnProperty.call(payload, "name")) {
+    validateReleaseName(payload.name);
+    updatePayload.name = String(payload.name).trim();
+  }
+  if (payload && Object.prototype.hasOwnProperty.call(payload, "description")) {
+    updatePayload.description = payload.description === null ? null : String(payload.description);
+  }
+  if (payload && Object.prototype.hasOwnProperty.call(payload, "version")) {
+    validateReleaseVersionString(payload.version);
+    const v = String(payload.version).trim();
+    const other = await releaseRepository.findByVersion(v);
+    if (other && String(other.id) !== String(id)) {
+      throw new AppError("Ya existe una release con esa versión", {
+        statusCode: 409,
+        code: ERROR_CODES.RELEASE_ALREADY_EXISTS
+      });
+    }
+    updatePayload.version = v;
+  }
+
+  if (Object.keys(updatePayload).length === 0) {
+    await changeRequestService.markAsImplemented(changeRequestId || validatedCr.id, context);
+    return toPlain(release);
+  }
+
+  const updated = await releaseRepository.update(id, updatePayload);
   await changeRequestService.markAsImplemented(changeRequestId || validatedCr.id, context);
   return toPlain(updated);
 }
 
-/**
- * Crea una release de hotfix desde una release en estado RELEASED.
- * Nueva versión = same major.minor, patch+1. Estado IN_PROGRESS. No copia features. Audita HOTFIX_CREATED.
- */
+async function updateReleaseDescription(id, payload, context) {
+  return putRelease(id, { description: payload?.description, change_request_id: payload?.change_request_id }, context);
+}
+
+async function assignStoryToRelease(storyId, releaseId, context) {
+  const release = await releaseRepository.findById(releaseId);
+  if (!release) {
+    throw new AppError("Release no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.RELEASE_NOT_FOUND
+    });
+  }
+  if (context.organizationId != null && release.organization_id !== context.organizationId) {
+    throw new AppError("No tiene acceso a esta release", {
+      statusCode: 403,
+      code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
+    });
+  }
+  assertReleaseNotFrozen(release);
+
+  const story = await userStoryRepository.findById(storyId);
+  if (!story) {
+    throw new AppError("Historia no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.STORY_NOT_FOUND
+    });
+  }
+
+  if (story.release_id != null && String(story.release_id) === String(releaseId)) {
+    return await getReleaseById(releaseId, context.organizationId);
+  }
+  if (story.release_id != null && String(story.release_id) !== String(releaseId)) {
+    throw new AppError("La historia ya está asignada a otra release", {
+      statusCode: 400,
+      code: ERROR_CODES.STORY_ALREADY_IN_RELEASE
+    });
+  }
+
+  const feature = await featureRepository.findById(story.feature_id);
+  if (!feature) {
+    throw new AppError("Feature no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.FEATURE_NOT_FOUND
+    });
+  }
+  const project = await projectsRepository.findById(feature.project_id);
+  if (!project) {
+    throw new AppError("Proyecto no encontrado", {
+      statusCode: 404,
+      code: ERROR_CODES.PROJECT_NOT_FOUND
+    });
+  }
+  if (release.organization_id != null && String(project.organization_id) !== String(release.organization_id)) {
+    throw new AppError("La historia no pertenece a la misma organización que la release", {
+      statusCode: 403,
+      code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
+    });
+  }
+
+  await userStoryRepository.update(storyId, { release_id: releaseId });
+  const auditCtx = ensureAuditContext(context);
+  await authRepository.createAuditLog({
+    ...auditCtx,
+    action: "STORY_ASSIGN_RELEASE",
+    entity: "USER_STORY",
+    entity_id: storyId,
+    metadata: { release_id: releaseId, story_id: storyId }
+  });
+  return await getReleaseById(releaseId, context.organizationId);
+}
+
+async function removeStoryFromRelease(storyId, context) {
+  const story = await userStoryRepository.findById(storyId);
+  if (!story) {
+    throw new AppError("Historia no encontrada", {
+      statusCode: 404,
+      code: ERROR_CODES.STORY_NOT_FOUND
+    });
+  }
+  if (!story.release_id) {
+    return { story_id: storyId, release_id: null };
+  }
+  const release = await releaseRepository.findById(story.release_id);
+  if (release && release.status === "RELEASED") {
+    throw new AppError("La release está publicada y no admite cambios", {
+      statusCode: 400,
+      code: ERROR_CODES.RELEASE_FROZEN
+    });
+  }
+  if (context.organizationId != null && release && release.organization_id !== context.organizationId) {
+    throw new AppError("No tiene acceso a esta release", {
+      statusCode: 403,
+      code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
+    });
+  }
+
+  await userStoryRepository.update(storyId, { release_id: null });
+  const auditCtx = ensureAuditContext(context);
+  await authRepository.createAuditLog({
+    ...auditCtx,
+    action: "STORY_REMOVE_RELEASE",
+    entity: "USER_STORY",
+    entity_id: storyId,
+    metadata: { release_id: story.release_id, story_id: storyId }
+  });
+  return { story_id: storyId, release_id: null };
+}
+
 async function createHotfixFromRelease(releaseId, context) {
   await getReleaseById(releaseId, context.organizationId);
   const changeRequestId = context.changeRequestId;
@@ -386,7 +575,7 @@ async function createHotfixFromRelease(releaseId, context) {
 
   const parsed = parseSemVer(release.version);
   if (!parsed) {
-    throw new AppError("Versión de la release origen no es SemVer válido", {
+    throw new AppError("Versión de la release origen no es SemVer válido para hotfix", {
       statusCode: 400,
       code: ERROR_CODES.RELEASE_INVALID_VERSION
     });
@@ -409,7 +598,9 @@ async function createHotfixFromRelease(releaseId, context) {
     });
   }
 
+  const hfName = `Hotfix ${newVersion}`;
   const created = await releaseRepository.create({
+    name: hfName,
     version: newVersion,
     status: "IN_PROGRESS",
     description: `Hotfix de ${release.version}`,
@@ -448,9 +639,16 @@ async function deleteRelease(id, organizationId) {
       code: ERROR_CODES.RESOURCE_OTHER_ORGANIZATION
     });
   }
+  if (release.status !== "PLANNED") {
+    throw new AppError("Solo se puede eliminar una release en estado PLANNED", {
+      statusCode: 409,
+      code: ERROR_CODES.RELEASE_INVALID_STATE
+    });
+  }
+  await releaseRepository.clearStoriesReleaseIdForRelease(id);
   await featureRepository.updateReleaseIdToNull(id);
   await releaseRepository.deleteById(id);
-  return { id: release.id, deleted: true };
+  return { id: release.id };
 }
 
 async function deleteReleasesBulk(ids, organizationId) {
@@ -461,8 +659,8 @@ async function deleteReleasesBulk(ids, organizationId) {
     });
   }
   const uniqueIds = [...new Set(ids.map((id) => String(id)))];
-  const releases = await Promise.all(uniqueIds.map((id) => releaseRepository.findById(id)));
-  const notFound = uniqueIds.filter((id, i) => !releases[i]);
+  const releases = await Promise.all(uniqueIds.map((i) => releaseRepository.findById(i)));
+  const notFound = uniqueIds.filter((i, idx) => !releases[idx]);
   if (notFound.length > 0) {
     throw new AppError("Release(s) no encontrada(s): " + notFound.join(", "), {
       statusCode: 404,
@@ -478,13 +676,34 @@ async function deleteReleasesBulk(ids, organizationId) {
       });
     }
   }
-  for (const id of uniqueIds) {
-    await featureRepository.updateReleaseIdToNull(id);
+  for (let i = 0; i < uniqueIds.length; i++) {
+    const r = releases[i];
+    if (r && r.status !== "PLANNED") {
+      throw new AppError("Solo se puede eliminar releases en estado PLANNED", {
+        statusCode: 409,
+        code: ERROR_CODES.RELEASE_INVALID_STATE
+      });
+    }
   }
-  for (const id of uniqueIds) {
-    await releaseRepository.deleteById(id);
+  for (const rid of uniqueIds) {
+    await releaseRepository.clearStoriesReleaseIdForRelease(rid);
+  }
+  for (const rid of uniqueIds) {
+    await featureRepository.updateReleaseIdToNull(rid);
+  }
+  for (const rid of uniqueIds) {
+    await releaseRepository.deleteById(rid);
   }
   return { deleted: uniqueIds.length, ids: uniqueIds };
+}
+
+function rejectVersionInPayload(payload) {
+  if (payload && Object.prototype.hasOwnProperty.call(payload, "version")) {
+    throw new AppError("El campo version no puede modificarse", {
+      statusCode: 400,
+      code: ERROR_CODES.RELEASE_VERSION_IMMUTABLE
+    });
+  }
 }
 
 module.exports = {
@@ -492,12 +711,18 @@ module.exports = {
   getReleaseById,
   listReleases,
   updateStatus,
+  startRelease,
+  finalizeRelease,
   assignFeatureToRelease,
   removeFeatureFromRelease,
+  assignStoryToRelease,
+  removeStoryFromRelease,
+  putRelease,
   updateReleaseDescription,
   createHotfixFromRelease,
   deleteRelease,
   deleteReleasesBulk,
   rejectVersionInPayload,
-  toPlain
+  toPlain,
+  assertChangeRequestIdRequired
 };

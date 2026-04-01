@@ -1,0 +1,26 @@
+.root {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 48rem;
+}
+
+.rootWide {
+  max-width: none;
+}
+
+.form {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ds-space-2);
+  margin-top: var(--ds-space-6);
+  padding-top: var(--ds-space-4);
+  border-top: 1px solid var(--ds-color-border);
+}

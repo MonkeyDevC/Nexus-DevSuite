@@ -1,0 +1,64 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: var(--ds-space-1) var(--ds-space-2);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
+  line-height: var(--ds-line-height-tight);
+  border-radius: var(--ds-radius-sm);
+  border: 1px solid transparent;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.successLight {
+  background: var(--ds-color-success-muted);
+  color: var(--ds-color-success);
+  border-color: transparent;
+}
+
+.successSolid {
+  background: var(--ds-color-success);
+  color: var(--ds-color-on-solid);
+  border-color: transparent;
+}
+
+.warningLight {
+  background: var(--ds-color-warning-muted);
+  color: var(--ds-color-warning);
+  border-color: transparent;
+}
+
+.warningSolid {
+  background: var(--ds-color-warning);
+  color: var(--ds-color-on-solid);
+  border-color: transparent;
+}
+
+.dangerLight {
+  background: var(--ds-color-danger-muted);
+  color: var(--ds-color-danger);
+  border-color: transparent;
+}
+
+.dangerSolid {
+  background: var(--ds-color-danger);
+  color: var(--ds-color-on-solid);
+  border-color: transparent;
+}
+
+.neutralLight {
+  background: var(--ds-color-neutral-muted);
+  color: var(--ds-color-text-heading);
+  border-color: var(--ds-color-border);
+}
+
+.neutralSolid {
+  background: var(--ds-color-text-heading);
+  color: var(--ds-color-surface);
+  border-color: transparent;
+}

@@ -57,9 +57,30 @@ function compareSemVer(a, b) {
   return pa.patch - pb.patch;
 }
 
+/**
+ * WAVE 4: versión no vacía, trim, longitud máxima; sin SemVer estricto.
+ */
+function validateReleaseVersionString(version) {
+  if (typeof version !== "string" || !version.trim()) {
+    throw new AppError("Versión inválida o vacía", {
+      statusCode: 400,
+      code: ERROR_CODES.RELEASE_INVALID_VERSION
+    });
+  }
+  const t = version.trim();
+  if (t.length > 50) {
+    throw new AppError("Versión demasiado larga (máx. 50 caracteres)", {
+      statusCode: 400,
+      code: ERROR_CODES.RELEASE_INVALID_VERSION
+    });
+  }
+}
+
 module.exports = {
   validateSemVer,
+  validateReleaseVersionString,
   parseSemVer,
   compareSemVer,
   SEMVER_STRICT_REGEX
 };
+

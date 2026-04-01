@@ -1,0 +1,129 @@
+---
+description: Memoria persistente de estándares de código para todo código nuevo o editado en Nexus
+alwaysApply: true
+---
+
+# Memoria de Estándares de Código — Nexus
+
+Aplica esta mentalidad en toda tarea de desarrollo, sin excepción.
+
+Complementa la guía detallada en `NEXUS_CODE_MAINTENANCE_STANDARDS.mdc` (capas, HTTP, React, pruebas); esta memoria fija el **criterio mental y de naming** que debe aplicarse siempre en cada cambio.
+
+## Principio rector
+
+Todo código nuevo y toda modificación sobre código existente debe dejar el sistema en un estado más claro, mantenible y entendible que antes.
+
+No solo resuelvas la tarea funcional. También mejora la calidad estructural del código tocado cuando sea razonable hacerlo dentro del alcance del trabajo.
+
+## Estándar obligatorio para código nuevo
+
+Todo código nuevo debe cumplir siempre con estas reglas:
+
+### 1. Nombramiento claro y humano
+
+- Usa nombres de variables, funciones, métodos, procedimientos, clases y componentes que expresen intención real.
+- Evita abreviaturas ambiguas, nombres genéricos y nombres demasiado cortos.
+- Los nombres deben permitir entender el propósito del código sin tener que leer toda la implementación.
+- Prefiere nombres semánticos orientados al dominio y al comportamiento.
+
+Ejemplos esperados:
+
+- `projectDetailWorkspace` en lugar de `workspaceData`
+- `handleProjectSave` en lugar de `saveStuff`
+- `normalizeProjectResponse` en lugar de `fixData`
+- `isEvidencePanelFullscreen` en lugar de `flag`
+
+### 2. Responsabilidad clara
+
+- Cada función debe tener una responsabilidad concreta.
+- Evita funciones demasiado largas o con múltiples responsabilidades mezcladas.
+- Si un bloque crece demasiado, sepáralo en funciones o componentes auxiliares con nombres coherentes.
+- Mantén separación clara entre lógica de presentación, lógica de negocio, transformación de datos y acceso a API.
+
+### 3. Mantenibilidad humana primero
+
+- Escribe código fácil de revisar manualmente.
+- Prioriza claridad sobre trucos, acortamientos innecesarios o cleverness.
+- Evita estructuras difíciles de seguir, condiciones anidadas sin necesidad y efectos secundarios ocultos.
+- El código debe poder entenderse rápidamente por una persona que lo retome después.
+
+### 4. Coherencia de naming en UI
+
+- Los nombres de componentes, ids, clases CSS, test ids y helpers visuales deben ser coherentes con la pieza real de interfaz.
+- Usa nombres alineados con el dominio y con la arquitectura visual.
+- Evita ids o clases genéricas como `box`, `item`, `data`, `content`, `buttonWrap`, salvo que el contexto sea realmente universal.
+
+Ejemplos esperados:
+
+- `project-detail-workspace`
+- `project-detail-header`
+- `project-evidence-panel`
+- `backlog-features-toolbar`
+- `workspace-sticky-footer`
+
+### 5. Documentación útil, no decorativa
+
+- Documenta cuando aporte valor real a la comprensión del código.
+- Agrega comentarios para explicar decisiones, invariantes, contratos, edge cases o restricciones no obvias.
+- No agregues comentarios redundantes que repitan literalmente lo que el código ya dice.
+- Cuando una función tenga una intención sensible o una restricción importante, deja esa regla explícita.
+
+Ejemplos válidos de documentación:
+
+- por qué se centraliza un submit en un footer
+- por qué se usa `expected_version`
+- qué datos son SSOT y cuáles son draft local
+- por qué una validación vive en service y no en controller
+
+### 6. Consistencia con el sistema existente
+
+- Si creas una nueva pieza, nómbrala y estructúrala de forma coherente con el patrón ya existente en el proyecto.
+- Si el sistema ya tiene un design system, contratos HTTP, mappers o convenciones de carpetas, respétalos.
+- No introduzcas estilos, nombres o estructuras paralelas si ya existe una convención válida.
+
+## Regla obligatoria al modificar código existente
+
+Si durante una iteración tienes que tocar un método, procedimiento, componente o bloque que no cumple con este estándar, debes mejorarlo dentro de lo razonable y sin salirte del alcance.
+
+Eso incluye, cuando aplique:
+
+- renombrar variables ambiguas
+- separar lógica mezclada
+- mejorar nombres de funciones o componentes
+- limpiar estructuras difíciles de leer
+- agregar documentación útil donde haga falta
+- alinear ids, clases o test ids con la semántica real
+- eliminar duplicación obvia
+
+## Regla de mejora continua
+
+Aplica la regla de “dejar el código mejor que como estaba”.
+
+Si una parte del código tocado presenta mala legibilidad o baja mantenibilidad, no la perpetúes.
+Haz la mejora de calidad mínima necesaria para dejarla en un estado más profesional, siempre que:
+
+- no rompa contratos
+- no cambie el comportamiento esperado
+- no expanda artificialmente el alcance
+
+## Qué no se permite
+
+- nombres vagos como `data`, `temp`, `value`, `flag`, `item`, `obj`, `testFn`, salvo casos extremadamente justificados
+- funciones gigantes con múltiples responsabilidades
+- comentarios basura o redundantes
+- ids y clases inconsistentes con el componente real
+- duplicar lógica por rapidez
+- mantener código confuso solo por “no tocarlo” si ya forma parte del cambio solicitado
+
+## Criterio final de calidad
+
+Antes de dar una tarea por terminada, valida siempre:
+
+- ¿Los nombres expresan intención real?
+- ¿La estructura se entiende rápido?
+- ¿El código es fácil de mantener manualmente?
+- ¿Los comentarios realmente ayudan?
+- ¿Los ids, clases y nombres visuales son coherentes?
+- ¿El bloque modificado quedó mejor que antes?
+
+Si alguna respuesta es “no”, corrige antes de cerrar la tarea.

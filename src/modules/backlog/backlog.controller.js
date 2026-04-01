@@ -7,8 +7,11 @@ const projectsService = require("./projects.service");
 const featureService = require("./feature.service");
 const userStoryService = require("./userStory.service");
 const backlogService = require("./backlog.service");
+const releaseService = require("../releases/release.service");
 const { buildSuccess } = require("../../shared/responses/responseLayer");
 const { buildContext: buildContextBase, assertRequestValid } = require("../../shared/utils/controllerUtils");
+
+const VALIDATION_STATUS = { statusCode: 422 };
 
 function buildContext(req) {
   const ctx = buildContextBase(req);
@@ -54,7 +57,9 @@ async function getProjectController(req, res, next) {
 async function archiveProjectController(req, res, next) {
   try {
     assertRequestValid(req);
-    const data = await projectsService.archiveProject(req.params.id, req.organizationId);
+    const context = buildContext(req);
+    context.expectedVersion = req.body.expected_version;
+    const data = await projectsService.archiveProjectWithContext(req.params.id, context);
     res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
   } catch (e) {
     next(e);
@@ -64,7 +69,8 @@ async function archiveProjectController(req, res, next) {
 async function updateProjectController(req, res, next) {
   try {
     assertRequestValid(req);
-    const data = await projectsService.updateProject(req.params.id, req.body, req.organizationId);
+    const context = buildContext(req);
+    const data = await projectsService.updateProjectWithContext(req.params.id, req.body, context);
     res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
   } catch (e) {
     next(e);
@@ -74,7 +80,9 @@ async function updateProjectController(req, res, next) {
 async function deleteProjectController(req, res, next) {
   try {
     assertRequestValid(req);
-    const data = await projectsService.deleteProject(req.params.id, req.organizationId);
+    const context = buildContext(req);
+    context.expectedVersion = req.body.expected_version;
+    const data = await projectsService.deleteProjectWithContext(req.params.id, context);
     res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
   } catch (e) {
     next(e);
@@ -135,6 +143,56 @@ async function listFeaturesController(req, res, next) {
     const status = req.query.status || undefined;
     const result = await featureService.listFeaturesByProject(projectId, { page, limit, status }, req.organizationId);
     res.status(200).json(buildSuccess({ items: result.data, ...result.meta }, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function listFeaturesRootController(req, res, next) {
+  try {
+    assertRequestValid(req, VALIDATION_STATUS);
+    const projectId = req.query.project_id;
+    const page = req.query.page ? parseInt(req.query.page, 10) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 10;
+    const status = req.query.status || undefined;
+    const result = await featureService.listFeaturesByProject(projectId, { page, limit, status }, req.organizationId);
+    res.status(200).json(buildSuccess({ items: result.data, ...result.meta }, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function createFeatureRootController(req, res, next) {
+  try {
+    assertRequestValid(req, VALIDATION_STATUS);
+    const context = buildContext(req);
+    const projectId = req.body.project_id;
+    const { project_id: _p, ...payload } = req.body;
+    void _p;
+    const data = await featureService.createFeature(projectId, payload, context);
+    res.status(201).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function putFeatureController(req, res, next) {
+  try {
+    assertRequestValid(req, VALIDATION_STATUS);
+    const context = buildContext(req);
+    const data = await featureService.updateFeature(req.params.id, req.body, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function deleteFeatureController(req, res, next) {
+  try {
+    assertRequestValid(req, VALIDATION_STATUS);
+    const context = buildContext(req);
+    const data = await featureService.deleteFeature(req.params.id, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
   } catch (e) {
     next(e);
   }
@@ -295,11 +353,77 @@ async function patchStorySprintController(req, res, next) {
   }
 }
 
+async function postStoryAssignSprintController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await userStoryService.updateStorySprint(req.params.id, req.body.sprint_id, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function postStoryRemoveSprintController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await userStoryService.updateStorySprint(req.params.id, null, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function postStoryAssignReleaseController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await releaseService.assignStoryToRelease(req.params.id, req.body.release_id, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function postStoryRemoveReleaseController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await releaseService.removeStoryFromRelease(req.params.id, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 async function patchStoryController(req, res, next) {
   try {
     assertRequestValid(req);
     const context = buildContext(req);
     const data = await userStoryService.updateStory(req.params.id, req.body, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function putStoryController(req, res, next) {
+  try {
+    assertRequestValid(req, VALIDATION_STATUS);
+    const context = buildContext(req);
+    const data = await userStoryService.updateStory(req.params.id, req.body, context);
+    res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function deleteStoryController(req, res, next) {
+  try {
+    assertRequestValid(req, VALIDATION_STATUS);
+    const context = buildContext(req);
+    const data = await userStoryService.deleteStory(req.params.id, context);
     res.status(200).json(buildSuccess(data, { request_id: req.requestId }));
   } catch (e) {
     next(e);
@@ -318,6 +442,10 @@ module.exports = {
   createFeatureController,
   getFeatureController,
   listFeaturesController,
+  listFeaturesRootController,
+  createFeatureRootController,
+  putFeatureController,
+  deleteFeatureController,
   patchFeatureController,
   patchFeatureStatusController,
   createStoryController,
@@ -329,5 +457,11 @@ module.exports = {
   patchStoryStatusController,
   patchStoryAssignController,
   patchStorySprintController,
-  patchStoryController
+  postStoryAssignSprintController,
+  postStoryRemoveSprintController,
+  postStoryAssignReleaseController,
+  postStoryRemoveReleaseController,
+  patchStoryController,
+  putStoryController,
+  deleteStoryController
 };

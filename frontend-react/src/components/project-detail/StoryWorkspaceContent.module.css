@@ -1,0 +1,40 @@
+.sectionLabel {
+  margin: var(--ds-space-4) 0 var(--ds-space-1);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ds-color-text-muted);
+}
+
+.sectionLabel:first-child {
+  margin-top: 0;
+}
+
+.bodyText {
+  margin: 0;
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text);
+  line-height: var(--ds-line-height-body);
+  white-space: pre-wrap;
+}
+
+.list {
+  margin: 0;
+  padding-left: var(--ds-space-5);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text);
+  line-height: var(--ds-line-height-body);
+}
+
+.state {
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-muted);
+}
+
+.error {
+  padding: var(--ds-space-3);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-danger-muted);
+  font-size: var(--ds-font-size-sm);
+}

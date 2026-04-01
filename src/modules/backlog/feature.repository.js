@@ -61,11 +61,24 @@ async function updateReleaseIdToNull(releaseId) {
   await Feature.update({ release_id: null }, { where: { release_id: releaseId } });
 }
 
+async function countStoriesByFeatureId(featureId) {
+  const { UserStory } = getModels();
+  return UserStory.count({ where: { feature_id: featureId } });
+}
+
+async function removeById(id) {
+  const Feature = getFeatureModel();
+  const deleted = await Feature.destroy({ where: { id } });
+  return deleted > 0;
+}
+
 module.exports = {
   create,
   findById,
   listByProject,
   update,
   updateReleaseIdToNull,
-  getMaxFeatureNumberGlobal
+  getMaxFeatureNumberGlobal,
+  countStoriesByFeatureId,
+  removeById
 };
