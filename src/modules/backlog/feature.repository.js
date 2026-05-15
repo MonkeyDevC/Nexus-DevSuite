@@ -28,6 +28,13 @@ async function findById(id, options = {}) {
   return Feature.findByPk(id, options);
 }
 
+async function findByNumber(number) {
+  const Feature = getFeatureModel();
+  const n = Number(number);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return Feature.findOne({ where: { number: n } });
+}
+
 async function listByProject(projectId, { page = 1, limit = 10, status } = {}) {
   const Feature = getFeatureModel();
   const sequelize = Feature.sequelize;
@@ -75,6 +82,7 @@ async function removeById(id) {
 module.exports = {
   create,
   findById,
+  findByNumber,
   listByProject,
   update,
   updateReleaseIdToNull,

@@ -45,7 +45,7 @@ describe("WAVE 1 — DELETE features/stories", () => {
     masterToken = res.body.data.access_token;
   });
 
-  test("DELETE feature con stories devuelve 409 FEATURE_HAS_STORIES", async () => {
+  test("DELETE feature con stories: 200, historias huérfanas (feature_id null, mismo project_id)", async () => {
     const name = "Proyecto Wave1 Del " + Date.now();
     const pr = await request(app)
       .post("/api/v1/projects")
@@ -61,19 +61,26 @@ describe("WAVE 1 — DELETE features/stories", () => {
       .expect(201);
     const featureId = fr.body.data.id;
 
-    await request(app)
+    const sr = await request(app)
       .post(`/api/v1/features/${featureId}/stories`)
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ title: "S1", description: "sd" })
       .expect(201);
+    const storyId = sr.body.data.id;
 
     const del = await request(app)
       .delete(`/api/v1/features/${featureId}`)
       .set("Authorization", `Bearer ${masterToken}`);
-    expect(del.status).toBe(409);
-    expect(del.body.success).toBe(false);
-    expect(del.body.data).toBeNull();
-    expect(del.body.error.code).toBe("FEATURE_HAS_STORIES");
+    expect(del.status).toBe(200);
+    expect(del.body.success).toBe(true);
+    expect(del.body.data).toEqual({ id: featureId });
+
+    const getStory = await request(app)
+      .get(`/api/v1/stories/${storyId}`)
+      .set("Authorization", `Bearer ${masterToken}`)
+      .expect(200);
+    expect(getStory.body.data?.feature_id == null || String(getStory.body.data.feature_id).trim() === "").toBe(true);
+    expect(String(getStory.body.data?.project_id || "")).toBe(String(projectId));
   });
 
   test("DELETE feature sin stories devuelve 200 y data.id", async () => {
@@ -127,6 +134,11 @@ describe("WAVE 1 — DELETE features/stories", () => {
       .patch(`/api/v1/stories/${storyId}/status`)
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ status: "READY" })
+      .expect(200);
+    await request(app)
+      .patch(`/api/v1/stories/${storyId}`)
+      .set("Authorization", `Bearer ${masterToken}`)
+      .send({ refinement_status: "READY" })
       .expect(200);
 
     const spr = await request(app)

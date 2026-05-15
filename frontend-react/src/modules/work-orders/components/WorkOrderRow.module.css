@@ -1,0 +1,48 @@
+.row {
+  cursor: pointer;
+  transition: background-color 120ms var(--ds-ease-standard);
+}
+
+.row:hover,
+.row:focus-visible {
+  background: var(--ds-color-surface-hover, rgba(255, 255, 255, 0.04));
+  outline: none;
+}
+
+.cellMono {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--ds-font-size-sm);
+  white-space: nowrap;
+}
+
+.cellTitle {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cellMuted {
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-muted);
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-sm);
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: var(--ds-color-surface-raised);
+  border: 1px solid var(--ds-color-border-subtle);
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+}

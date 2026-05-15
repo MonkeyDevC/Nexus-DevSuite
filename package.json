@@ -16,6 +16,7 @@
     "dev:vite": "npm run dev --prefix frontend-react",
     "dev:stack": "concurrently -k -n api,vite -c blue,magenta \"npm run dev:server\" \"npm run dev:vite\"",
     "build:react": "node scripts/build-react.js",
+    "verify:vite-react-node-env": "npm run verify:react-node-env --prefix frontend-react",
     "e2e:server": "node src/server.js",
     "e2e:bootstrap": "npm run build:react && npm run db:migrate && npm run db:seed",
     "test": "jest --runInBand",
@@ -29,10 +30,12 @@
     "db:clean": "node scripts/clean-dummy-data.js",
     "create-master-user": "node scripts/create-master-user.js",
     "test:e2e": "playwright test",
-    "test:e2e:phase6": "playwright test tests/e2e/phase6-http-closeout.spec.js --project=chromium",
-    "test:e2e:wave2-sprints": "playwright test tests/e2e/wave2-sprints-closeout.spec.js --project=chromium",
-    "test:e2e:wave3-incidents": "playwright test tests/e2e/wave3-incidents.spec.js --project=chromium",
-    "test:e2e:wave4-releases": "playwright test tests/e2e/wave4-releases.spec.js --project=chromium"
+    "test:e2e:dev": "playwright test tests/e2e/**/*.dev.spec.js --project=chromium",
+    "test:e2e:auth-http-bridge": "playwright test tests/e2e/auth-http-refresh-and-legacy-bridge.spec.js --project=chromium",
+    "test:e2e:sprints": "playwright test tests/e2e/sprints-lifecycle-workflow.spec.js --project=chromium",
+    "test:e2e:incidents": "playwright test tests/e2e/incidents-lifecycle-workflow.spec.js --project=chromium",
+    "test:e2e:releases": "playwright test tests/e2e/releases-assign-and-publish-workflow.spec.js --project=chromium",
+    "validate:openapi": "node scripts/validate-openapi.js"
   },
   "keywords": [
     "nexus",
@@ -60,9 +63,13 @@
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
     "sequelize": "^6.37.5",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^11.0.3"
   },
   "devDependencies": {
+    "@apidevtools/swagger-cli": "^4.0.4",
+    "@apidevtools/swagger-parser": "^12.1.0",
     "@playwright/test": "^1.58.2",
     "concurrently": "^9.1.2",
     "eslint": "^10.0.2",

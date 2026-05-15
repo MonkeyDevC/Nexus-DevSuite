@@ -7,11 +7,13 @@ const featureRepository = require("./feature.repository");
 const projectsRepository = require("./projects.repository");
 const userStoryRepository = require("./userStory.repository");
 const changeRequestService = require("../changeRequests/changeRequest.service");
-const { validateTransition, ENTITY_TYPES } = require("./workflow.validator");
+const { validateTransition, ENTITY_TYPES, normalizeWorkflowStatus } = require("./workflow.validator");
 const authRepository = require("../auth/auth.repository");
 const rulesEngineService = require("../rules-engine/rulesEngine.service");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
+const { normalizeEvidenceMarkdownForPersistence } = require("./evidenceMarkdown");
+const { stripEmbeddedFeatureCodeFromTitle } = require("./workItemHumanCodes");
 
 function toPlain(feature) {
   if (!feature) return null;
@@ -24,6 +26,7 @@ function toPlain(feature) {
     description: f.description,
     acceptance_criteria: f.acceptance_criteria != null ? f.acceptance_criteria : [],
     implementation_criteria: f.implementation_criteria != null ? f.implementation_criteria : [],
+    evidence_markdown: f.evidence_markdown == null ? "" : String(f.evidence_markdown),
     status: f.status,
     priority: f.priority,
     backlog_position: f.backlog_position != null ? f.backlog_position : null,
@@ -175,12 +178,17 @@ async function updateFeature(id, payload, context = {}) {
     }
   }
   const updatePayload = {};
-  if (payload.title !== undefined) updatePayload.title = payload.title;
+  if (payload.title !== undefined) {
+    updatePayload.title = stripEmbeddedFeatureCodeFromTitle(payload.title, feature.number);
+  }
   if (payload.description !== undefined) updatePayload.description = payload.description;
   if (payload.acceptance_criteria !== undefined) updatePayload.acceptance_criteria = payload.acceptance_criteria;
   if (payload.implementation_criteria !== undefined) updatePayload.implementation_criteria = payload.implementation_criteria;
   if (payload.priority !== undefined) updatePayload.priority = payload.priority;
   if (payload.backlog_position !== undefined) updatePayload.backlog_position = payload.backlog_position === null || payload.backlog_position === "" ? null : Math.max(0, parseInt(payload.backlog_position, 10));
+  if (payload.evidence_markdown !== undefined) {
+    updatePayload.evidence_markdown = normalizeEvidenceMarkdownForPersistence(payload.evidence_markdown);
+  }
   if (Object.keys(updatePayload).length === 0) return toPlain(feature);
 
   const updated = await featureRepository.update(id, updatePayload);
@@ -206,6 +214,9 @@ async function updateFeatureStatus(id, nextStatus, context, changeRequestId = nu
   const project = await projectsRepository.findById(feature.project_id);
   if (project) ensureProjectInOrg(project, context.organizationId);
   const currentStatus = feature.status;
+  if (normalizeWorkflowStatus(currentStatus) === normalizeWorkflowStatus(nextStatus)) {
+    return toPlain(feature);
+  }
   if (currentStatus === "DRAFT" && nextStatus === "APPROVED") {
     if (context?.user?.role !== "MASTER") {
       throw new AppError("Solo MASTER puede aprobar una feature", {
@@ -280,10 +291,14 @@ async function deleteFeature(id, context = {}) {
   }
   const storyCount = await featureRepository.countStoriesByFeatureId(id);
   if (storyCount > 0) {
-    throw new AppError("La feature tiene historias asociadas", {
-      statusCode: 409,
-      code: ERROR_CODES.FEATURE_HAS_STORIES,
-      details: { story_count: storyCount }
+    await userStoryRepository.unlinkStoriesFromFeature(id);
+    const auditCtx = ensureAuditContext(context);
+    await authRepository.createAuditLog({
+      ...auditCtx,
+      action: "FEATURE_DELETE_ORPHAN_STORIES",
+      entity: "Feature",
+      entity_id: id,
+      metadata: { story_count: storyCount }
     });
   }
   const removed = await featureRepository.removeById(id);

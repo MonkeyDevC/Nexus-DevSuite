@@ -1,0 +1,91 @@
+/* Tabla recientes dashboard: mismas reglas que TableProjects (subset) sin depender del dominio projects. */
+
+.tableIsland {
+  --ds-color-surface: var(--ds-projects-shell-inner);
+  --ds-color-surface-raised: var(--ds-projects-shell-thead);
+  --ds-color-border: var(--ds-projects-shell-border);
+  --ds-color-border-subtle: rgba(148, 163, 184, 0.1);
+  --ds-color-text: var(--ds-projects-shell-text);
+  --ds-color-text-muted: var(--ds-projects-shell-muted);
+  --ds-color-neutral-muted: rgba(148, 163, 184, 0.12);
+}
+
+.dataTableRoot {
+  margin: 0;
+}
+
+.dataTableWrap {
+  box-shadow: none;
+}
+
+.nameLink {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  padding-left: 0;
+  padding-right: 0;
+  justify-content: flex-start;
+  text-align: left;
+  min-height: auto;
+  font-weight: var(--ds-font-weight-medium);
+  color: var(--ds-projects-link);
+}
+
+.nameLink:hover:not(:disabled) {
+  color: var(--ds-color-primary-hover);
+}
+
+.cellWithIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-projects-shell-text);
+}
+
+.cellIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ds-color-primary);
+  flex-shrink: 0;
+}
+
+.inlineIcon {
+  width: 1.125rem;
+  height: 1.125rem;
+  display: block;
+}
+
+.progressWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  min-width: 8rem;
+  justify-content: flex-end;
+}
+
+.progressTrack {
+  flex: 1;
+  min-width: 4.5rem;
+  max-width: 7rem;
+  height: 0.5rem;
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-projects-tab-pill-muted-bg);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-color-primary);
+  transition: width var(--ds-duration-standard) var(--ds-ease-standard);
+}
+
+.progressLabel {
+  font-size: var(--ds-font-size-xs);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-projects-shell-muted);
+  min-width: 2.25rem;
+  text-align: right;
+}

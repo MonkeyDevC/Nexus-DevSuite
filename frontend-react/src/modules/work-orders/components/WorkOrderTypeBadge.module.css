@@ -1,0 +1,21 @@
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+
+.dotWork,
+.dotRework {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.dotWork {
+  background: var(--ds-color-success, #22c55e);
+}
+
+.dotRework {
+  background: var(--ds-color-warning, #f59e0b);
+}

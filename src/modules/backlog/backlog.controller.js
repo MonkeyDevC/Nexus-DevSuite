@@ -275,6 +275,17 @@ async function listProjectStoriesController(req, res, next) {
   }
 }
 
+async function createProjectStoryController(req, res, next) {
+  try {
+    assertRequestValid(req);
+    const context = buildContext(req);
+    const data = await userStoryService.createStoryForProject(req.params.projectId, req.body, context);
+    res.status(201).json(buildSuccess(data, { request_id: req.requestId }));
+  } catch (e) {
+    next(e);
+  }
+}
+
 async function getProjectBacklogController(req, res, next) {
   try {
     assertRequestValid(req);
@@ -452,6 +463,7 @@ module.exports = {
   getStoryController,
   listStoriesController,
   listProjectStoriesController,
+  createProjectStoryController,
   getProjectBacklogController,
   reorderProjectBacklogController,
   patchStoryStatusController,

@@ -5,6 +5,7 @@ const authRoutes = require("../modules/auth/auth.routes");
 const usersRoutes = require("../modules/users/users.routes");
 const metricsRoutes = require("../system/metrics/metrics.routes");
 const projectsRoutes = require("../modules/backlog/projects.routes");
+const workspaceNavRoutes = require("../modules/backlog/workspaceNav.routes");
 const featureRoutes = require("../modules/backlog/feature.routes");
 const storiesRoutes = require("../modules/backlog/stories.routes");
 const releaseRoutes = require("../modules/releases/release.routes");
@@ -42,6 +43,7 @@ router.use("/system", metricsRoutes);
 if (env.NODE_ENV === "development" && env.DEV_DATA_RESET_ENABLED === true) {
   router.use("/system/dev-tools", devToolsRoutes);
 }
+router.use("/workspace", workspaceNavRoutes);
 router.use("/projects", projectsRoutes);
 router.use("/features", featureRoutes);
 router.use("/stories", storiesRoutes);

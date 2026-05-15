@@ -1,0 +1,23 @@
+.root {
+  box-sizing: border-box;
+  padding: var(--ds-space-8) var(--ds-space-4);
+  text-align: center;
+  border: 1px dashed var(--ds-color-border-subtle);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface-raised);
+}
+
+.title {
+  margin: 0 0 var(--ds-space-2);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+}
+
+.sub {
+  margin: 0 0 var(--ds-space-4);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-text-muted);
+  max-width: 28rem;
+  margin-left: auto;
+  margin-right: auto;
+}

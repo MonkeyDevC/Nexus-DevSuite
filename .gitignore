@@ -9,14 +9,28 @@ node_modules/
 # Logs y salida
 logs/
 *.log
+
+# OpenAPI generado localmente (validación npm run validate:openapi)
+openapi.generated.json
 npm-debug.log*
 
 # Cobertura y tests
 coverage/
 .nyc_output/
 
-# Playwright artefacts (local)
+# Local archives
+*.zip
+*.rar
+*.7z
+
+# Playwright artifacts
+playwright-report/
 test-results/
+blob-report/
+playwright/.cache/
+
+# Generated QA screenshots
+screenshots/buttons/
 
 # Subida de archivos (avatares)
 public/uploads/

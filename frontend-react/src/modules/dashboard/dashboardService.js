@@ -1,5 +1,5 @@
 import { get } from "../../shared/http/index.js";
-import { unwrapSuccessData } from "../domain/apiEnvelope.js";
+import { unwrapSuccessData } from "../../shared/api/apiEnvelope.js";
 
 /**
  * @param {{ days?: number }} [opts] — ventana para actividad y altas de proyecto (default 30).

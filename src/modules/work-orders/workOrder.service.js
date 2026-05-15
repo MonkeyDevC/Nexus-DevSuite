@@ -16,6 +16,7 @@ const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
 const logger = require("../../config/logger");
 const { WORK_ORDER_STATUSES, WORK_ORDER_PRIORITIES, assertValidTransition, LEGACY_STATUS_ALIASES } = require("./workOrder.stateMachine");
+const { WORK_ORDER_KINDS } = require("./models/workOrder.model");
 
 async function assertStartDevelopmentRulesForWorkOrder(workOrder, context = {}) {
   // START_DEVELOPMENT mapping:
@@ -82,6 +83,12 @@ function normalizeStatusToMachine(status) {
   return LEGACY_STATUS_ALIASES[s] || s;
 }
 
+function normalizeWorkOrderKind(kind) {
+  if (!kind) return "WORK";
+  const k = String(kind).toUpperCase();
+  return WORK_ORDER_KINDS.includes(k) ? k : "WORK";
+}
+
 function getWorkOrderSequelize() {
   // Usamos WorkOrder.sequelize como fuente única del motor.
   const { getModels } = require("../../infrastructure/db/loadModels");
@@ -97,6 +104,7 @@ function toPlain(wo) {
     ot_number: o.ot_number,
     project_id: o.project_id,
     user_story_id: o.user_story_id,
+    kind: o.kind != null ? o.kind : "WORK",
     title: o.title,
     description: o.description,
     status: o.status,
@@ -105,7 +113,8 @@ function toPlain(wo) {
     delivery_id: o.delivery_id,
     created_by_user_id: o.created_by_user_id,
     created_at: o.created_at,
-    updated_at: o.updated_at
+    updated_at: o.updated_at,
+    version: o.version != null ? Number(o.version) : 0
   };
 }
 
@@ -192,6 +201,7 @@ async function createWorkOrder(projectId, userStoryId, payload, context) {
         project_id: projectId,
         user_story_id: userStoryId,
         ot_number: nextOt,
+        kind: normalizeWorkOrderKind(payload.kind),
         title: payload.title || "Work Order " + nextOt,
         description: payload.description ?? null,
         status: "PENDING",
@@ -280,13 +290,19 @@ async function listWorkOrders(projectId, params, organizationId) {
   }
   featureService.ensureProjectInOrg(project, organizationId);
   const page = Math.max(1, parseInt(params.page, 10) || 1);
-  const limit = Math.min(50, Math.max(1, parseInt(params.limit, 10) || 20));
+  const limit = Math.min(100, Math.max(1, parseInt(params.limit, 10) || 20));
   const status = params.status ? normalizeStatusToMachine(params.status) : undefined;
+  let kindFilter;
+  if (params.kind != null && String(params.kind).trim() !== "") {
+    const k = String(params.kind).toUpperCase();
+    if (WORK_ORDER_KINDS.includes(k)) kindFilter = k;
+  }
   const result = await workOrderRepository.listByProject(projectId, {
     page,
     limit,
     status,
-    user_story_id: params.user_story_id
+    user_story_id: params.user_story_id,
+    kind: kindFilter
   });
   return {
     data: result.items.map(toPlain),
@@ -314,6 +330,9 @@ async function updateWorkOrder(id, projectId, payload, context) {
   const updatePayload = {};
   if (payload.title !== undefined) updatePayload.title = String(payload.title).trim() || wo.title;
   if (payload.description !== undefined) updatePayload.description = payload.description;
+  if (payload.kind !== undefined) {
+    updatePayload.kind = normalizeWorkOrderKind(payload.kind);
+  }
   if (payload.priority !== undefined) {
     updatePayload.priority = payload.priority;
   }

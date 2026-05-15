@@ -1,0 +1,16 @@
+/**
+ * Sombras por profundidad (nivel 0 usa la sombra base de `.card` en projectDetailStack).
+ */
+
+.depthShadow1 {
+  box-shadow: var(--ds-shadow-lg);
+}
+
+.depthShadow2 {
+  box-shadow: var(--ds-shadow-xl);
+}
+
+.depthShadow3 {
+  box-shadow: var(--ds-shadow-xl);
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.18));
+}

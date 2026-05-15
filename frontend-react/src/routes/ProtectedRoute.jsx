@@ -6,7 +6,7 @@
  * Fecha: 2026-03-25
  * ----
  */
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../app/context/AuthContext.jsx";
 import { Navigate, useLocation } from "react-router-dom";
 
 export default function ProtectedRoute({ children }) {

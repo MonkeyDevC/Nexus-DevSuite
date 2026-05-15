@@ -39,7 +39,13 @@ async function listWorkOrdersController(req, res, next) {
     const limit = req.query.limit ? parseInt(req.query.limit, 10) : 20;
     const result = await workOrderService.listWorkOrders(
       req.params.projectId,
-      { page, limit, status: req.query.status, user_story_id: req.query.user_story_id },
+      {
+        page,
+        limit,
+        status: req.query.status,
+        user_story_id: req.query.user_story_id,
+        kind: req.query.kind
+      },
       req.organizationId
     );
     res.status(200).json(buildSuccess(result, { request_id: req.requestId || "no-request-id" }));

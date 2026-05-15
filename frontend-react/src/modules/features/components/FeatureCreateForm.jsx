@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 import { Button } from "../../../design-system/components/Button/Button.jsx";
 import { Input } from "../../../design-system/components/Input/Input.jsx";
 import { FormSection } from "../../../design-system/patterns/FormSection/FormSection.jsx";
-import wave1 from "../../../pages/wave1Surfaces.module.css";
+import wave1 from "../../../shared/wave1/wave1Surfaces.module.css";
 
 export default function FeatureCreateForm({ onCreated, disabled }) {
   const descId = useId();

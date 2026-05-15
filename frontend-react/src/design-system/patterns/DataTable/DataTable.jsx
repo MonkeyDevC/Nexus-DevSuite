@@ -12,6 +12,8 @@ import styles from "./DataTable.module.css";
  * @param {import("react").ReactNode} [props.toolbarEnd]
  * @param {string} [props.caption]
  * @param {(args: { column: object }) => import("react").ReactNode} [props.renderHeaderCell]
+ * @param {(row: object, rowIndex: number) => void} [props.onRowClick] — fila interactiva (a11y: Enter/Espacio)
+ * @param {(row: object, rowIndex: number) => string} [props.getRowAriaLabel]
  */
 export function DataTable({
   columns = [],
@@ -24,6 +26,8 @@ export function DataTable({
   toolbarStart,
   toolbarEnd,
   caption,
+  onRowClick,
+  getRowAriaLabel,
   className = "",
   wrapClassName = "",
   ...rest
@@ -75,8 +79,34 @@ export function DataTable({
           ) : (
             safeRows.map((row, rowIndex) => {
               const key = getRowKey ? getRowKey(row, rowIndex) : row?.id ?? rowIndex;
+              const interactive = typeof onRowClick === "function";
+              function handleRowClick() {
+                if (interactive) onRowClick(row, rowIndex);
+              }
+              function handleRowKeyDown(ev) {
+                if (!interactive) return;
+                if (ev.key === "Enter" || ev.key === " ") {
+                  ev.preventDefault();
+                  onRowClick(row, rowIndex);
+                }
+              }
+              const trClass = [styles.tr, interactive ? styles.trInteractive : ""].filter(Boolean).join(" ");
               return (
-                <tr key={key} className={styles.tr}>
+                <tr
+                  key={key}
+                  className={trClass}
+                  tabIndex={interactive ? 0 : undefined}
+                  role={interactive ? "button" : undefined}
+                  onClick={interactive ? handleRowClick : undefined}
+                  onKeyDown={interactive ? handleRowKeyDown : undefined}
+                  aria-label={
+                    interactive
+                      ? typeof getRowAriaLabel === "function"
+                        ? getRowAriaLabel(row, rowIndex)
+                        : "Abrir detalle de la fila"
+                      : undefined
+                  }
+                >
                   {safeColumns.map((c) => {
                     const value = row && c.key ? row[c.key] : undefined;
                     const content =

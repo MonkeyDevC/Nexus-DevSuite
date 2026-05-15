@@ -17,8 +17,9 @@ export default defineConfig(({ mode }) => {
   return {
     appType: "spa",
     plugins: [react()],
+    // En `vite` (dev), React debe ver "development" para overlays y asserts; en `vite build`, mode es "production".
     define: {
-      "process.env.NODE_ENV": JSON.stringify("production"),
+      "process.env.NODE_ENV": JSON.stringify(mode === "production" ? "production" : "development"),
     },
     // Vite 8 usa Oxc por defecto; en este repo necesitamos un build determinista de React
     // (sin `jsxDEV`) incluso cuando el entorno padre tenga NODE_ENV=test (E2E/CI).

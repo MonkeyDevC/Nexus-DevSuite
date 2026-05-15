@@ -27,6 +27,7 @@ export function mapFeatureDto(raw) {
     implementation_criteria,
     status: raw.status != null ? String(raw.status) : "",
     priority: raw.priority != null ? String(raw.priority) : "",
+    evidence_markdown: raw.evidence_markdown != null ? String(raw.evidence_markdown) : "",
     progress_pct: Number.isFinite(progressRaw) ? Math.min(100, Math.max(0, Math.round(progressRaw))) : 0,
     created_at: raw.created_at ?? null,
     updated_at: raw.updated_at ?? null,

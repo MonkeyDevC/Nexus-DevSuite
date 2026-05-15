@@ -1,5 +1,5 @@
-import { get, post, put, del } from "../../shared/http/index.js";
-import { unwrapSuccessData, toDomainError } from "../domain/apiEnvelope.js";
+import { get, post, put, del, patch } from "../../shared/http/index.js";
+import { unwrapSuccessData, toDomainError } from "../../shared/api/apiEnvelope.js";
 import { mapStoryDeleteResult, mapStoryDto, mapStoryListEnvelope } from "./storyDto.js";
 
 function qs(params) {
@@ -74,6 +74,31 @@ export async function createStory(featureId, payload) {
 export async function updateStory(storyId, payload) {
   try {
     const res = await put(`/stories/${encodeURIComponent(storyId)}`, payload);
+    const data = unwrapSuccessData(res);
+    return mapStoryDto(data);
+  } catch (e) {
+    throw toDomainError(e);
+  }
+}
+
+export async function updateStoryStatus(storyId, nextStatus) {
+  try {
+    const res = await patch(`/stories/${encodeURIComponent(storyId)}/status`, { status: nextStatus });
+    const data = unwrapSuccessData(res);
+    return mapStoryDto(data);
+  } catch (e) {
+    throw toDomainError(e);
+  }
+}
+
+/**
+ * Asigna o quita la historia de un sprint (`sprint_id` UUID o `null` para desasignar).
+ * Reglas en backend: refinement READY para asignar; no reasignar sin desasignar antes; sprint cerrado rechazado.
+ */
+export async function updateStorySprint(storyId, sprintId) {
+  try {
+    const body = { sprint_id: sprintId == null || sprintId === "" ? null : String(sprintId).trim() };
+    const res = await patch(`/stories/${encodeURIComponent(storyId)}/sprint`, body);
     const data = unwrapSuccessData(res);
     return mapStoryDto(data);
   } catch (e) {

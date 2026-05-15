@@ -40,6 +40,11 @@ function defineFeatureModel(sequelize) {
         allowNull: false,
         defaultValue: []
       },
+      evidence_markdown: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+        defaultValue: ""
+      },
       status: {
         type: DataTypes.ENUM("DRAFT", "APPROVED", "IN_PROGRESS", "DONE", "ARCHIVED"),
         allowNull: false,

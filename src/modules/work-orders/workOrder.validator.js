@@ -1,5 +1,6 @@
 const { body, param, query } = require("express-validator");
 const { WORK_ORDER_STATUSES, WORK_ORDER_PRIORITIES, ALL_ACCEPTED_STATUSES } = require("./workOrder.stateMachine");
+const { WORK_ORDER_KINDS } = require("./models/workOrder.model");
 
 const projectIdParamValidator = [param("projectId").isUUID().withMessage("projectId debe ser UUID")];
 const workOrderIdParamValidator = [param("workOrderId").isUUID().withMessage("workOrderId debe ser UUID")];
@@ -19,6 +20,7 @@ const updateWorkOrderValidator = [
   param("workOrderId").isUUID(),
   body("title").optional().trim().isLength({ max: 500 }),
   body("description").optional({ nullable: true }).trim(),
+  body("kind").optional().isIn(WORK_ORDER_KINDS),
   body("priority").optional().isIn(WORK_ORDER_PRIORITIES),
   body("assigned_to_user_id").optional({ nullable: true }).isUUID(),
   body("delivery_id").optional({ nullable: true }).isUUID(),
@@ -28,9 +30,10 @@ const updateWorkOrderValidator = [
 
 const listWorkOrdersQueryValidator = [
   query("page").optional().isInt({ min: 1 }).toInt(),
-  query("limit").optional().isInt({ min: 1, max: 50 }).toInt(),
+  query("limit").optional().isInt({ min: 1, max: 100 }).toInt(),
   query("status").optional().isIn(ALL_ACCEPTED_STATUSES),
-  query("user_story_id").optional().isUUID()
+  query("user_story_id").optional().isUUID(),
+  query("kind").optional().isIn(WORK_ORDER_KINDS)
 ];
 
 module.exports = {

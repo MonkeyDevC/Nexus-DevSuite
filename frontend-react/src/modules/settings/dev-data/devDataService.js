@@ -1,5 +1,5 @@
-import { resetDummyData } from "../../../services/devToolsApiClient.js";
-import { importProjects } from "../../../services/projectApiClient.js";
+import { resetDummyData } from "../../../shared/dev/devToolsApiClient.js";
+import { importProjects } from "../../projects/services/projectApiClient.js";
 import { validateAndNormalizeConfig } from "./devDataConfig.js";
 import { saveDevDataFeedback } from "./devDataConfig.js";
 import { buildImportPayload } from "./buildImportPayload.js";

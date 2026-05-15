@@ -3,7 +3,7 @@
  * Evita un frame del formulario antes del redirect.
  */
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../app/context/AuthContext.jsx";
 
 export default function PublicOnlyRoute({ children }) {
   const { isAuthenticated } = useAuth();

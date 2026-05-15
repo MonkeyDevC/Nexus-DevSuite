@@ -14,9 +14,13 @@ function defineUserStoryModel(sequelize) {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
       },
-      feature_id: {
+      project_id: {
         type: DataTypes.UUID,
         allowNull: false
+      },
+      feature_id: {
+        type: DataTypes.UUID,
+        allowNull: true
       },
       number: {
         type: DataTypes.INTEGER.UNSIGNED,
@@ -37,6 +41,21 @@ function defineUserStoryModel(sequelize) {
       implementation_criteria: {
         type: DataTypes.JSON,
         allowNull: true
+      },
+      evidence_markdown: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+        defaultValue: ""
+      },
+      refinement_status: {
+        type: DataTypes.ENUM("IDEA", "DRAFT", "REFINED", "READY"),
+        allowNull: false,
+        defaultValue: "DRAFT"
+      },
+      item_type: {
+        type: DataTypes.ENUM("STORY", "BUG", "TECH_TASK", "IMPROVEMENT"),
+        allowNull: false,
+        defaultValue: "STORY"
       },
       status: {
         type: DataTypes.ENUM(

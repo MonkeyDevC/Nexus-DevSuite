@@ -104,7 +104,15 @@ const env = {
    */
   DEV_DATA_RESET_ENABLED: asBoolean(process.env.DEV_DATA_RESET_ENABLED, false),
   SHUTDOWN_TIMEOUT_MS: asNumber(process.env.SHUTDOWN_TIMEOUT_MS, 10000),
-  SUBDOMAIN_BASE: getEnvValue("SUBDOMAIN_BASE") || ""
+  SUBDOMAIN_BASE: getEnvValue("SUBDOMAIN_BASE") || "",
+  /** Base absoluta opcional para OpenAPI servers (p. ej. https://api.example.com/api/v1). */
+  PUBLIC_API_BASE_URL: getEnvValue("PUBLIC_API_BASE_URL"),
+  /**
+   * Expone GET /api-docs y GET /api-docs.json. Por defecto true en development/test; false en production salvo override.
+   */
+  SWAGGER_ENABLED: asBoolean(process.env.SWAGGER_ENABLED, isNonProduction),
+  /** Regenerar spec en cada request (solo desarrollo; no cachear). */
+  SWAGGER_RELOAD: asBoolean(process.env.SWAGGER_RELOAD, false)
 };
 
 module.exports = {

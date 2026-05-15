@@ -8,11 +8,40 @@
  */
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAuth } from "../context/AuthContext.jsx";
-import { useUI } from "../context/UIContext.jsx";
+import {
+  Activity,
+  AlertTriangle,
+  BookOpen,
+  ChevronDown,
+  ClipboardList,
+  FileStack,
+  FolderKanban,
+  FolderOpen,
+  Kanban,
+  LayoutDashboard,
+  LayoutGrid,
+  Layers,
+  ListTree,
+  Rocket,
+  ScrollText,
+  Settings,
+  Shield,
+} from "lucide-react";
+import { useAuth } from "../app/context/AuthContext.jsx";
+import { useUI } from "../app/context/UIContext.jsx";
 import { canAccessRoute, hasPermission } from "../auth/authorization.js";
 import { BRAND_LOGO_FULL_PNG_SRC, BRAND_LOGO_PNG_SRC } from "../constants/brandAssets.js";
-import { isValidNexusUuid } from "../services/domainWorkCache.js";
+import { isValidNexusUuid } from "../shared/cache/domainWorkCache.js";
+import {
+  isProjectScopedStoryDetailPath,
+  STORY_DETAIL_FROM_QUERY,
+  STORY_DETAIL_FROM_BACKLOG,
+  STORY_DETAIL_FROM_FEATURE,
+  STORY_DETAIL_FROM_PROJECT,
+  STORY_DETAIL_FROM_USER_STORIES,
+} from "../shared/routing/storyDetailRouteContext.js";
+import { sprintsListUrl } from "../shared/routing/workspaceNavUrls.js";
+import TopbarGlobalSearch from "./TopbarGlobalSearch.jsx";
 import styles from "./MainLayout.module.css";
 
 const LAST_PROJECT_STORAGE_KEY = "nexus_sidebar_last_project_id";
@@ -54,7 +83,15 @@ function useSidebarProjectContext() {
 }
 
 function useScopedProjectIdFromPath() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const qs = new URLSearchParams(search);
+  const qProject = qs.get("project");
+  const qid = qProject != null ? String(qProject).trim() : "";
+
+  if (pathname === "/backlog" || pathname === "/sprints" || pathname === "/sprints/new") {
+    return isValidNexusUuid(qid) ? qid : null;
+  }
+
   const prefix = "/projects/";
   if (!pathname.startsWith(prefix)) return null;
   const rest = pathname.slice(prefix.length);
@@ -66,45 +103,57 @@ function useScopedProjectIdFromPath() {
  * Estado activo del bloque contextual por proyecto (rutas React montadas bajo /projects/:id).
  */
 function useProjectScopeNavState(projectId) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   return useMemo(() => {
     if (!projectId) {
       return {
         detail: false,
         backlog: false,
         features: false,
+        userStories: false,
         sprints: false,
         incidents: false,
         releases: false,
       };
     }
     const base = `/projects/${projectId}`;
+    const storyDetailHere = isProjectScopedStoryDetailPath(pathname, projectId);
+    const fromParam = storyDetailHere ? new URLSearchParams(search).get(STORY_DETAIL_FROM_QUERY) || "" : "";
+
     return {
-      detail: pathname === base,
-      backlog: pathname.startsWith(`${base}/backlog`) || pathname.startsWith(`${base}/stories`),
-      features: pathname.startsWith(`${base}/features`),
-      sprints: pathname.startsWith(`${base}/sprints`),
+      detail: pathname === base || (storyDetailHere && fromParam === STORY_DETAIL_FROM_PROJECT),
+      backlog:
+        pathname === "/backlog" ||
+        pathname.startsWith("/backlog/") ||
+        (storyDetailHere && fromParam === STORY_DETAIL_FROM_BACKLOG),
+      features: pathname.startsWith(`${base}/features`) || (storyDetailHere && fromParam === STORY_DETAIL_FROM_FEATURE),
+      userStories:
+        pathname.startsWith(`${base}/user-stories`) ||
+        (storyDetailHere && fromParam === STORY_DETAIL_FROM_USER_STORIES),
+      sprints:
+        pathname === "/sprints" ||
+        pathname.startsWith("/sprints/") ||
+        pathname.startsWith(`${base}/sprints`),
       incidents: pathname.startsWith(`${base}/incidents`),
       releases: pathname.startsWith(`${base}/releases`),
     };
-  }, [pathname, projectId]);
+  }, [pathname, search, projectId]);
 }
 
 function navClass({ isActive }) {
   return `${styles.navLink} ${isActive ? styles.navLinkActive : ""}`;
 }
 
-function IconSearch() {
+const NAV_ICON_PX = 18;
+const NAV_SUB_ICON_PX = 16;
+const NAV_ICON_STROKE = 2;
+
+/** Icono lineal alineado en rejilla del sidebar (Lucide, stroke uniforme). */
+function NavGlyph({ Icon, size = NAV_ICON_PX }) {
   return (
-    <svg className={styles.searchGlyph} width={16} height={16} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z"
-      />
-    </svg>
+    <span className={styles.navGlyph} aria-hidden>
+      <Icon size={size} strokeWidth={NAV_ICON_STROKE} />
+    </span>
   );
 }
 
@@ -147,191 +196,14 @@ function readInitialMobile() {
   return window.matchMedia(`(max-width: ${MOBILE_MAX}px)`).matches;
 }
 
-function IconBook() {
-  return (
-    <svg className={styles.navIcon} width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M2 3h7a4 4 0 014 4v14a3 3 0 00-3-3H2V3zm20 0h-7a4 4 0 00-4 4v14a3 3 0 013-3h8V3z"
-      />
-    </svg>
-  );
-}
-
-function IconDocuments() {
-  return (
-    <svg className={styles.navIcon} width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"
-      />
-      <path stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M14 2v6h6M8 13h8M8 17h8" />
-    </svg>
-  );
-}
-
-function IconDashboard() {
-  return (
-    <svg className={styles.navIcon} width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        d="M4 10.5L12 4l8 6.5V20a1 1 0 01-1 1h-5v-6H10v6H5a1 1 0 01-1-1v-9.5z"
-      />
-    </svg>
-  );
-}
-
-function IconFolder() {
-  return (
-    <svg className={styles.navIcon} width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3 7v12a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-      />
-    </svg>
-  );
-}
-
-/** Lista priorizada — backlog del proyecto. */
-function IconBacklogNav() {
-  return (
-    <svg className={styles.navIcon} width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"
-      />
-    </svg>
-  );
-}
-
-/** Capacidades / features. */
-function IconFeaturesNav() {
-  return (
-    <svg className={styles.navIcon} width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"
-      />
-    </svg>
-  );
-}
-
-/** Iteración / sprint. */
-function IconSprintsNav() {
-  return (
-    <svg className={styles.navIcon} width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
-      />
-    </svg>
-  );
-}
-
-function IconIncidentsNav() {
-  return (
-    <svg className={styles.navIcon} width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"
-      />
-    </svg>
-  );
-}
-
-function IconReleasesNav() {
-  return (
-    <svg className={styles.navIcon} width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3 12a9 9 0 0115-6.7L21 8M21 3v5h-5M21 12a9 9 0 01-15 6.7L3 16M3 21v-5h5"
-      />
-    </svg>
-  );
-}
-
-function IconShield() {
-  return (
-    <svg className={styles.navIcon} width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 3l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V7l8-4z"
-      />
-    </svg>
-  );
-}
-
-/** Icono de sección: hub / inicio (cuadrícula, estilo outline como los demás ítems). */
-function IconNavSectionInicio() {
-  return (
-    <svg className={styles.navIcon} width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 5a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM13 5a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1h-5a1 1 0 01-1-1V5zM4 14a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1v-5zM13 14a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1h-5a1 1 0 01-1-1v-5z"
-      />
-    </svg>
-  );
-}
-
-/** Icono de sección: operación / actividad en tiempo de ejecución. */
-function IconNavSectionOperacion() {
-  return (
-    <svg className={styles.navIcon} width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 12h2.5l2-6 3 12 2.5-6H20"
-      />
-    </svg>
-  );
-}
-
 function IconChevronCollapse({ open }) {
   return (
-    <svg
+    <ChevronDown
       className={`${styles.navSectionChevron} ${open ? styles.navSectionChevronOpen : ""}`}
-      width={16}
-      height={16}
-      viewBox="0 0 24 24"
-      fill="none"
+      size={16}
+      strokeWidth={2}
       aria-hidden
-    >
-      <path stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-    </svg>
+    />
   );
 }
 
@@ -372,33 +244,17 @@ function NavCollapsibleSection({
         </span>
         <IconChevronCollapse open={open} />
       </button>
-      {open ? (
-        <div id={panelId} role="region" aria-labelledby={btnId} className={styles.navSectionPanel}>
-          {children}
+      <div
+        className={`${styles.navSectionReveal} ${open ? styles.navSectionRevealOpen : ""}`}
+        aria-hidden={!open}
+      >
+        <div className={styles.navSectionRevealInner} inert={!open}>
+          <div id={panelId} role="region" aria-labelledby={btnId} className={styles.navSectionPanel}>
+            {children}
+          </div>
         </div>
-      ) : null}
+      </div>
     </div>
-  );
-}
-
-function IconSettings() {
-  return (
-    <svg className={styles.navIcon} width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 15a3 3 0 100-6 3 3 0 000 6z"
-      />
-      <path
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"
-      />
-    </svg>
   );
 }
 
@@ -529,6 +385,190 @@ function ScopeNavLink({ to, active, children, testId, onNavigate, title, icon })
   );
 }
 
+const PROJECTS_FEATURES_PANEL_ID = "main-nav-projects-features-panel";
+const PROJECTS_FEATURES_TOGGLE_ID = "main-nav-projects-features-toggle";
+
+const DOCUMENTATION_DOCUMENTS_PANEL_ID = "main-nav-documentation-documents-panel";
+const DOCUMENTATION_DOCUMENTS_TOGGLE_ID = "main-nav-documentation-documents-toggle";
+
+/**
+ * Projects con submenú colapsable para Features y User Stories (Backlog y Sprints en Planificación).
+ */
+function NavProjectsCollapsibleBranch({ effectiveProjectId, scopeNav, closeSidebarMobile, navClass }) {
+  const { pathname } = useLocation();
+  const [featuresOpen, setFeaturesOpen] = useState(true);
+
+  const isProjectsListActive = pathname === "/projects" || pathname === "/projects/";
+
+  useEffect(() => {
+    if (scopeNav.features || scopeNav.userStories) setFeaturesOpen(true);
+  }, [scopeNav.features, scopeNav.userStories]);
+
+  if (!effectiveProjectId) {
+    return (
+      <NavLink
+        to="/projects"
+        end
+        className={navClass}
+        title="Listado y gestión de proyectos"
+        onClick={closeSidebarMobile}
+      >
+        <NavGlyph Icon={FolderOpen} />
+        <span className={styles.navLinkText}>Projects</span>
+      </NavLink>
+    );
+  }
+
+  return (
+    <div className={styles.navProjectBranch} role="group" aria-label="Projects y submenú Features">
+      <div
+        className={[
+          styles.navProjectBranchHeader,
+          isProjectsListActive ? styles.navProjectBranchHeaderActive : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        <NavLink
+          to="/projects"
+          end
+          className={styles.navProjectBranchLinkInner}
+          title="Listado y gestión de proyectos"
+          onClick={closeSidebarMobile}
+        >
+          <NavGlyph Icon={FolderOpen} />
+          <span className={styles.navLinkText}>Projects</span>
+        </NavLink>
+        <button
+          type="button"
+          id={PROJECTS_FEATURES_TOGGLE_ID}
+          className={styles.navProjectBranchToggle}
+          aria-expanded={featuresOpen}
+          aria-controls={PROJECTS_FEATURES_PANEL_ID}
+          title={featuresOpen ? "Ocultar submenú Features y User Stories" : "Mostrar submenú Features y User Stories"}
+          aria-label={featuresOpen ? "Colapsar submenú Features y User Stories" : "Expandir submenú Features y User Stories"}
+          data-testid="nav-projects-features-collapse"
+          onClick={() => setFeaturesOpen((prev) => !prev)}
+        >
+          <IconChevronCollapse open={featuresOpen} />
+        </button>
+      </div>
+      <div
+        className={`${styles.navSubmenuReveal} ${featuresOpen ? styles.navSubmenuRevealOpen : ""}`}
+        aria-hidden={!featuresOpen}
+      >
+        <div className={styles.navSubmenuRevealInner} inert={!featuresOpen}>
+          <div
+            id={PROJECTS_FEATURES_PANEL_ID}
+            role="region"
+            aria-label="Features y User Stories del proyecto (submenú de Projects)"
+            className={styles.navProjectsChildSlot}
+          >
+            <ScopeNavLink
+              to={`/projects/${effectiveProjectId}/features`}
+              active={scopeNav.features}
+              testId="nav-scope-features"
+              title="Features del proyecto activo (bajo Projects)"
+              icon={<NavGlyph Icon={Layers} size={NAV_SUB_ICON_PX} />}
+              onNavigate={closeSidebarMobile}
+            >
+              Features
+            </ScopeNavLink>
+            <ScopeNavLink
+              to={`/projects/${effectiveProjectId}/user-stories`}
+              active={scopeNav.userStories}
+              testId="nav-scope-user-stories"
+              title="User stories por feature del proyecto activo"
+              icon={<NavGlyph Icon={ScrollText} size={NAV_SUB_ICON_PX} />}
+              onNavigate={closeSidebarMobile}
+            >
+              User Stories
+            </ScopeNavLink>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Documentación (padre) con submenú colapsable para Documentos — mismo patrón visual que Projects / Features.
+ */
+function NavDocumentationCollapsibleBranch({ closeSidebarMobile }) {
+  const { pathname } = useLocation();
+  const [documentsMenuOpen, setDocumentsMenuOpen] = useState(true);
+
+  const isDocumentationRouteActive =
+    pathname === "/documentation" || pathname === "/documentation/";
+  const isDocumentsRouteActive = pathname === "/documents" || pathname.startsWith("/documents/");
+
+  useEffect(() => {
+    if (isDocumentsRouteActive) setDocumentsMenuOpen(true);
+  }, [isDocumentsRouteActive]);
+
+  return (
+    <div className={styles.navProjectBranch} role="group" aria-label="Documentación y Documentos">
+      <div
+        className={[
+          styles.navProjectBranchHeader,
+          isDocumentationRouteActive ? styles.navProjectBranchHeaderActive : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        <NavLink
+          to="/documentation"
+          end
+          className={styles.navProjectBranchLinkInner}
+          data-testid="nav-documentation-link"
+          title="Guías y documentación funcional y técnica"
+          onClick={closeSidebarMobile}
+        >
+          <NavGlyph Icon={BookOpen} />
+          <span className={styles.navLinkText}>Documentación</span>
+        </NavLink>
+        <button
+          type="button"
+          id={DOCUMENTATION_DOCUMENTS_TOGGLE_ID}
+          className={styles.navProjectBranchToggle}
+          aria-expanded={documentsMenuOpen}
+          aria-controls={DOCUMENTATION_DOCUMENTS_PANEL_ID}
+          title={documentsMenuOpen ? "Ocultar submenú Documentos" : "Mostrar submenú Documentos"}
+          aria-label={documentsMenuOpen ? "Colapsar submenú Documentos" : "Expandir submenú Documentos"}
+          data-testid="nav-documentation-documents-collapse"
+          onClick={() => setDocumentsMenuOpen((prev) => !prev)}
+        >
+          <IconChevronCollapse open={documentsMenuOpen} />
+        </button>
+      </div>
+      <div
+        className={`${styles.navSubmenuReveal} ${documentsMenuOpen ? styles.navSubmenuRevealOpen : ""}`}
+        aria-hidden={!documentsMenuOpen}
+      >
+        <div className={styles.navSubmenuRevealInner} inert={!documentsMenuOpen}>
+          <div
+            id={DOCUMENTATION_DOCUMENTS_PANEL_ID}
+            role="region"
+            aria-label="Documentos (submenú de Documentación)"
+            className={styles.navProjectsChildSlot}
+          >
+            <ScopeNavLink
+              to="/documents"
+              active={isDocumentsRouteActive}
+              testId="nav-documents-link"
+              title="Documentos de plataforma y control documental ISO"
+              icon={<NavGlyph Icon={FileStack} size={NAV_SUB_ICON_PX} />}
+              onNavigate={closeSidebarMobile}
+            >
+              Documentos
+            </ScopeNavLink>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MainLayout() {
   const { user, logout } = useAuth();
   const { sidebarOpen, setSidebarOpen, toggleSidebar, theme, setTheme } = useUI();
@@ -624,7 +664,7 @@ export default function MainLayout() {
               sectionId="inicio"
               groupAriaLabel="Inicio"
               label="Inicio"
-              sectionIcon={<IconNavSectionInicio />}
+              sectionIcon={<NavGlyph Icon={LayoutGrid} />}
             >
               <NavLink
                 to="/dashboard"
@@ -633,9 +673,46 @@ export default function MainLayout() {
                 title="Ir al panel principal (dashboard)"
                 onClick={closeSidebarMobile}
               >
-                <IconDashboard />
-                Dashboard
+                <NavGlyph Icon={LayoutDashboard} />
+                <span className={styles.navLinkText}>Dashboard</span>
               </NavLink>
+            </NavCollapsibleSection>
+
+            <NavCollapsibleSection
+              sectionId="planificacion"
+              groupAriaLabel="Planificación"
+              label="Planificación"
+              sectionTestId="app-sidebar-planificacion"
+              sectionIcon={<NavGlyph Icon={ClipboardList} />}
+            >
+              {effectiveProjectId ? (
+                <>
+                  <ScopeNavLink
+                    to="/backlog"
+                    active={scopeNav.backlog}
+                    testId="nav-scope-backlog"
+                    title="Backlog de producto: elegir proyecto o continuar sin filtro"
+                    icon={<NavGlyph Icon={ListTree} size={NAV_SUB_ICON_PX} />}
+                    onNavigate={closeSidebarMobile}
+                  >
+                    Backlog
+                  </ScopeNavLink>
+                  <ScopeNavLink
+                    to={sprintsListUrl(effectiveProjectId)}
+                    active={scopeNav.sprints}
+                    testId="nav-scope-sprints"
+                    title="Sprint Backlog del proyecto activo"
+                    icon={<NavGlyph Icon={Kanban} size={NAV_SUB_ICON_PX} />}
+                    onNavigate={closeSidebarMobile}
+                  >
+                    Sprint Backlog
+                  </ScopeNavLink>
+                </>
+              ) : (
+                <span className={styles.scopeSubLabel} data-testid="app-sidebar-planificacion-hint">
+                  Abre un proyecto desde <strong>Proyectos</strong> para usar Backlog de producto y Sprint Backlog.
+                </span>
+              )}
             </NavCollapsibleSection>
 
             <NavCollapsibleSection
@@ -643,87 +720,28 @@ export default function MainLayout() {
               groupAriaLabel="Gestión de proyectos"
               label="Gestión de proyectos"
               sectionTestId="app-sidebar-project-scope"
-              sectionIcon={<IconFolder />}
+              sectionIcon={<NavGlyph Icon={FolderKanban} />}
             >
-              <NavLink
-                to="/projects"
-                className={navClass}
-                title="Listado y gestión de proyectos"
-                onClick={closeSidebarMobile}
-              >
-                <IconFolder />
-                Projects
-              </NavLink>
-              {effectiveProjectId ? (
-                <div
-                  className={styles.navSectionContextLinks}
-                  role="group"
-                  aria-label="Planificación del proyecto activo"
-                >
-                  <ScopeNavLink
-                    to={`/projects/${effectiveProjectId}/backlog`}
-                    active={scopeNav.backlog}
-                    testId="nav-scope-backlog"
-                    title="Backlog e historias del proyecto activo"
-                    icon={<IconBacklogNav />}
-                    onNavigate={closeSidebarMobile}
-                  >
-                    Backlog
-                  </ScopeNavLink>
-                  <ScopeNavLink
-                    to={`/projects/${effectiveProjectId}/features`}
-                    active={scopeNav.features}
-                    testId="nav-scope-features"
-                    title="Features del proyecto activo"
-                    icon={<IconFeaturesNav />}
-                    onNavigate={closeSidebarMobile}
-                  >
-                    Features
-                  </ScopeNavLink>
-                  <ScopeNavLink
-                    to={`/projects/${effectiveProjectId}/sprints`}
-                    active={scopeNav.sprints}
-                    testId="nav-scope-sprints"
-                    title="Sprints del proyecto activo"
-                    icon={<IconSprintsNav />}
-                    onNavigate={closeSidebarMobile}
-                  >
-                    Sprints
-                  </ScopeNavLink>
-                </div>
-              ) : (
+              <NavProjectsCollapsibleBranch
+                effectiveProjectId={effectiveProjectId}
+                scopeNav={scopeNav}
+                closeSidebarMobile={closeSidebarMobile}
+                navClass={navClass}
+              />
+              {!effectiveProjectId ? (
                 <span className={styles.scopeSubLabel} data-testid="app-sidebar-project-scope-hint">
-                  Abre un proyecto desde <strong>Projects</strong> para ver Backlog, Features y Sprints aquí.
+                  Abre un proyecto desde <strong>Projects</strong> para ver Features y el detalle aquí.
                 </span>
-              )}
+              ) : null}
             </NavCollapsibleSection>
 
             <NavCollapsibleSection
               sectionId="operacion"
               groupAriaLabel="Operación"
               label="Operación"
-              sectionIcon={<IconNavSectionOperacion />}
+              sectionIcon={<NavGlyph Icon={Activity} />}
             >
-              <NavLink
-                to="/documentation"
-                className={navClass}
-                data-testid="nav-documentation-link"
-                title="Guías y documentación funcional y técnica"
-                onClick={closeSidebarMobile}
-              >
-                <IconBook />
-                Documentación
-              </NavLink>
-              <NavLink
-                to="/documents"
-                className={navClass}
-                data-testid="nav-documents-link"
-                title="Documentos de plataforma y control documental ISO"
-                onClick={closeSidebarMobile}
-              >
-                <IconDocuments />
-                Documentos
-              </NavLink>
+              <NavDocumentationCollapsibleBranch closeSidebarMobile={closeSidebarMobile} />
               {effectiveProjectId ? (
                 <>
                   <ScopeNavLink
@@ -731,7 +749,7 @@ export default function MainLayout() {
                     active={scopeNav.incidents}
                     testId="nav-scope-incidents"
                     title="Incidencias del proyecto activo"
-                    icon={<IconIncidentsNav />}
+                    icon={<NavGlyph Icon={AlertTriangle} size={NAV_SUB_ICON_PX} />}
                     onNavigate={closeSidebarMobile}
                   >
                     Incidents
@@ -742,7 +760,7 @@ export default function MainLayout() {
                       active={scopeNav.releases}
                       testId="nav-scope-releases"
                       title="Releases del proyecto activo"
-                      icon={<IconReleasesNav />}
+                      icon={<NavGlyph Icon={Rocket} size={NAV_SUB_ICON_PX} />}
                       onNavigate={closeSidebarMobile}
                     >
                       Releases
@@ -761,7 +779,7 @@ export default function MainLayout() {
                 sectionId="admin"
                 groupAriaLabel="Administración"
                 label="Administración"
-                sectionIcon={<IconShield />}
+                sectionIcon={<NavGlyph Icon={Shield} />}
               >
                 <NavLink
                   to="/admin"
@@ -770,8 +788,8 @@ export default function MainLayout() {
                   title="Administración de usuarios, organización y auditoría"
                   onClick={closeSidebarMobile}
                 >
-                  <IconShield />
-                  Admin
+                  <NavGlyph Icon={Shield} />
+                  <span className={styles.navLinkText}>Admin</span>
                 </NavLink>
                 <NavLink
                   to="/settings"
@@ -780,8 +798,8 @@ export default function MainLayout() {
                   title="Ajustes de cuenta y preferencias"
                   onClick={closeSidebarMobile}
                 >
-                  <IconSettings />
-                  Ajustes
+                  <NavGlyph Icon={Settings} />
+                  <span className={styles.navLinkText}>Ajustes</span>
                 </NavLink>
               </NavCollapsibleSection>
             ) : null}
@@ -819,15 +837,7 @@ export default function MainLayout() {
                 <span className={styles.headerBrandLine2}>DevSuite</span>
               </span>
             </Link>
-            <div className={styles.searchWrap}>
-              <IconSearch />
-              <input
-                type="search"
-                className={styles.searchInput}
-                placeholder="Buscar"
-                aria-label="Buscar en la aplicación"
-              />
-            </div>
+            <TopbarGlobalSearch disabled={!user} />
           </div>
           <div className={styles.topbarRight}>
             <button
@@ -911,17 +921,17 @@ export default function MainLayout() {
 
                 <div className={styles.userMenuActions} role="group" aria-label="Acciones de cuenta">
                   <Link
-                    to="/settings"
+                    to="/account"
                     className={styles.userMenuRow}
-                    data-testid="app-user-menu-settings"
+                    data-testid="app-user-menu-account"
                     onClick={() => setUserMenuOpen(false)}
                   >
                     <span className={`${styles.userMenuIconBox} ${styles.userMenuIconBoxProfile}`}>
                       <IconUserMenuProfile />
                     </span>
                     <span className={styles.userMenuRowText}>
-                      <span className={styles.userMenuRowTitle}>Editar usuario</span>
-                      <span className={styles.userMenuRowDesc}>Ajustes de cuenta y preferencias</span>
+                      <span className={styles.userMenuRowTitle}>Mi cuenta</span>
+                      <span className={styles.userMenuRowDesc}>Nombre y foto de perfil</span>
                     </span>
                   </Link>
                   <button

@@ -1,5 +1,5 @@
 import { get } from "../../shared/http/index.js";
-import { unwrapSuccessData } from "../domain/apiEnvelope.js";
+import { unwrapSuccessData } from "../../shared/api/apiEnvelope.js";
 
 function qs(params) {
   const sp = new URLSearchParams();

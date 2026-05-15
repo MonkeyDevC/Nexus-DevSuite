@@ -3,6 +3,7 @@
  * Único punto de acceso a datos de user stories.
  */
 
+const { Op } = require("sequelize");
 const { getModels } = require("../../infrastructure/db/loadModels");
 
 function getUserStoryModel() {
@@ -77,6 +78,13 @@ async function findById(id, options = {}) {
   return UserStory.findByPk(id, options);
 }
 
+async function findByNumber(number) {
+  const UserStory = getUserStoryModel();
+  const n = Number(number);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return UserStory.findOne({ where: { number: n } });
+}
+
 async function findByIdWithAssignee(id) {
   const { UserStory, User, Sprint } = getModels();
   return UserStory.findByPk(id, {
@@ -119,7 +127,13 @@ async function listByFeature(featureId, { page = 1, limit = 10, status } = {}) {
 async function listByProject(projectId, { page = 1, limit = 10, status, feature_id, sprint_id, assigned_to } = {}) {
   const { UserStory, User, Sprint, Feature } = getModels();
   const offset = (page - 1) * limit;
-  const where = {};
+  const sequelize = UserStory.sequelize;
+  const where = {
+    [Op.or]: [
+      { project_id: projectId, feature_id: null },
+      sequelize.where(sequelize.col("feature.project_id"), projectId)
+    ]
+  };
   if (status) where.status = status;
   if (feature_id) where.feature_id = feature_id;
   if (sprint_id !== undefined && sprint_id !== "") {
@@ -128,7 +142,6 @@ async function listByProject(projectId, { page = 1, limit = 10, status, feature_
   if (assigned_to !== undefined && assigned_to !== "") {
     where.assigned_to = assigned_to === "null" || assigned_to === "unassigned" ? null : assigned_to;
   }
-  const sequelize = UserStory.sequelize;
   const { rows, count } = await UserStory.findAndCountAll({
     where,
     limit,
@@ -140,12 +153,21 @@ async function listByProject(projectId, { page = 1, limit = 10, status, feature_
       ["created_at", "DESC"]
     ],
     include: [
-      { model: Feature, as: "feature", where: { project_id: projectId }, attributes: ["id", "title"], required: true },
+      { model: Feature, as: "feature", attributes: ["id", "title"], required: false },
       { model: User, as: "assignee", attributes: ["id", "email", "name"], required: false },
       { model: Sprint, as: "sprint", attributes: ["id", "name"], required: false }
     ]
   });
   return { items: rows, total: count };
+}
+
+/**
+ * Desasocia historias de una feature (mantiene project_id). Usado al eliminar feature.
+ * @param {string} featureId
+ */
+async function unlinkStoriesFromFeature(featureId) {
+  const UserStory = getUserStoryModel();
+  await UserStory.update({ feature_id: null }, { where: { feature_id: featureId } });
 }
 
 async function update(id, payload) {
@@ -164,6 +186,7 @@ async function removeById(id) {
 module.exports = {
   create,
   findById,
+  findByNumber,
   findByIdWithAssignee,
   listByFeature,
   listByProject,
@@ -172,5 +195,6 @@ module.exports = {
   getMaxStoryNumber,
   getMaxStoryNumberGlobal,
   getStoryCountsByFeatureIds,
-  getStoryDoneCountsByFeatureIds
+  getStoryDoneCountsByFeatureIds,
+  unlinkStoriesFromFeature
 };

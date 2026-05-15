@@ -1,6 +1,4 @@
-# PLANTILLA UNIVERSAL DE PROMPTS — NEXUS V3 (ENTERPRISE ENGINEERING STANDARD)
-
-Esta plantilla define un estándar profesional para construir software sin ambigüedad, sin reprocesos y con alta mantenibilidad.
+ # Esta plantilla define un estándar profesional para construir software sin ambigüedad, sin reprocesos y con alta mantenibilidad.
 
 Está optimizada para:
 - sistemas complejos (SaaS, plataformas)
@@ -10,13 +8,97 @@ Está optimizada para:
 
 ---
 
+# 0) FASE DE COMPRENSIÓN DEL SISTEMA (OBLIGATORIA)
+
+Antes de escribir una sola línea de código, el agente debe ejecutar una fase explícita de entendimiento del sistema actual.
+
+Esta fase NO es opcional.
+
+---
+
+## 🎯 Objetivo
+
+Garantizar que cualquier implementación:
+- se construya sobre la realidad del sistema existente
+- respete la fuente única de verdad (SSOT)
+- evite duplicación de lógica
+- no rompa flujos existentes
+- no introduzca soluciones paralelas
+
+---
+
+## 🔍 Instrucciones obligatorias
+
+Antes de implementar, el agente debe:
+
+1. **Leer e inspeccionar el código actual relacionado con la funcionalidad**
+   - componentes involucrados
+   - hooks / estado
+   - servicios / APIs
+   - contratos de datos
+   - validaciones existentes
+
+2. **Identificar el flujo real de la funcionalidad**
+   - cómo inicia
+   - cómo evoluciona el estado
+   - qué eventos lo modifican
+   - cómo se refleja en UI
+
+3. **Detectar la fuente de verdad (SSOT)**
+   - ¿Dónde vive el estado real?
+   - ¿Quién decide si algo es válido o no?
+   - ¿Dónde se clasifica o calcula el estado?
+
+4. **Identificar dependencias críticas**
+   - módulos que consumen esta lógica
+   - efectos colaterales posibles
+   - puntos de acoplamiento
+
+5. **Evaluar problemas actuales**
+   - UX deficiente
+   - lógica fragmentada
+   - duplicación
+   - inconsistencias
+   - deuda técnica
+
+---
+
+## 🚫 Prohibiciones explícitas
+
+El agente NO debe:
+
+- implementar sin entender el flujo existente
+- duplicar lógica de validación o clasificación
+- crear estados paralelos innecesarios
+- romper contratos existentes sin justificación
+- asumir comportamiento sin verificarlo en código
+
+---
+
+## ✅ Resultado esperado de esta fase
+
+Antes de codificar, el agente debe tener claridad sobre:
+
+- cómo funciona actualmente el sistema
+- dónde intervenir correctamente
+- qué se puede reutilizar
+- qué se debe refactorizar
+- qué se debe eliminar
+
+---
+
+## 🧠 Regla de oro
+
+> “Primero entender, luego diseñar, y solo después implementar.”
+
+Si esta fase no se cumple, la implementación se considera inválida.
+
 # 1) ROL (PRECISIÓN ABSOLUTA)
 
 Define el rol con nivel, responsabilidad y stack.
 
 Formato obligatorio:
 
-```text
 ROL: [nivel exacto] + [responsabilidad] + [stack]
 
 Ejemplo:

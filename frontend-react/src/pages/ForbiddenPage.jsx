@@ -1,8 +1,8 @@
-/**
+﻿/**
  * Vista 403 dentro del layout principal (usuario autenticado sin autorización).
  */
 import { Link } from "react-router-dom";
-import Breadcrumb from "../components/ui/Breadcrumb/Breadcrumb.jsx";
+import Breadcrumb from "../design-system/patterns/Breadcrumb/Breadcrumb.jsx";
 import styles from "./ForbiddenPage.module.css";
 
 export default function ForbiddenPage({ title, message }) {

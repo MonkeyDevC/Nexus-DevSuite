@@ -1,5 +1,6 @@
 import { get, post, put, del } from "../../shared/http/index.js";
-import { unwrapSuccessData, toDomainError } from "../domain/apiEnvelope.js";
+import { unwrapSuccessData, toDomainError } from "../../shared/api/apiEnvelope.js";
+import { API_MAX_PROJECT_STORIES_PAGE_SIZE } from "../../shared/api/apiPaginationLimits.js";
 import { mapSprintDeleteResult, mapSprintDto, mapSprintListEnvelope } from "./sprintDto.js";
 
 function qs(params) {
@@ -23,6 +24,36 @@ export async function listSprints(projectId, { page = 1, limit = 50, status } = 
   } catch (e) {
     throw toDomainError(e);
   }
+}
+
+/** Límite máximo que acepta `GET .../sprints` en backend (ver sprint.service listSprints). */
+const SPRINT_LIST_API_MAX_PAGE_SIZE = 50;
+
+/**
+ * Todas las páginas de sprints del proyecto (evita perder sprints cuando hay más de una página).
+ * @param {string} projectId
+ * @param {{ status?: string }} [options]
+ */
+export async function listAllSprintsForProject(projectId, { status } = {}) {
+  const all = [];
+  let page = 1;
+  while (true) {
+    const { items, meta } = await listSprints(projectId, {
+      page,
+      limit: SPRINT_LIST_API_MAX_PAGE_SIZE,
+      status,
+    });
+    const batch = Array.isArray(items) ? items : [];
+    all.push(...batch);
+    const totalPages = Number(meta?.totalPages);
+    const isLastPage =
+      Number.isFinite(totalPages) && totalPages >= 1
+        ? page >= totalPages
+        : batch.length < SPRINT_LIST_API_MAX_PAGE_SIZE;
+    if (isLastPage) break;
+    page += 1;
+  }
+  return all;
 }
 
 export async function getSprint(sprintId) {
@@ -140,30 +171,43 @@ export async function fetchAllSprintStories(sprintId, { limit = 50 } = {}) {
   return { rows: merged, incomplete };
 }
 
-/** Historias READY sin sprint en el proyecto (sprint_id=unassigned). */
-export async function listReadyStoriesWithoutSprint(projectId, { page = 1, limit = 100 } = {}) {
+/**
+ * Historias sin sprint asignado y con refinement_status READY (requisito del API para asignar a sprint).
+ * No filtra por `status` de ejecución: el backend valida refinement, no el estado del workflow.
+ */
+export async function listReadyStoriesWithoutSprint(
+  projectId,
+  { limit = API_MAX_PROJECT_STORIES_PAGE_SIZE } = {}
+) {
   try {
-    const res = await get(
-      `/projects/${encodeURIComponent(projectId)}/stories${qs({
-        sprint_id: "unassigned",
-        status: "READY",
-        page,
-        limit,
-      })}`
-    );
-    const data = unwrapSuccessData(res);
-    const items = Array.isArray(data.items) ? data.items : [];
-    return items
-      .map((s) =>
-        s && s.id
-          ? {
-              id: String(s.id).trim(),
-              title: s.title != null ? String(s.title) : "",
-              status: s.status != null ? String(s.status) : "",
-            }
-          : null
-      )
-      .filter(Boolean);
+    const merged = [];
+    let page = 1;
+    while (true) {
+      const res = await get(
+        `/projects/${encodeURIComponent(projectId)}/stories${qs({
+          sprint_id: "unassigned",
+          page,
+          limit,
+        })}`
+      );
+      const data = unwrapSuccessData(res);
+      const batch = Array.isArray(data.items) ? data.items : [];
+      merged.push(...batch);
+      const totalPages = Number(data.totalPages);
+      const isLast =
+        Number.isFinite(totalPages) && totalPages >= 1 ? page >= totalPages : batch.length < limit;
+      if (isLast) break;
+      page += 1;
+      if (page > 50) break;
+    }
+    return merged
+      .filter((s) => s && String(s.refinement_status || "").trim().toUpperCase() === "READY")
+      .map((s) => ({
+        id: String(s.id).trim(),
+        title: s.title != null ? String(s.title) : "",
+        status: s.status != null ? String(s.status) : "",
+        refinement_status: s.refinement_status != null ? String(s.refinement_status) : "",
+      }));
   } catch (e) {
     throw toDomainError(e);
   }

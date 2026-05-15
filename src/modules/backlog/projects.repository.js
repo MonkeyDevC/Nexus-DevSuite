@@ -28,9 +28,21 @@ async function findById(id, options = {}) {
   return Project.findByPk(id, options);
 }
 
-async function findByNameAndOrganization(name, organizationId) {
+async function findByNameAndOrganization(name, organizationId, options = {}) {
   const Project = getProjectModel();
-  return Project.findOne({ where: { normalized_name: name, organization_id: organizationId } });
+  return Project.findOne({
+    where: { normalized_name: name, organization_id: organizationId },
+    transaction: options.transaction
+  });
+}
+
+async function findByOrganizationAndNumber(organizationId, number) {
+  const Project = getProjectModel();
+  const n = Number(number);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return Project.findOne({
+    where: { organization_id: organizationId, number: n }
+  });
 }
 
 async function findIdsByOrganization(organizationId) {
@@ -213,6 +225,7 @@ module.exports = {
   create,
   findById,
   findByNameAndOrganization,
+  findByOrganizationAndNumber,
   findIdsByOrganization,
   getMaxProjectNumber,
   getNextProjectNumberForOrganization,
