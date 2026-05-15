@@ -25,6 +25,17 @@ async function loginByApi(request, credentials = DEFAULT_MASTER_LOGIN) {
 async function seedSession(page, accessToken, refreshToken) {
   await page.addInitScript(
     ([a, r]) => {
+      // El HTTP layer prioriza localStorage sobre sessionStorage (`getTokenPair`).
+      // Sin limpiar localStorage, sesiones residuales del dev local pueden ganar y provocar 401 en E2E.
+      try {
+        localStorage.removeItem("nexus_access_token");
+        localStorage.removeItem("nexus_refresh_token");
+        // Si la última actividad es vieja, AuthContext expulsa la sesión y borra también sessionStorage.
+        localStorage.removeItem("nexus_last_activity_at");
+        localStorage.removeItem("nexus_session_login_at");
+      } catch {
+        /* ignore */
+      }
       sessionStorage.setItem("nexus_access_token", a);
       sessionStorage.setItem("nexus_refresh_token", r);
     },

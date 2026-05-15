@@ -434,7 +434,7 @@ test.describe("Backlog and work domains: navigation, empty states, deep links, a
     await expect(page.getByTestId("sprints-loading")).toHaveCount(0, { timeout: 60000 });
     const sprintsTable = page.getByTestId("sprints-table");
     await expect(sprintsTable).toBeVisible({ timeout: 30000 });
-    const sprintRowCount = await sprintsTable.locator("table tbody tr").count();
+    const sprintRowCount = await sprintsTable.locator("table tbody tr[role='button']").count();
     const sprintLinkCount = sprintRowCount;
 
     if (sprintCtx) {
@@ -448,7 +448,8 @@ test.describe("Backlog and work domains: navigation, empty states, deep links, a
       await assertOneMount();
       await expect(page.getByTestId("sprint-detail-header")).toBeVisible({ timeout: 60000 });
     } else if (sprintLinkCount > 0) {
-      await sprintsTable.locator("table tbody tr td:first-child button").first().click();
+      // DataTable: la fila completa es interactiva (onRowClick); la primera celda ya no es un botón.
+      await sprintsTable.locator("table tbody tr[role='button']").first().click();
       await assertOneMount();
       await expect(page.getByTestId("sprint-detail-header")).toBeVisible({ timeout: 30000 });
       await expect(page.getByTestId("sprint-detail-stories")).toBeVisible();
@@ -463,9 +464,9 @@ test.describe("Backlog and work domains: navigation, empty states, deep links, a
       await assertOneMount();
       await expect(page.getByTestId("sprints-root")).toBeVisible({ timeout: 30000 });
       await expect(sprintsTable).toBeVisible({ timeout: 30000 });
-      const rowsNav = await sprintsTable.locator("table tbody tr").count();
+      const rowsNav = await sprintsTable.locator("table tbody tr[role='button']").count();
       expect(rowsNav).toBeGreaterThan(0);
-      await sprintsTable.locator("table tbody tr td:first-child button").first().click();
+      await sprintsTable.locator("table tbody tr[role='button']").first().click();
       await assertOneMount();
       await expect(page.getByTestId("sprint-detail-header")).toBeVisible({ timeout: 30000 });
 

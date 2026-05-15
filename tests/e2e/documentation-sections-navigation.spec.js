@@ -22,7 +22,10 @@ test.describe("Documentation: functional and technical sections with deep link",
     await expect(page.getByTestId("documentation-panel-technical")).toBeVisible();
     await expect(page.locator(".nexus-doc-body")).toContainText("Arquitectura del sistema", { timeout: 15000 });
 
-    await page.getByRole("button", { name: "Documentos" }).click();
+    await page
+      .getByTestId("documentation-layout")
+      .getByRole("button", { name: "Documentos", exact: true })
+      .click();
     await expect(page.getByTestId("documentation-panel-documents")).toBeVisible();
     await expect(page.getByRole("link", { name: /Ir a Documentos/ })).toBeVisible();
 

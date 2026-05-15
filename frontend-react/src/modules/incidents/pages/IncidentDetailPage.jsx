@@ -15,6 +15,7 @@ import {
   logDev,
   setCachedProjectMeta,
 } from "../../../shared/cache/domainWorkCache.js";
+import { API_MAX_PROJECT_STORIES_PAGE_SIZE } from "../../../shared/api/apiPaginationLimits.js";
 import { useAuth } from "../../../app/context/AuthContext.jsx";
 import { hasPermission } from "../../../auth/authorization.js";
 import * as incidentService from "../incidentsService.js";
@@ -101,7 +102,9 @@ export default function IncidentDetailPage() {
       setIncident(data);
 
       try {
-        const stories = await incidentService.listProjectStoriesBrief(urlProjectId, { limit: 200 });
+        const stories = await incidentService.listProjectStoriesBrief(urlProjectId, {
+          limit: API_MAX_PROJECT_STORIES_PAGE_SIZE,
+        });
         if (data.story_id) {
           const found = stories.find((s) => String(s.id) === String(data.story_id));
           setStoryLabel(found ? `${found.title || found.id}` : String(data.story_id));

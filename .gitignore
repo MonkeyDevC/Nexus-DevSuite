@@ -18,8 +18,19 @@ npm-debug.log*
 coverage/
 .nyc_output/
 
-# Playwright artefacts (local)
+# Local archives
+*.zip
+*.rar
+*.7z
+
+# Playwright artifacts
+playwright-report/
 test-results/
+blob-report/
+playwright/.cache/
+
+# Generated QA screenshots
+screenshots/buttons/
 
 # Subida de archivos (avatares)
 public/uploads/

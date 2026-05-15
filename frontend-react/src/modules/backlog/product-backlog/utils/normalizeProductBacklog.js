@@ -4,6 +4,10 @@
  */
 
 import { isValidNexusUuid, logDev } from "../../../../shared/cache/domainWorkCache.js";
+import {
+  stripEmbeddedFeatureCodeFromTitle,
+  stripEmbeddedStoryCodeFromTitle,
+} from "../../../../shared/workspace/workItemHumanIds.js";
 
 /**
  * @typedef {object} NormalizedStory

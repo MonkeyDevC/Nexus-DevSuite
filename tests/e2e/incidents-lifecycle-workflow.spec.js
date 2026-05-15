@@ -67,7 +67,7 @@ test.describe("Incidents: create, transition, close with RCA, and list filtering
 
     await expect(page.getByTestId("incident-detail-root")).toBeVisible({ timeout: 30000 });
     await expect(page.locator("body")).toContainText(incTitle);
-    await expect(page.getByTestId("incident-detail-card")).toContainText(storyId);
+    await expect(page.getByTestId("incident-detail-card")).toContainText(`S ${ts}`);
 
     await page.getByTestId("incident-detail-edit").click();
     await expect(page.getByTestId("incident-editor-root")).toBeVisible({ timeout: 15000 });

@@ -4,10 +4,11 @@
  */
 import { get } from "../../../../shared/http/index.js";
 import { unwrapSuccessData } from "../../../../shared/api/apiEnvelope.js";
+import { API_MAX_PROJECT_STORIES_PAGE_SIZE } from "../../../../shared/api/apiPaginationLimits.js";
 import { getBacklogFeaturesForProject, getBacklogStoriesForFeature } from "../../backlogService.js";
 import { buildNormalizedProductBacklogModel } from "../utils/normalizeProductBacklog.js";
 
-const STORY_PAGE_SIZE = 100;
+const STORY_PAGE_SIZE = API_MAX_PROJECT_STORIES_PAGE_SIZE;
 
 /**
  * @param {object} item
@@ -84,10 +85,13 @@ export async function loadProductBacklogRaw(projectId) {
     const { items: features } = await getBacklogFeaturesForProject(projectId);
     const featureList = Array.isArray(features) ? features : [];
     const featureIds = featureList.map((f) => f?.id).filter((id) => id != null && String(id).trim() !== "");
-    const results = await Promise.all(featureIds.map((fid) => getBacklogStoriesForFeature(String(fid))));
+    const settled = await Promise.allSettled(
+      featureIds.map((fid) => getBacklogStoriesForFeature(String(fid)))
+    );
     rawStories = [];
-    for (let i = 0; i < featureIds.length; i += 1) {
-      const data = results[i];
+    for (const res of settled) {
+      if (res.status !== "fulfilled") continue;
+      const data = res.value;
       const storyItems = data && Array.isArray(data.items) ? data.items : [];
       rawStories.push(...storyItems);
     }

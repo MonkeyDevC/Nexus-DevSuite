@@ -1,5 +1,6 @@
 import { get, post, put, del } from "../../shared/http/index.js";
 import { unwrapSuccessData, toDomainError } from "../../shared/api/apiEnvelope.js";
+import { API_MAX_PROJECT_STORIES_PAGE_SIZE } from "../../shared/api/apiPaginationLimits.js";
 import { mapIncidentDeleteResult, mapIncidentDto, mapIncidentListEnvelope } from "./incidentDto.js";
 
 function qs(params) {
@@ -139,7 +140,10 @@ export async function closeIncident(incidentId, { root_cause_analysis } = {}) {
 }
 
 /** Stories del proyecto para selector opcional */
-export async function listProjectStoriesBrief(projectId, { page = 1, limit = 100 } = {}) {
+export async function listProjectStoriesBrief(
+  projectId,
+  { page = 1, limit = API_MAX_PROJECT_STORIES_PAGE_SIZE } = {}
+) {
   try {
     const res = await get(
       `/projects/${encodeURIComponent(projectId)}/stories${qs({ page, limit })}`

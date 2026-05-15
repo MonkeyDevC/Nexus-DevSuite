@@ -798,9 +798,14 @@ export default function SprintsPage() {
           sprints={sprints}
           breadcrumbItems={sprintCreateBreadcrumbs}
           onClose={() => setCreateOverlayOpen(false)}
-          onCreated={() => {
+          onCreated={(created) => {
             setCreateOverlayOpen(false);
-            load();
+            const sprintId = created && created.id ? String(created.id).trim() : "";
+            if (sprintId && isValidNexusUuid(urlProjectId)) {
+              navigate(sprintDetailUrl(sprintId, urlProjectId));
+              return;
+            }
+            void load();
           }}
           disabled={!canCreateSprint}
         />

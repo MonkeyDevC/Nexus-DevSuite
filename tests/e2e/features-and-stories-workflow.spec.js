@@ -34,9 +34,10 @@ test.describe("Features and stories: create, edit, delete with modal confirmatio
     await page.getByTestId("feature-create-form").locator("input").first().fill(featTitle);
     await page.getByTestId("feature-create-form").locator("textarea").first().fill("Desc inicial");
     await page.getByTestId("feature-create-form").getByRole("button", { name: /Crear/i }).click();
-    await expect(page.getByRole("button", { name: new RegExp(featTitle) })).toBeVisible({ timeout: 20000 });
+    const featureRowNameButton = page.getByTestId("feature-list-name-link").filter({ hasText: featTitle });
+    await expect(featureRowNameButton).toBeVisible({ timeout: 20000 });
 
-    await page.getByRole("button", { name: new RegExp(featTitle) }).click();
+    await featureRowNameButton.click();
     await expect(page.getByTestId("feature-detail-card")).toBeVisible({ timeout: 20000 });
     await page.getByRole("tab", { name: /Edición/i }).click();
     await page.getByTestId("feature-detail-card").locator("textarea").first().fill("Desc editada UI");

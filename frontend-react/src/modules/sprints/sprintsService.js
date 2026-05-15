@@ -1,5 +1,6 @@
 import { get, post, put, del } from "../../shared/http/index.js";
 import { unwrapSuccessData, toDomainError } from "../../shared/api/apiEnvelope.js";
+import { API_MAX_PROJECT_STORIES_PAGE_SIZE } from "../../shared/api/apiPaginationLimits.js";
 import { mapSprintDeleteResult, mapSprintDto, mapSprintListEnvelope } from "./sprintDto.js";
 
 function qs(params) {
@@ -170,13 +171,14 @@ export async function fetchAllSprintStories(sprintId, { limit = 50 } = {}) {
   return { rows: merged, incomplete };
 }
 
-const READY_FOR_SPRINT_LIST_PAGE_SIZE = 100;
-
 /**
  * Historias sin sprint asignado y con refinement_status READY (requisito del API para asignar a sprint).
  * No filtra por `status` de ejecución: el backend valida refinement, no el estado del workflow.
  */
-export async function listReadyStoriesWithoutSprint(projectId, { limit = READY_FOR_SPRINT_LIST_PAGE_SIZE } = {}) {
+export async function listReadyStoriesWithoutSprint(
+  projectId,
+  { limit = API_MAX_PROJECT_STORIES_PAGE_SIZE } = {}
+) {
   try {
     const merged = [];
     let page = 1;
