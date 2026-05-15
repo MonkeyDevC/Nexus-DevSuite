@@ -49,7 +49,13 @@ router.get(
   userIdParamValidator,
   getUserByIdController
 );
-router.put("/:id", authenticateMiddleware, authorizeMiddleware("MASTER"), updateUserValidator, updateUserController);
+router.put(
+  "/:id",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  updateUserValidator,
+  updateUserController
+);
 router.delete(
   "/:id",
   authenticateMiddleware,

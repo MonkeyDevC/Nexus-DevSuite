@@ -1,5 +1,5 @@
 import { get, patch, post } from "../../shared/http/index.js";
-import { unwrapSuccessData, toDomainError } from "../domain/apiEnvelope.js";
+import { unwrapSuccessData, toDomainError } from "../../shared/api/apiEnvelope.js";
 
 export async function listIsoDocuments(page = 1, limit = 10) {
   const res = await get(`/documents?page=${page}&limit=${limit}`);

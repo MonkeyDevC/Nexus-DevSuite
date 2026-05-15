@@ -10,6 +10,7 @@ const userStoryRepository = require("./userStory.repository");
 const authRepository = require("../auth/auth.repository");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
+const { stripEmbeddedProjectCodeFromName } = require("./workItemHumanCodes");
 
 const PROJECT_IMPORT_STATUSES = ["ACTIVE", "ARCHIVED"];
 const FEATURE_IMPORT_STATUSES = ["DRAFT", "APPROVED", "IN_PROGRESS", "DONE", "ARCHIVED"];
@@ -340,21 +341,24 @@ async function createProject(payload, context) {
       code: ERROR_CODES.PROJECT_NAME_REQUIRED
     });
   }
-  const normalizedNameToken = toNormalizedName(normalizedName);
-  const existing = await projectsRepository.findByNameAndOrganization(normalizedNameToken, organizationId);
-  if (existing) {
-    throw new AppError("Ya existe un proyecto con ese nombre", {
-      statusCode: 409,
-      code: ERROR_CODES.PROJECT_NAME_DUPLICATE
-    });
-  }
   const { Project } = getModels();
   const sequelize = Project.sequelize;
   const created = await sequelize.transaction(async (t) => {
     const nextNumber = await projectsRepository.getNextProjectNumberForOrganization(organizationId, t);
+    const displayCleanName = stripEmbeddedProjectCodeFromName(normalizedName, nextNumber) || normalizedName;
+    const normalizedNameToken = toNormalizedName(displayCleanName);
+    const existing = await projectsRepository.findByNameAndOrganization(normalizedNameToken, organizationId, {
+      transaction: t
+    });
+    if (existing) {
+      throw new AppError("Ya existe un proyecto con ese nombre", {
+        statusCode: 409,
+        code: ERROR_CODES.PROJECT_NAME_DUPLICATE
+      });
+    }
     const entity = await projectsRepository.create(
       {
-        name: normalizedName,
+        name: displayCleanName,
         normalized_name: normalizedNameToken,
         description: normalizeDescription(payload && payload.description),
         status: "ACTIVE",
@@ -491,8 +495,10 @@ async function updateProjectWithContext(id, payload, context) {
         code: ERROR_CODES.PROJECT_NAME_REQUIRED
       });
     }
-    updates.name = normalizedName;
-    updates.normalized_name = toNormalizedName(normalizedName);
+    const displayCleanName =
+      stripEmbeddedProjectCodeFromName(normalizedName, project.number) || normalizedName;
+    updates.name = displayCleanName;
+    updates.normalized_name = toNormalizedName(displayCleanName);
   }
   if (payload && payload.description !== undefined) {
     updates.description = normalizeDescription(payload.description);
@@ -579,7 +585,8 @@ async function archiveProjectWithContext(id, context) {
 }
 
 /**
- * Elimina en cascada datos ligados a los projectIds (features, historias, sprints, incidents, documents, proyecto).
+ * Elimina en cascada datos ligados a los projectIds (historias por project_id y/o feature,
+ * features, sprints, incidents, documents, proyecto).
  * Debe ejecutarse dentro de una transacción activa.
  */
 async function cascadeDeleteProjectsByIds(sequelize, projectIds, transaction) {
@@ -622,31 +629,35 @@ async function cascadeDeleteProjectsByIds(sequelize, projectIds, transaction) {
   );
   const featureIds = featureRows.map((r) => r.id);
 
+  /** Todas las historias del proyecto: por project_id (canónico) y/o por feature del proyecto. */
+  let storyRows;
   if (featureIds.length > 0) {
     const fph = buildPlaceholders(featureIds);
-    // Work Orders / Tasks vinculados a stories del proyecto
-    const storyRows = await sequelize.query(
-      `SELECT id FROM user_stories WHERE feature_id IN (${fph})`,
-      { type: sequelize.QueryTypes.SELECT, replacements: featureIds, transaction }
+    storyRows = await sequelize.query(
+      `SELECT DISTINCT id FROM user_stories WHERE project_id IN (${ph}) OR feature_id IN (${fph})`,
+      { type: sequelize.QueryTypes.SELECT, replacements: [...projectIds, ...featureIds], transaction }
     );
-    const storyIds = storyRows.map((r) => r.id);
-    if (storyIds.length > 0) {
-      const sph = buildPlaceholders(storyIds);
-      await safeExec(
-        `DELETE FROM implementation_steps WHERE work_order_id IN (SELECT id FROM work_orders WHERE user_story_id IN (${sph}))`,
-        storyIds
-      );
-      await safeExec(`DELETE FROM tasks WHERE user_story_id IN (${sph})`, storyIds);
-      await safeExec(`UPDATE work_orders SET delivery_id = NULL WHERE user_story_id IN (${sph})`, storyIds);
-      await safeExec(`DELETE FROM work_orders WHERE user_story_id IN (${sph})`, storyIds);
-    }
-
-    await sequelize.query(`UPDATE user_stories SET sprint_id = NULL WHERE feature_id IN (${fph})`, {
-      replacements: featureIds,
+  } else {
+    storyRows = await sequelize.query(`SELECT id FROM user_stories WHERE project_id IN (${ph})`, {
+      type: sequelize.QueryTypes.SELECT,
+      replacements: projectIds,
       transaction
     });
-    await sequelize.query(`DELETE FROM user_stories WHERE feature_id IN (${fph})`, {
-      replacements: featureIds,
+  }
+  const storyIds = storyRows.map((r) => r.id).filter(Boolean);
+
+  if (storyIds.length > 0) {
+    const sph = buildPlaceholders(storyIds);
+    await safeExec(`UPDATE incidents SET story_id = NULL WHERE story_id IN (${sph})`, storyIds);
+    await safeExec(
+      `DELETE FROM implementation_steps WHERE work_order_id IN (SELECT id FROM work_orders WHERE user_story_id IN (${sph}))`,
+      storyIds
+    );
+    await safeExec(`DELETE FROM tasks WHERE user_story_id IN (${sph})`, storyIds);
+    await safeExec(`UPDATE work_orders SET delivery_id = NULL WHERE user_story_id IN (${sph})`, storyIds);
+    await safeExec(`DELETE FROM work_orders WHERE user_story_id IN (${sph})`, storyIds);
+    await sequelize.query(`DELETE FROM user_stories WHERE id IN (${sph})`, {
+      replacements: storyIds,
       transaction
     });
   }

@@ -38,8 +38,12 @@ async function reorderProjectBacklog(projectId, { feature_ids = [], story_ids = 
     for (let i = 0; i < story_ids.length; i++) {
       const st = await userStoryRepository.findById(story_ids[i]);
       if (!st) continue;
-      const feat = await featureRepository.findById(st.feature_id);
-      if (!feat || feat.project_id !== projectId) continue;
+      let inProject = st.project_id === projectId;
+      if (!inProject && st.feature_id) {
+        const feat = await featureRepository.findById(st.feature_id);
+        inProject = Boolean(feat && feat.project_id === projectId);
+      }
+      if (!inProject) continue;
       await userStoryRepository.update(story_ids[i], { backlog_position: i });
     }
   }
@@ -119,7 +123,7 @@ async function getProjectBacklog(projectId, options = {}, organizationId) {
     };
   });
 
-  const stories = storyResult.items.map((s) => userStoryService.toPlain(s));
+  let stories = storyResult.items.map((s) => userStoryService.toPlain(s));
   if (labels && Array.isArray(labels) && labels.length > 0) {
     const set = new Set(labels.map((l) => String(l).toLowerCase()));
     stories = stories.filter((s) => {

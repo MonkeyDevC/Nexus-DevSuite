@@ -10,7 +10,11 @@ const MAP = {
   SPRINT_STORY_PROJECT_MISMATCH: { tone: "warning", userMessage: "La historia no pertenece al mismo proyecto." },
   STORY_ALREADY_IN_SPRINT: { tone: "warning", userMessage: "La historia ya está en un sprint; quítela antes de reasignar." },
   STORY_NOT_FOUND: { tone: "secondary", userMessage: "Historia no encontrada." },
-  STORY_NOT_READY_FOR_SPRINT: { tone: "warning", userMessage: "La historia debe estar en READY para asignarla." },
+  STORY_NOT_READY_FOR_SPRINT: {
+    tone: "warning",
+    userMessage:
+      "El refinamiento de la historia debe estar en READY para asignarla al sprint (edítala y sube refinamiento a READY).",
+  },
   STORY_IN_SPRINT: { tone: "warning", userMessage: "La historia está asignada a un sprint." },
   PROJECT_NOT_FOUND: { tone: "secondary", userMessage: "Proyecto no encontrado." },
   AUTH_FORBIDDEN: { tone: "danger", userMessage: "No autorizado." },

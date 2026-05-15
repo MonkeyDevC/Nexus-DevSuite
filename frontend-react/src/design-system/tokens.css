@@ -30,11 +30,13 @@
   --ds-color-shell-header-shadow: rgba(15, 23, 42, 0.04);
   --ds-color-shell-brand-hover-bg: rgba(255, 255, 255, 0.04);
   --ds-color-shell-focus-ring: rgba(147, 197, 253, 0.85);
-  --ds-color-shell-nav-section: rgba(248, 250, 252, 0.45);
-  --ds-color-shell-nav-link: rgba(248, 250, 252, 0.82);
-  --ds-color-shell-nav-link-hover-bg: rgba(255, 255, 255, 0.08);
-  --ds-color-shell-nav-active-bg: rgba(70, 95, 255, 0.35);
-  --ds-color-shell-nav-active-ring: rgba(147, 197, 253, 0.25);
+  --ds-color-shell-nav-section: rgba(248, 250, 252, 0.5);
+  --ds-color-shell-nav-link: rgba(248, 250, 252, 0.84);
+  --ds-color-shell-nav-link-hover-bg: rgba(255, 255, 255, 0.1);
+  /* Activo: superficie sobria + acento lateral (estilo admin enterprise, no solo “bloque azul”). */
+  --ds-color-shell-nav-active-bg: rgba(255, 255, 255, 0.1);
+  --ds-color-shell-nav-active-ring: rgba(255, 255, 255, 0.08);
+  --ds-color-shell-nav-active-bar: #7dd3fc;
   --ds-color-shell-divider: rgba(255, 255, 255, 0.1);
   --ds-color-shell-scope-muted: rgba(248, 250, 252, 0.38);
   --ds-color-shell-hint-border: rgba(255, 255, 255, 0.14);
@@ -126,6 +128,8 @@
   /* Motion */
   --ds-duration-fast: 120ms;
   --ds-duration-standard: 300ms;
+  /* Acordeón sidebar / submenús (150–300ms, alineado a guías dashboard SaaS) */
+  --ds-duration-sidebar-reveal: 240ms;
   --ds-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Layout / z-index shell */

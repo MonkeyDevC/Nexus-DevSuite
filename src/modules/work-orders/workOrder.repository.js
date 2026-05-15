@@ -41,12 +41,13 @@ async function findByIdAndProject(id, projectId, options = {}) {
   });
 }
 
-async function listByProject(projectId, { page = 1, limit = 20, status, user_story_id } = {}) {
+async function listByProject(projectId, { page = 1, limit = 20, status, user_story_id, kind } = {}) {
   const WorkOrder = getWorkOrderModel();
   const offset = (page - 1) * limit;
   const where = { project_id: projectId, deleted_at: null };
   if (status) where.status = status;
   if (user_story_id) where.user_story_id = user_story_id;
+  if (kind) where.kind = kind;
 
   const { rows, count } = await WorkOrder.findAndCountAll({
     where,

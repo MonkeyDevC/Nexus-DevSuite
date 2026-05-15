@@ -324,16 +324,20 @@ async function assignStoryToSprint(sprintId, storyId, context) {
       code: ERROR_CODES.STORY_NOT_FOUND
     });
   }
-  const feature = await featureRepository.findById(story.feature_id);
-  if (!feature || feature.project_id !== sprint.project_id) {
+  let storyProjectId = story.project_id != null && String(story.project_id).trim() !== "" ? String(story.project_id).trim() : null;
+  if (!storyProjectId && story.feature_id) {
+    const feature = await featureRepository.findById(story.feature_id);
+    storyProjectId = feature && feature.project_id ? String(feature.project_id).trim() : null;
+  }
+  if (!storyProjectId || storyProjectId !== String(sprint.project_id).trim()) {
     throw new AppError("La story no pertenece al mismo proyecto que el sprint", {
       statusCode: 400,
       code: ERROR_CODES.SPRINT_STORY_PROJECT_MISMATCH
     });
   }
-  if (story.status !== "READY") {
+  if (story.refinement_status !== "READY") {
     throw new AppError(
-      "Solo se pueden asignar al sprint stories en estado READY",
+      "Solo se pueden asignar al sprint stories con refinement_status READY",
       { statusCode: 400, code: ERROR_CODES.STORY_NOT_READY_FOR_SPRINT }
     );
   }

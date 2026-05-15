@@ -7,6 +7,7 @@ const { DataTypes } = require("sequelize");
 
 const WORK_ORDER_STATUSES = ["PENDING", "IN_PROGRESS", "IN_REVIEW", "DONE"];
 const WORK_ORDER_PRIORITIES = ["LOW", "MEDIUM", "HIGH"];
+const WORK_ORDER_KINDS = ["WORK", "REWORK"];
 
 function defineWorkOrderModel(sequelize) {
   return sequelize.define(
@@ -28,6 +29,11 @@ function defineWorkOrderModel(sequelize) {
       user_story_id: {
         type: DataTypes.UUID,
         allowNull: false
+      },
+      kind: {
+        type: DataTypes.ENUM(...WORK_ORDER_KINDS),
+        allowNull: false,
+        defaultValue: "WORK"
       },
       title: {
         type: DataTypes.STRING(500),
@@ -84,3 +90,4 @@ function defineWorkOrderModel(sequelize) {
 module.exports = defineWorkOrderModel;
 module.exports.WORK_ORDER_STATUSES = WORK_ORDER_STATUSES;
 module.exports.WORK_ORDER_PRIORITIES = WORK_ORDER_PRIORITIES;
+module.exports.WORK_ORDER_KINDS = WORK_ORDER_KINDS;

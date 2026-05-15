@@ -9,6 +9,9 @@ node_modules/
 # Logs y salida
 logs/
 *.log
+
+# OpenAPI generado localmente (validación npm run validate:openapi)
+openapi.generated.json
 npm-debug.log*
 
 # Cobertura y tests

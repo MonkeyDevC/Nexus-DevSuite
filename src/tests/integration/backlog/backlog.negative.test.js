@@ -154,6 +154,12 @@ describe("Backlog ETAPA 1 - QA negativo", () => {
       .expect(201);
     const storyId = createStory.body.data.id;
 
+    await request(app)
+      .patch(`/api/v1/stories/${storyId}`)
+      .set("Authorization", `Bearer ${masterToken}`)
+      .send({ refinement_status: "REFINED" })
+      .expect(200);
+
     const res = await request(app)
       .patch(`/api/v1/stories/${storyId}/status`)
       .set("Authorization", `Bearer ${masterToken}`)

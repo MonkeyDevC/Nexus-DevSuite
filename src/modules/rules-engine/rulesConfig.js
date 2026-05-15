@@ -15,7 +15,7 @@ const RULES_CONFIG = {
     name: "START_DEVELOPMENT",
     type: "BLOCK",
     userMessage: "No puedes iniciar desarrollo",
-    guidance: ["El sprint debe estar IN_PROGRESS (activo)", "La historia debe estar en READY"],
+    guidance: ["El sprint debe estar IN_PROGRESS (activo)", "La historia debe tener refinement_status READY"],
     rules: [
       {
         type: "block",
@@ -29,7 +29,7 @@ const RULES_CONFIG = {
                 expected: "IN_PROGRESS"
               },
               {
-                field: "story.status",
+                field: "story.refinement_status",
                 operator: "EQUALS",
                 value: "READY",
                 expected: "READY"

@@ -77,20 +77,40 @@ app.disable("x-powered-by");
 // Helmet: resto de cabeceras de seguridad (sin CSP por defecto).
 app.use(helmet({ contentSecurityPolicy: false }));
 // CSP explícita: compatible con Bootstrap CDN. style-src incluye 'unsafe-inline' porque la app usa estilos en línea (nav, vistas, progress bars).
-app.use(
-  helmet.contentSecurityPolicy({
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
-      styleSrc: ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
-      fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
-      imgSrc: ["'self'", "data:"],
-      connectSrc: ["'self'", "https://cdn.jsdelivr.net"],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: []
-    }
-  })
-);
+const defaultContentSecurityPolicy = helmet.contentSecurityPolicy({
+  directives: {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+    styleSrc: ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+    fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
+    imgSrc: ["'self'", "data:"],
+    connectSrc: ["'self'", "https://cdn.jsdelivr.net"],
+    objectSrc: ["'none'"],
+    upgradeInsecureRequests: []
+  }
+});
+
+/** CSP relajada solo para Swagger UI (bundles inline / eval). Resto de la app mantiene defaultContentSecurityPolicy. */
+const swaggerDocsContentSecurityPolicy = helmet.contentSecurityPolicy({
+  directives: {
+    defaultSrc: ["'self'"],
+    baseUri: ["'self'"],
+    scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
+    styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+    fontSrc: ["'self'", "https://cdn.jsdelivr.net", "data:"],
+    imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
+    connectSrc: ["'self'"],
+    objectSrc: ["'none'"]
+  }
+});
+
+app.use((req, res, next) => {
+  const p = req.path || "";
+  if (p === "/api-docs" || p === "/api-docs.json" || p.startsWith("/api-docs/")) {
+    return swaggerDocsContentSecurityPolicy(req, res, next);
+  }
+  return defaultContentSecurityPolicy(req, res, next);
+});
 app.use(
   cors({
     origin: corsOriginPolicy,
@@ -125,6 +145,7 @@ app.use(routes);
  * Excluye /api/* para no enmascarar 404 de API con HTML.
  */
 app.get(/^\/(?!api\/).*/, (req, res, next) => {
+  if (req.path.startsWith("/api-docs")) return next();
   if (req.method !== "GET") return next();
   const acceptsHtml =
     typeof req.headers.accept === "string" &&

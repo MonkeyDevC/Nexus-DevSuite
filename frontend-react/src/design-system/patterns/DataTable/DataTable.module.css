@@ -53,6 +53,23 @@
   background: var(--ds-color-neutral-muted);
 }
 
+.tbody .trInteractive {
+  cursor: pointer;
+}
+
+.tbody .trInteractive:hover {
+  background: var(--ds-color-neutral-muted);
+}
+
+.tbody .trInteractive:focus {
+  outline: none;
+}
+
+.tbody .trInteractive:focus-visible {
+  outline: 2px solid var(--ds-color-focus-ring);
+  outline-offset: -2px;
+}
+
 .tbody .tr:last-child {
   border-bottom: none;
 }

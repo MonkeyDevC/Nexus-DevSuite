@@ -1,0 +1,59 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+}
+
+.projectScopeStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+}
+
+/* Mismos tokens que TableProjects.module.css `.shell` para alinear con el panel de la tabla. */
+.projectScopeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--ds-projects-shell-border);
+  background: var(--ds-projects-shell-bg);
+  color: var(--ds-projects-shell-text);
+}
+
+.projectScopeLabel {
+  font-size: var(--ds-font-size-sm);
+  font-weight: var(--ds-font-weight-medium);
+  color: var(--ds-projects-shell-muted);
+  flex-shrink: 0;
+}
+
+.projectScopeSelect {
+  min-width: min(28rem, 100%);
+  flex: 1 1 16rem;
+}
+
+.pageTitle {
+  margin: 0 0 var(--ds-space-1);
+  font-family: var(--ds-font-family-heading);
+  font-size: var(--ds-font-size-xl);
+  font-weight: var(--ds-font-weight-semibold);
+  color: var(--ds-color-text-heading);
+}
+
+.createFeatureDialog {
+  max-width: min(42rem, 96vw);
+}
+
+.successBanner {
+  margin: 0;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-color-border);
+  background: var(--ds-color-success-muted);
+  color: var(--ds-color-text-primary);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+}

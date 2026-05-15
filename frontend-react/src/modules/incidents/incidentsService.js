@@ -1,5 +1,5 @@
 import { get, post, put, del } from "../../shared/http/index.js";
-import { unwrapSuccessData, toDomainError } from "../domain/apiEnvelope.js";
+import { unwrapSuccessData, toDomainError } from "../../shared/api/apiEnvelope.js";
 import { mapIncidentDeleteResult, mapIncidentDto, mapIncidentListEnvelope } from "./incidentDto.js";
 
 function qs(params) {

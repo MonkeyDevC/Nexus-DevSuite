@@ -1,0 +1,395 @@
+/* Panel resumen sprint — layout inspirado en mockup (cabecera + KPIs + ID). */
+
+.shell {
+  box-sizing: border-box;
+  border-radius: var(--ds-radius-lg);
+  background: linear-gradient(165deg, #252a38 0%, #1a1e28 48%, #151820 100%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  padding: var(--ds-space-4) var(--ds-space-5);
+  color: #e8eaef;
+}
+
+.topBar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--ds-space-3);
+}
+
+.editBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2) var(--ds-space-4);
+  border-radius: var(--ds-radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(180deg, rgba(90, 110, 150, 0.45) 0%, rgba(55, 70, 100, 0.55) 100%);
+  color: #e8eaef;
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.editBtn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.editBtn:focus-visible {
+  outline: 2px solid var(--ds-color-focus-ring, #6366f1);
+  outline-offset: 2px;
+}
+
+.editBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editIcon {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.headerMain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--ds-space-4) var(--ds-space-5);
+  padding: var(--ds-space-3) 0 var(--ds-space-5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.datesRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-3);
+  min-width: min(100%, 15rem);
+}
+
+.dateBlock {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-2);
+}
+
+.dateIcon {
+  color: rgba(232, 234, 239, 0.55);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.dateLabel {
+  display: block;
+  font-size: var(--ds-font-size-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(232, 234, 239, 0.5);
+  margin-bottom: var(--ds-space-1);
+}
+
+.dateValue {
+  font-size: var(--ds-font-size-sm);
+  font-variant-numeric: tabular-nums;
+  color: #f0f2f7;
+}
+
+.dateArrow {
+  color: rgba(232, 234, 239, 0.35);
+  font-size: var(--ds-font-size-lg);
+  user-select: none;
+}
+
+.dividerV {
+  width: 1px;
+  align-self: stretch;
+  min-height: 3rem;
+  background: rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+.goal {
+  flex: 1 1 12rem;
+  margin: 0;
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-body);
+  color: rgba(232, 234, 239, 0.88);
+}
+
+.goalMuted {
+  color: rgba(232, 234, 239, 0.45);
+  font-style: italic;
+}
+
+.statusCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  min-width: min(100%, 11rem);
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  flex-wrap: wrap;
+}
+
+.statusLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  font-size: var(--ds-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(232, 234, 239, 0.55);
+}
+
+.statusIconUi {
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.statusIconApi {
+  color: #d4a855;
+  flex-shrink: 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  border: 1px solid;
+}
+
+.badgeUiInactive {
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.5);
+  background: rgba(251, 146, 60, 0.12);
+}
+
+.badgeUiActive {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.45);
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.badgeUiCompleted {
+  color: #93c5fd;
+  border-color: rgba(147, 197, 253, 0.45);
+  background: rgba(147, 197, 253, 0.08);
+}
+
+.badgeApiPlanned {
+  color: #e8c547;
+  border-color: rgba(232, 197, 71, 0.5);
+  background: rgba(232, 197, 71, 0.1);
+}
+
+.badgeApiProgress {
+  color: #67e8f9;
+  border-color: rgba(103, 232, 249, 0.45);
+  background: rgba(103, 232, 249, 0.1);
+}
+
+.badgeApiClosed {
+  color: #a1a1aa;
+  border-color: rgba(161, 161, 170, 0.45);
+  background: rgba(161, 161, 170, 0.12);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--ds-space-3);
+  margin-top: var(--ds-space-4);
+}
+
+@media (max-width: 900px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .headerMain {
+    flex-direction: column;
+  }
+
+  .dividerV {
+    width: 100%;
+    height: 1px;
+    min-height: 0;
+  }
+}
+
+.statTile {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-4);
+  border-radius: var(--ds-radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.statIcon {
+  flex-shrink: 0;
+  color: rgba(232, 234, 239, 0.45);
+}
+
+.statBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  min-width: 0;
+}
+
+.statLabel {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(232, 234, 239, 0.45);
+}
+
+.statValue {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #f5f6f9;
+  line-height: 1.1;
+}
+
+.progressBlock {
+  margin-top: var(--ds-space-5);
+  padding-top: var(--ds-space-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.progressLabel {
+  font-size: var(--ds-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(232, 234, 239, 0.5);
+  margin: 0 0 var(--ds-space-2);
+}
+
+.progressTrack {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  transition: width 0.35s ease;
+}
+
+.progressPct {
+  margin: var(--ds-space-2) 0 0;
+  font-size: var(--ds-font-size-sm);
+  color: rgba(232, 234, 239, 0.65);
+}
+
+.footerId {
+  margin: var(--ds-space-4) 0 0;
+  padding-top: var(--ds-space-2);
+  text-align: center;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  color: rgba(232, 234, 239, 0.28);
+  word-break: break-all;
+}
+
+/* Historias del sprint — mismo contenedor .shell + tipografía alineada al resumen */
+
+.storiesHeading {
+  margin: 0 0 var(--ds-space-2);
+  font-family: var(--ds-font-family-heading);
+  font-size: var(--ds-font-size-lg);
+  font-weight: var(--ds-font-weight-semibold);
+  color: #f5f6f9;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.storiesDescription {
+  margin: 0 0 var(--ds-space-5);
+  font-family: var(--ds-font-family-sans);
+  font-size: var(--ds-font-size-sm);
+  line-height: var(--ds-line-height-body);
+  color: rgba(232, 234, 239, 0.55);
+  max-width: 48rem;
+}
+
+.storiesStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+}
+
+.storiesTableSection {
+  margin: 0;
+  width: 100%;
+}
+
+/**
+ * DataTable usa tokens DS en su wrap/thead/celdas; aquí los redefinimos en el ámbito
+ * del wrap para igualar superficies tipo .statTile (inset oscuro).
+ */
+.tableWrapDark {
+  --ds-color-surface: rgba(0, 0, 0, 0.22);
+  --ds-color-surface-raised: rgba(0, 0, 0, 0.38);
+  --ds-color-border: rgba(255, 255, 255, 0.08);
+  --ds-color-border-subtle: rgba(255, 255, 255, 0.06);
+  --ds-color-text: #e8eaef;
+  --ds-color-text-heading: #f5f6f9;
+  --ds-color-text-muted: rgba(232, 234, 239, 0.52);
+  --ds-color-neutral-muted: rgba(255, 255, 255, 0.07);
+  border-radius: var(--ds-radius-md);
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.emptyStories {
+  box-sizing: border-box;
+  padding: var(--ds-space-8) var(--ds-space-4);
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--ds-radius-md);
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.emptyStoriesTitle {
+  margin: 0 0 var(--ds-space-2);
+  font-family: var(--ds-font-family-heading);
+  font-size: var(--ds-font-size-md);
+  font-weight: var(--ds-font-weight-semibold);
+  color: #f5f6f9;
+}
+
+.emptyStoriesDesc {
+  margin: 0;
+  font-size: var(--ds-font-size-sm);
+  color: rgba(232, 234, 239, 0.55);
+  line-height: var(--ds-line-height-body);
+}

@@ -16,9 +16,9 @@ import {
   Tag,
   Workflow,
 } from "lucide-react";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../app/context/AuthContext.jsx";
 import { BRAND_LOGO_PNG_SRC } from "../constants/brandAssets.js";
-import { consumeExpiryFlashMessage } from "../services/sessionActivity.js";
+import { consumeExpiryFlashMessage } from "../shared/session/sessionActivity.js";
 import { mapLoginFailureToUserMessage } from "../utils/loginErrorMessage.js";
 import { Button } from "../design-system/components/Button/Button.jsx";
 import { Card } from "../design-system/components/Card/Card.jsx";

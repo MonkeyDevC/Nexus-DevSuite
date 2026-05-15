@@ -2,7 +2,7 @@
  * Autorización tras autenticación: sin redirigir a login; muestra 403 si no cumple requisitos.
  * Usar solo bajo ProtectedRoute / MainLayout.
  */
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../app/context/AuthContext.jsx";
 import { hasPermission, hasRole, canAccessRoute } from "../auth/authorization.js";
 import ForbiddenPage from "../pages/ForbiddenPage.jsx";
 

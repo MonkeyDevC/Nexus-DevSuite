@@ -1,0 +1,102 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-size-xs);
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.trigger:hover:not(:disabled) {
+  background: var(--ds-color-surface-sunken);
+  color: var(--ds-color-text);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--ds-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.trigger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.triggerActive {
+  border-color: var(--ds-color-primary, #3b82f6);
+  background: var(--ds-color-primary-muted, rgba(59, 130, 246, 0.12));
+  color: var(--ds-color-primary, #2563eb);
+}
+
+.triggerDot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ds-color-primary, #3b82f6);
+  pointer-events: none;
+}
+
+.triggerWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.menuPortal {
+  position: fixed;
+  z-index: 1200;
+  min-width: 12rem;
+  max-width: min(20rem, 90vw);
+  max-height: min(18rem, 50vh);
+  overflow: auto;
+  padding: var(--ds-space-1) 0;
+  margin: 0;
+  list-style: none;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface-raised);
+  box-shadow: var(--ds-shadow-md, 0 8px 24px rgba(0, 0, 0, 0.12));
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--ds-font-size-sm);
+  text-align: left;
+  color: var(--ds-color-text);
+  cursor: pointer;
+}
+
+.menuItem:hover,
+.menuItem:focus-visible {
+  background: var(--ds-color-surface-sunken);
+  outline: none;
+}
+
+.menuItemSelected {
+  font-weight: 600;
+  background: var(--ds-color-surface-sunken);
+}
+
+.menuDivider {
+  height: 1px;
+  margin: var(--ds-space-1) 0;
+  background: var(--ds-color-border-subtle);
+  border: none;
+}

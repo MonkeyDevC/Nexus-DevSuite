@@ -6,7 +6,13 @@ export function mapSprintDto(raw) {
   if (!raw || typeof raw !== "object") return null;
   const id = raw.id != null ? String(raw.id).trim() : "";
   if (!id) return null;
-  const name = typeof raw.name === "string" && raw.name.trim() !== "" ? raw.name.trim() : null;
+  const nameRaw = raw.name;
+  const name =
+    typeof nameRaw === "string"
+      ? nameRaw.trim()
+      : nameRaw != null && String(nameRaw).trim() !== ""
+        ? String(nameRaw).trim()
+        : "";
   if (!name) return null;
   return {
     id,
@@ -22,12 +28,21 @@ export function mapSprintDto(raw) {
 }
 
 export function mapSprintListEnvelope(data) {
-  if (!data || typeof data !== "object") {
+  if (data == null) {
     return { items: [], meta: {} };
   }
-  const raw = Array.isArray(data.data) ? data.data : [];
+  /** Soporta `{ data: Sprint[] }`, `{ items: Sprint[] }` o el array suelto (por si el envelope variara). */
+  let raw = [];
+  let meta = {};
+  if (Array.isArray(data)) {
+    raw = data;
+  } else if (typeof data === "object") {
+    if (Array.isArray(data.data)) raw = data.data;
+    else if (Array.isArray(data.items)) raw = data.items;
+    if (data.meta && typeof data.meta === "object") meta = data.meta;
+  }
   const items = raw.map(mapSprintDto).filter(Boolean);
-  return { items, meta: data.meta && typeof data.meta === "object" ? data.meta : {} };
+  return { items, meta };
 }
 
 export function mapSprintDeleteResult(data) {

@@ -1,5 +1,5 @@
 import { get } from "../../shared/http/index.js";
-import { unwrapSuccessData } from "../domain/apiEnvelope.js";
+import { unwrapSuccessData } from "../../shared/api/apiEnvelope.js";
 
 export async function getBacklogProject(projectId) {
   const res = await get(`/projects/${encodeURIComponent(projectId)}`);

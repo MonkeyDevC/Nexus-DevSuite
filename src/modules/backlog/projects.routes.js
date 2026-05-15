@@ -16,6 +16,7 @@ const {
   createFeatureController,
   listFeaturesController,
   listProjectStoriesController,
+  createProjectStoryController,
   getProjectBacklogController,
   reorderProjectBacklogController
 } = require("./backlog.controller");
@@ -30,7 +31,8 @@ const {
   listQueryValidator,
   bulkDeleteProjectsValidator,
   reorderBacklogValidator,
-  evidenceImageQueryValidator
+  evidenceImageQueryValidator,
+  createProjectStoryValidator
 } = require("./backlog.validator");
 const {
   createSprintController,
@@ -66,6 +68,14 @@ router.post("/:projectId/sprints", authenticateMiddleware, authorizeMiddleware("
 router.get("/:projectId/incidents", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), incidentProjectIdParamValidator, listIncidentsQueryValidator, listIncidentsController);
 router.post("/:projectId/incidents", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), incidentProjectIdParamValidator, createIncidentValidator, createIncidentController);
 router.get("/:projectId/stories", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), projectIdAsParamValidator, listQueryValidator, listProjectStoriesController);
+router.post(
+  "/:projectId/stories",
+  authenticateMiddleware,
+  authorizeMiddleware("MASTER", "EMPLOYEE"),
+  projectIdAsParamValidator,
+  createProjectStoryValidator,
+  createProjectStoryController
+);
 router.get("/:projectId/backlog", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), projectIdAsParamValidator, getProjectBacklogController);
 router.post("/:projectId/backlog/order", authenticateMiddleware, authorizeMiddleware("MASTER", "EMPLOYEE"), projectIdAsParamValidator, reorderBacklogValidator, reorderProjectBacklogController);
 router.post(

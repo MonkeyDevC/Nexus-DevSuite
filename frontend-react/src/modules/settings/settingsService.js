@@ -1,5 +1,5 @@
 import { get } from "../../shared/http/index.js";
-import { unwrapSuccessData } from "../domain/apiEnvelope.js";
+import { unwrapSuccessData } from "../../shared/api/apiEnvelope.js";
 
 /**
  * GET /auth/roles — mismo origen que legacy settings.js (solo MASTER).

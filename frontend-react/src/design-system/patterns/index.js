@@ -12,3 +12,9 @@ export { FormPage } from "./FormPage/FormPage.jsx";
 export { SettingsLayout } from "./SettingsLayout/SettingsLayout.jsx";
 export { ReportLayout } from "./ReportLayout/ReportLayout.jsx";
 export { WorkspaceShell } from "./WorkspaceShell/WorkspaceShell.jsx";
+export {
+  TableColumnFilter,
+  TableColumnFilterTrigger,
+  TableColumnFilterMenu,
+  ClearTableFiltersAction,
+} from "./TableColumnFilter/index.js";

@@ -1,0 +1,130 @@
+---
+description: Arquitectura frontend React (Nexus DevSuite) — ownership, capas y convenciones post–Fase 3
+alwaysApply: false
+---
+
+# Arquitectura frontend — Nexus DevSuite (React + Vite)
+
+Documento de gobernanza estructural del frontend en `frontend-react/src/`. Complementa `NEXUS_ARCHITECTURE_CONTEXT.mdc` y `NEXUS_CODE_MAINTENANCE_STANDARDS.mdc` con el **layout de carpetas y reglas de import** tras la normalización Fase 3.
+
+## 1. Ownership por dominio
+
+- **`modules/<dominio>/`** es el dueño de la lógica de pantalla, componentes y servicios de ese dominio (features, stories, sprints, incidents, releases, projects, dashboard, documents, documentation, admin, settings, etc.).
+- Cada dominio expone una **API pública acotada** vía `modules/<dominio>/index.js` cuando exista; el resto son rutas internas del módulo.
+- **`shared/`**: infraestructura transversal (HTTP helpers, caché, mappers wave1, utilidades). **No** es dueño de reglas de negocio de un dominio concreto.
+- **`design-system/`**: piezas de UI reutilizables y agnósticas de dominio (`components/`, `patterns/`, tokens). **No** importar contextos de dominio ni servicios de módulos.
+- **`app/`**: shell de aplicación (`App.jsx`, `router.jsx`, `context/` global Auth + UI, `components/` de sesión/bootstrap).
+- **`pages/`**: **entrypoints finos** para el router. Pantallas de negocio deben **implementarse** en `modules/<dominio>/pages/*Page.jsx` y re-exportarse desde `pages/*.jsx` con una sola línea cuando el router ya apunta a `pages/`.
+
+## 2. Uso de `shared/`
+
+- **Correcto**: utilidades HTTP, normalización genérica, caché de metadatos, mappers presentacionales compartidos.
+- **Incorrecto**: colocar aquí componentes de una feature concreta o estado de dominio “por comodidad”.
+
+## 3. Uso de `design-system/`
+
+- **Componentes base**: `design-system/components/<Nombre>/`.
+- **Patrones compositos** (Breadcrumb, ConfirmModal, DataTable, etc.): `design-system/patterns/<Nombre>/`.
+- **Modal canónico**: `design-system/components/Modal/Modal.jsx` — no reintroducir shims en `src/components/`.
+
+## 4. Reglas para `pages/` delgadas
+
+- **Si** la pantalla es de negocio y existe (o debe existir) el módulo dueño → **entonces** la implementación vive en `modules/<dominio>/pages/` y `pages/<X>.jsx` solo re-exporta.
+- **Si** la pantalla es entrypoint global no dominio (login, legal, forbidden) → **entonces** puede permanecer implementada en `pages/`.
+- **Prohibido** en esta fase: `app/pages/` como carpeta canónica.
+
+## 5. Prohibición de `src/components/` global
+
+- **No** usar `frontend-react/src/components/` como destino de piezas nuevas.
+- Objetivo: carpeta **vacía** o ausente; piezas que antes vivían aquí pasan a `app/components/`, `modules/<dominio>/components/` o `design-system/`.
+
+## 6. Context: app vs dominio
+
+- **Shell global** (`AuthContext`, `UIContext`): `app/context/`.
+- **Contexto de dominio** (p. ej. `ProjectContext`): `modules/<dominio>/context/`.
+- **Si** un provider es usado en toda la app pero es específico de un dominio → **entonces** no lo subas a `app/context/`.
+
+## 7. API pública por `index.js`
+
+- **Si** un consumidor **externo al módulo** necesита un símbolo → **entonces** debe importarlo desde `modules/<dominio>/index.js` (export explícito), no desde rutas profundas internas salvo excepción documentada.
+- El barrel debe listar solo lo estable como contrato; evitar exportar “todo el árbol”.
+
+## 8. Deep imports cross-domain
+
+- **Prohibido**: desde `modules/A/` importar directamente archivos internos de `modules/B/` (p. ej. `modules/B/internal/helper.js`).
+- **Permitido**: importar desde el **`index.js` público** de `modules/B` si el equipo ha acordado ese contrato.
+- **Excepción temporal**: debe quedar **documentada en el código o en esta regla** con motivo y fecha/ticket de eliminación.
+
+## 9. Naming estructural
+
+- Páginas de dominio: sufijo **`Page`** + `*Page.jsx` bajo `modules/<dominio>/pages/`.
+- CSS co-ubicado: `*Page.module.css` junto a la página cuando aplique.
+- Patrones y componentes DS: carpeta PascalCase coincidente con el nombre del componente principal.
+
+## 10. Trazabilidad al romper una convención
+
+Quien rompa una regla anterior debe:
+
+1. Añadir un comentario breve en el archivo (por qué, ticket/enlace, plan de corrección), **o**
+2. Actualizar este `.mdc` en la sección de deuda explícita.
+
+---
+
+## Reglas SI / ENTONCES (mínimo exigido)
+
+1. **Si** el componente no conoce entidades de negocio y solo recibe props genéricas → **entonces** puede vivir en `design-system/`.
+2. **Si** el componente usa `organizationId`, tipos de dominio o servicios de un módulo → **entonces** **no** va en `design-system/`; va en `modules/<dominio>/`.
+3. **Si** añades una pantalla de backlog/proyecto/admin/etc. → **entonces** implementas en `modules/<dominio>/pages/` y dejas `pages/` como re-export.
+4. **Si** necesitas `useAuth` o tema global → **entonces** importas desde `app/context/…`, no desde una carpeta `src/context/` eliminada.
+5. **Si** necesitas un símbolo de otro dominio → **entonces** usas su `index.js` público o coordinas un contrato nuevo; no acoples rutas internas.
+6. **Si** consideras poner algo en `src/components/` → **entonces** te detienes y eliges `app/`, `modules/` o `design-system/` según ownership.
+
+---
+
+## Ejemplos correctos
+
+```js
+// Consumidor externo del dominio projects
+import { ProjectProvider, useProjectContext } from "../../modules/projects/index.js";
+
+// UI pura
+import Breadcrumb from "../../design-system/patterns/Breadcrumb/Breadcrumb.jsx";
+import Modal from "../../design-system/components/Modal/Modal.jsx";
+
+// Página de dominio
+// modules/dashboard/pages/DashboardPage.jsx
+```
+
+## Ejemplos incorrectos
+
+```js
+// Import interno cruzado sin contrato público
+import { algo } from "../../modules/features/internals/privateHelper.js";
+
+// Shim local duplicando el DS
+// src/components/ui/Modal/Modal.jsx  → NO reintroducir
+
+// Lógica de negocio en design-system
+// design-system/patterns/X usando storiesService → NO
+```
+
+---
+
+## Deuda explícita (post–Fase 3)
+
+- **Separación `workspace/` vs `detail/`** en `modules/projects/components/`: no ejecutada en Fase 3; requiere criterio inequívoco y cadena de imports sin refactor profundo. Mantener como trabajo futuro si el equipo prioriza claridad de subcarpetas.
+
+---
+
+## Referencia rápida de carpetas
+
+| Ubicación | Rol |
+|-----------|-----|
+| `app/context/` | Auth, UI shell |
+| `app/components/` | Session guard, splash, modales de inactividad |
+| `modules/<d>/pages/` | Implementación de pantallas de negocio |
+| `modules/<d>/context/` | Estado de dominio (p. ej. proyecto activo) |
+| `design-system/components/` | Primitivas UI |
+| `design-system/patterns/` | Composición reutilizable |
+| `pages/` | Re-exports y pantallas no-dominio |
+| `shared/` | Transversal no dominio |

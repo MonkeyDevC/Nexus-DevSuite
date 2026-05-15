@@ -10,10 +10,19 @@ const featureService = require("./feature.service");
 const usersRepository = require("../users/users.repository");
 const sprintRepository = require("../sprints/sprint.repository");
 const rulesOrchestratorService = require("../rules-engine/rulesOrchestrator.service");
-const { validateTransition, ENTITY_TYPES } = require("./workflow.validator");
+const { validateTransition, ENTITY_TYPES, normalizeWorkflowStatus } = require("./workflow.validator");
 const authRepository = require("../auth/auth.repository");
 const { AppError } = require("../../shared/errors/AppError");
 const { ERROR_CODES } = require("../../shared/errors/errorCodes");
+const { normalizeEvidenceMarkdownForPersistence } = require("./evidenceMarkdown");
+const {
+  assertCoherenceAfterPatch,
+  assertRefinementTransitionAllowed,
+  refinementRank
+} = require("./userStory.refinementRules");
+const { stripEmbeddedStoryCodeFromTitle } = require("./workItemHumanCodes");
+
+const VALID_ITEM_TYPES = new Set(["STORY", "BUG", "TECH_TASK", "IMPROVEMENT"]);
 
 function toPlain(story) {
   if (!story) return null;
@@ -23,13 +32,17 @@ function toPlain(story) {
   const feature = s.feature ? { id: s.feature.id, title: s.feature.title || null } : null;
   return {
     id: s.id,
-    feature_id: s.feature_id,
+    project_id: s.project_id != null ? s.project_id : null,
+    feature_id: s.feature_id != null ? s.feature_id : null,
     feature,
     number: s.number,
     title: s.title,
     description: s.description,
     acceptance_criteria: s.acceptance_criteria,
     implementation_criteria: s.implementation_criteria,
+    evidence_markdown: s.evidence_markdown == null ? "" : String(s.evidence_markdown),
+    refinement_status: s.refinement_status != null ? s.refinement_status : "DRAFT",
+    item_type: s.item_type != null ? s.item_type : "STORY",
     status: s.status,
     priority: s.priority,
     story_points: s.story_points != null ? s.story_points : null,
@@ -45,6 +58,18 @@ function toPlain(story) {
     created_at: s.created_at,
     updated_at: s.updated_at
   };
+}
+
+async function resolveStoryProjectId(story) {
+  if (!story) return null;
+  if (story.project_id != null && String(story.project_id).trim() !== "") {
+    return String(story.project_id).trim();
+  }
+  if (story.feature_id) {
+    const f = await featureRepository.findById(story.feature_id);
+    return f && f.project_id ? String(f.project_id).trim() : null;
+  }
+  return null;
 }
 
 function ensureAuditContext(context) {
@@ -80,11 +105,24 @@ async function createStory(featureId, payload, context = {}) {
     });
   }
   const nextNumber = (await userStoryRepository.getMaxStoryNumberGlobal()) + 1;
+  const body = { ...payload };
+  delete body.status;
+  delete body.project_id;
+  delete body.refinement_status;
+  const itemType =
+    body.item_type != null && VALID_ITEM_TYPES.has(String(body.item_type).trim())
+      ? String(body.item_type).trim()
+      : "STORY";
+  delete body.item_type;
   const created = await userStoryRepository.create({
-    ...payload,
+    ...body,
     feature_id: featureId,
+    project_id: feature.project_id,
     number: nextNumber,
-    created_by: context.user?.id
+    created_by: context.user?.id,
+    status: "DRAFT",
+    refinement_status: "DRAFT",
+    item_type: itemType
   });
   return toPlain(created);
 }
@@ -97,9 +135,9 @@ async function getStoryById(id, organizationId) {
       code: ERROR_CODES.STORY_NOT_FOUND
     });
   }
-  const feature = await featureRepository.findById(story.feature_id);
-  if (feature) {
-    const project = await projectsRepository.findById(feature.project_id);
+  const projectId = await resolveStoryProjectId(story);
+  if (projectId) {
+    const project = await projectsRepository.findById(projectId);
     if (project) featureService.ensureProjectInOrg(project, organizationId);
   }
   return toPlain(story);
@@ -146,12 +184,19 @@ async function updateStoryStatus(id, nextStatus, context) {
       code: ERROR_CODES.STORY_NOT_FOUND
     });
   }
-  const feature = await featureRepository.findById(story.feature_id);
-  if (feature) {
-    const project = await projectsRepository.findById(feature.project_id);
+  const storyProjectIdForStatus = await resolveStoryProjectId(story);
+  if (storyProjectIdForStatus) {
+    const project = await projectsRepository.findById(storyProjectIdForStatus);
     if (project) featureService.ensureProjectInOrg(project, context.organizationId);
   }
   const currentStatus = story.status;
+  if (normalizeWorkflowStatus(currentStatus) === normalizeWorkflowStatus(nextStatus)) {
+    return {
+      success: true,
+      data: toPlain(story),
+      rule: { executionId: null, warnings: [] }
+    };
+  }
   let statusRuleWarnings = [];
   let statusRuleExecutionId = null;
   if (currentStatus === "DRAFT" && nextStatus === "READY") {
@@ -185,7 +230,8 @@ async function updateStoryStatus(id, nextStatus, context) {
         status: sprint.status
       },
       story: {
-        status: story.status
+        status: story.status,
+        refinement_status: story.refinement_status != null ? story.refinement_status : "DRAFT"
       }
     };
     if (!startContext.sprint || !startContext.story) {
@@ -219,6 +265,8 @@ async function updateStoryStatus(id, nextStatus, context) {
       statusRuleWarnings = ruleResult.warnings;
     }
   }
+  assertCoherenceAfterPatch(story, { status: nextStatus });
+
   validateTransition(ENTITY_TYPES.STORY, currentStatus, nextStatus);
 
   const updatePayload = { status: nextStatus };
@@ -257,9 +305,9 @@ async function assignStory(id, assignedToUserId, context) {
       code: ERROR_CODES.STORY_NOT_FOUND
     });
   }
-  const feature = await featureRepository.findById(story.feature_id);
-  if (feature) {
-    const project = await projectsRepository.findById(feature.project_id);
+  const projectId = await resolveStoryProjectId(story);
+  if (projectId) {
+    const project = await projectsRepository.findById(projectId);
     if (project) featureService.ensureProjectInOrg(project, context.organizationId);
   }
   if (assignedToUserId != null) {
@@ -283,11 +331,14 @@ async function updateStorySprint(id, sprintId, context) {
       code: ERROR_CODES.STORY_NOT_FOUND
     });
   }
-  const feature = await featureRepository.findById(story.feature_id);
-  if (!feature) {
-    throw new AppError("Feature no encontrada", { statusCode: 404, code: ERROR_CODES.FEATURE_NOT_FOUND });
+  const projectId = await resolveStoryProjectId(story);
+  if (!projectId) {
+    throw new AppError("Historia sin proyecto resoluble", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR
+    });
   }
-  const project = await projectsRepository.findById(feature.project_id);
+  const project = await projectsRepository.findById(projectId);
   if (project) featureService.ensureProjectInOrg(project, context.organizationId);
 
   if (sprintId == null || String(sprintId).trim() === "") {
@@ -328,9 +379,11 @@ async function updateStorySprint(id, sprintId, context) {
     });
   }
 
-  if (story.status !== "READY") {
+  if (story.refinement_status !== "READY") {
     throw new AppError(
-      "Solo se pueden asignar al sprint stories en estado READY. La story está en estado " + story.status + ".",
+      "Solo se pueden asignar al sprint stories con refinement_status READY. Valor actual: " +
+        String(story.refinement_status || "") +
+        ".",
       { statusCode: 400, code: ERROR_CODES.STORY_NOT_READY_FOR_SPRINT }
     );
   }
@@ -344,7 +397,7 @@ async function updateStorySprint(id, sprintId, context) {
       code: ERROR_CODES.SPRINT_CLOSED
     });
   }
-  if (sprint.project_id !== feature.project_id) {
+  if (String(sprint.project_id).trim() !== projectId) {
     throw new AppError("El sprint no pertenece al proyecto de la story", {
       statusCode: 400,
       code: ERROR_CODES.INVALID_ASSIGNMENT
@@ -372,13 +425,15 @@ async function updateStory(id, payload, context) {
       code: ERROR_CODES.STORY_NOT_FOUND
     });
   }
-  const feature = await featureRepository.findById(story.feature_id);
-  if (feature) {
-    const project = await projectsRepository.findById(feature.project_id);
+  const projectId = await resolveStoryProjectId(story);
+  if (projectId) {
+    const project = await projectsRepository.findById(projectId);
     if (project) featureService.ensureProjectInOrg(project, context.organizationId);
   }
   const updatePayload = {};
-  if (payload.title !== undefined) updatePayload.title = payload.title;
+  if (payload.title !== undefined) {
+    updatePayload.title = stripEmbeddedStoryCodeFromTitle(payload.title, story.number);
+  }
   if (payload.description !== undefined) updatePayload.description = payload.description;
   if (payload.priority !== undefined) updatePayload.priority = payload.priority;
   if (payload.acceptance_criteria !== undefined) updatePayload.acceptance_criteria = payload.acceptance_criteria;
@@ -399,7 +454,39 @@ async function updateStory(id, payload, context) {
   if (payload.story_points !== undefined) updatePayload.story_points = payload.story_points === null || payload.story_points === "" ? null : Number(payload.story_points);
   if (payload.labels !== undefined) updatePayload.labels = Array.isArray(payload.labels) ? payload.labels : (payload.labels == null ? null : [payload.labels]);
   if (payload.backlog_position !== undefined) updatePayload.backlog_position = payload.backlog_position === null || payload.backlog_position === "" ? null : Math.max(0, parseInt(payload.backlog_position, 10));
+  if (payload.evidence_markdown !== undefined) {
+    updatePayload.evidence_markdown = normalizeEvidenceMarkdownForPersistence(payload.evidence_markdown);
+  }
+  if (payload.item_type !== undefined) {
+    const it = String(payload.item_type).trim();
+    if (!VALID_ITEM_TYPES.has(it)) {
+      throw new AppError("item_type inválido", {
+        statusCode: 400,
+        code: ERROR_CODES.VALIDATION_ERROR,
+        details: { item_type: payload.item_type }
+      });
+    }
+    updatePayload.item_type = it;
+  }
+  if (payload.refinement_status !== undefined) {
+    const from = story.refinement_status != null ? String(story.refinement_status).trim() : "DRAFT";
+    const to = String(payload.refinement_status).trim();
+    const isMaster = context?.user?.role === "MASTER";
+    assertRefinementTransitionAllowed(from, to, isMaster);
+    if (isMaster && refinementRank(to) < refinementRank(from)) {
+      const auditCtx = ensureAuditContext(context);
+      await authRepository.createAuditLog({
+        ...auditCtx,
+        action: "REFINEMENT_STATUS_OVERRIDE",
+        entity: "USER_STORY",
+        entity_id: id,
+        metadata: { from, to }
+      });
+    }
+    updatePayload.refinement_status = to;
+  }
   if (Object.keys(updatePayload).length === 0) return toPlain(story);
+  assertCoherenceAfterPatch(story, updatePayload);
   const updated = await userStoryRepository.update(id, updatePayload);
   return toPlain(updated);
 }
@@ -414,9 +501,9 @@ async function deleteStory(id, context = {}) {
       code: ERROR_CODES.STORY_NOT_FOUND
     });
   }
-  const feature = await featureRepository.findById(story.feature_id);
-  if (feature) {
-    const project = await projectsRepository.findById(feature.project_id);
+  const storyProjectId = await resolveStoryProjectId(story);
+  if (storyProjectId) {
+    const project = await projectsRepository.findById(storyProjectId);
     if (project) featureService.ensureProjectInOrg(project, context.organizationId);
   }
   if (story.sprint_id != null && String(story.sprint_id).trim() !== "") {
@@ -451,9 +538,83 @@ async function deleteStory(id, context = {}) {
   return { id };
 }
 
+async function createStoryForProject(projectId, payload, context = {}) {
+  const pid = String(projectId).trim();
+  if (payload.project_id != null && String(payload.project_id).trim() !== "" && String(payload.project_id).trim() !== pid) {
+    throw new AppError("project_id del body no coincide con la URL", {
+      statusCode: 400,
+      code: ERROR_CODES.STORY_PROJECT_ID_BODY_MISMATCH,
+      details: { path: pid, body: payload.project_id }
+    });
+  }
+  if (payload.status != null && String(payload.status).trim() !== "" && String(payload.status).trim() !== "DRAFT") {
+    throw new AppError("Solo se permite crear historias con status DRAFT", {
+      statusCode: 400,
+      code: ERROR_CODES.VALIDATION_ERROR,
+      details: { status: payload.status }
+    });
+  }
+  const project = await projectsRepository.findById(pid);
+  if (!project) {
+    throw new AppError("Proyecto no encontrado", {
+      statusCode: 404,
+      code: ERROR_CODES.PROJECT_NOT_FOUND
+    });
+  }
+  featureService.ensureProjectInOrg(project, context.organizationId);
+
+  let featureId = null;
+  if (payload.feature_id != null && String(payload.feature_id).trim() !== "") {
+    featureId = String(payload.feature_id).trim();
+    const feature = await featureRepository.findById(featureId);
+    if (!feature || String(feature.project_id).trim() !== pid) {
+      throw new AppError("feature_id no pertenece al proyecto indicado", {
+        statusCode: 400,
+        code: ERROR_CODES.VALIDATION_ERROR,
+        details: { feature_id: featureId }
+      });
+    }
+    if (feature.status === "ARCHIVED") {
+      throw new AppError("No se puede crear story en feature archivada", {
+        statusCode: 400,
+        code: ERROR_CODES.FEATURE_ARCHIVED
+      });
+    }
+  }
+
+  const nextNumber = (await userStoryRepository.getMaxStoryNumberGlobal()) + 1;
+  const body = { ...payload };
+  delete body.project_id;
+  delete body.feature_id;
+  delete body.status;
+  delete body.refinement_status;
+  const itemType =
+    body.item_type != null && VALID_ITEM_TYPES.has(String(body.item_type).trim())
+      ? String(body.item_type).trim()
+      : "STORY";
+  delete body.item_type;
+
+  if (body.title !== undefined && body.title !== null) {
+    body.title = stripEmbeddedStoryCodeFromTitle(body.title, nextNumber);
+  }
+
+  const created = await userStoryRepository.create({
+    ...body,
+    project_id: pid,
+    feature_id: featureId,
+    number: nextNumber,
+    created_by: context.user?.id,
+    status: "DRAFT",
+    refinement_status: "DRAFT",
+    item_type: itemType
+  });
+  return toPlain(created);
+}
+
 module.exports = {
   toPlain,
   createStory,
+  createStoryForProject,
   getStoryById,
   listStoriesByFeature,
   listStoriesByProject,

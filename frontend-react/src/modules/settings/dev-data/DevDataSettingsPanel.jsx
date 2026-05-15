@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "../../../design-system/components/Card/Card.jsx";
 import AlertDialog from "../../../design-system/components/AlertDialog/AlertDialog.jsx";
-import wave1 from "../../../pages/wave1Surfaces.module.css";
+import wave1 from "../../../shared/wave1/wave1Surfaces.module.css";
 import {
   DEV_DATA_CONFIG_STORAGE_KEY,
   DEV_DATA_FEEDBACK_STORAGE_KEY,

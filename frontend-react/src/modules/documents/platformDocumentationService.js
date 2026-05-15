@@ -1,5 +1,5 @@
 import { del, get, patch, post } from "../../shared/http/index.js";
-import { unwrapSuccessData, toDomainError } from "../domain/apiEnvelope.js";
+import { unwrapSuccessData, toDomainError } from "../../shared/api/apiEnvelope.js";
 import { newDedupKey } from "./dedupKey.js";
 
 function dedupConfig() {

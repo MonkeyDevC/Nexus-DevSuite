@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import nexusMarkUrl from "../assets/nexus-mark.svg?url";
-import { requestPasswordReset } from "../services/forgotPasswordRequest.js";
+import { requestPasswordReset } from "../shared/auth/forgotPasswordRequest.js";
 import styles from "./LoginPage.module.css";
 
 const SUCCESS_COPY =

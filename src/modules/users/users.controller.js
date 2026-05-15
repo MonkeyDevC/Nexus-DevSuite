@@ -67,7 +67,34 @@ async function listUsersController(req, res, next) {
 async function updateUserController(req, res, next) {
   try {
     assertRequestValid(req);
-    const updatedUser = await usersService.updateUser(req.params.id, req.body);
+    const isMaster = req.user && req.user.role === "MASTER";
+    const isSelf = req.user && String(req.user.id) === String(req.params.id);
+    if (!isMaster && !isSelf) {
+      throw new AppError("No tiene permisos para modificar este usuario", {
+        statusCode: 403,
+        code: ERROR_CODES.AUTH_FORBIDDEN
+      });
+    }
+
+    let body = req.body && typeof req.body === "object" ? { ...req.body } : {};
+    if (!isMaster && isSelf) {
+      const allowed = {};
+      if (Object.prototype.hasOwnProperty.call(body, "name")) {
+        allowed.name = body.name;
+      }
+      if (Object.prototype.hasOwnProperty.call(body, "profile_photo_url")) {
+        allowed.profile_photo_url = body.profile_photo_url;
+      }
+      if (Object.keys(allowed).length === 0) {
+        throw new AppError("Debe enviar al menos name o profile_photo_url", {
+          statusCode: 400,
+          code: ERROR_CODES.VALIDATION_ERROR
+        });
+      }
+      body = allowed;
+    }
+
+    const updatedUser = await usersService.updateUser(req.params.id, body);
     const requestId = req.requestId || "no-request-id";
     res.status(200).json(buildSuccess(updatedUser, { request_id: requestId }));
   } catch (error) {

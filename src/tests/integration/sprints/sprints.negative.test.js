@@ -77,6 +77,15 @@ describe("Sprints ETAPA 2 - QA negativo", () => {
     employeeToken = loginEmployee.body.data.access_token;
   });
 
+  /** Requisito de dominio: asignación a sprint solo con refinement_status READY. */
+  async function patchStoryRefinementReadyForSprint(storyId) {
+    await request(app)
+      .patch(`/api/v1/stories/${storyId}`)
+      .set("Authorization", `Bearer ${masterToken}`)
+      .send({ refinement_status: "READY" })
+      .expect(200);
+  }
+
   test("Crear sprint en proyecto inexistente devuelve 404", async () => {
     const fakeProjectId = "00000000-0000-0000-0000-000000000000";
     const res = await request(app)
@@ -214,6 +223,7 @@ describe("Sprints ETAPA 2 - QA negativo", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ status: "READY" })
       .expect(200);
+    await patchStoryRefinementReadyForSprint(storyId);
     await request(app)
       .post(`/api/v1/sprints/${sprintId}/stories/${storyId}`)
       .set("Authorization", `Bearer ${masterToken}`)
@@ -463,6 +473,7 @@ describe("Sprints ETAPA 2 - QA negativo", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ status: "READY" })
       .expect(200);
+    await patchStoryRefinementReadyForSprint(storyId);
     await request(app)
       .post(`/api/v1/stories/${storyId}/assign-sprint`)
       .set("Authorization", `Bearer ${masterToken}`)
@@ -539,6 +550,7 @@ describe("Sprints ETAPA 2 - QA negativo", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ status: "READY" })
       .expect(200);
+    await patchStoryRefinementReadyForSprint(storyId);
     await request(app)
       .post(`/api/v1/sprints/${sprintId}/start`)
       .set("Authorization", `Bearer ${masterToken}`)
@@ -659,6 +671,8 @@ describe("Sprints ETAPA 2 - QA negativo", () => {
       .set("Authorization", `Bearer ${masterToken}`)
       .send({ status: "READY" })
       .expect(200);
+    await patchStoryRefinementReadyForSprint(storyDoneId);
+    await patchStoryRefinementReadyForSprint(storyReadyId);
 
     await request(app)
       .post(`/api/v1/sprints/${sprintId}/start`)

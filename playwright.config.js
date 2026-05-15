@@ -5,6 +5,8 @@ const BASE_URL = process.env.FRONTEND_URL || process.env.E2E_FRONTEND_URL || "ht
 
 module.exports = defineConfig({
   testDir: "./tests/e2e",
+  // Specs *.dev.spec.js usan Vite + /src; no forman parte del cierre CI (runtime 3000).
+  testIgnore: "**/*.dev.spec.js",
   timeout: 120000,
   expect: { timeout: 10000 },
   fullyParallel: false,

@@ -72,7 +72,12 @@ const patchFeatureValidator = [
   body("title").optional().trim().notEmpty().withMessage("title no puede estar vacío").isLength({ max: 500 }),
   body("description").optional().trim().notEmpty().withMessage("description no puede estar vacío"),
   body("priority").optional().isIn(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
-  body("backlog_position").optional({ nullable: true }).isInt({ min: 0 }).withMessage("backlog_position debe ser entero >= 0")
+  body("backlog_position").optional({ nullable: true }).isInt({ min: 0 }).withMessage("backlog_position debe ser entero >= 0"),
+  body("evidence_markdown")
+    .optional({ nullable: true })
+    .isString()
+    .isLength({ max: PROJECT_EVIDENCE_MAX_LEN })
+    .withMessage(`evidence_markdown: máximo ${PROJECT_EVIDENCE_MAX_LEN} caracteres`)
 ];
 
 const STORY_POINTS_VALID = [1, 2, 3, 5, 8, 13, 21];
@@ -85,7 +90,36 @@ const createStoryValidator = [
   body("assigned_to").optional({ nullable: true }).isUUID().withMessage("assigned_to debe ser UUID o null"),
   body("story_points").optional({ nullable: true }).isInt({ min: 1, max: 100 }).custom((v) => v == null || STORY_POINTS_VALID.includes(Number(v))).withMessage("story_points debe ser uno de: 1, 2, 3, 5, 8, 13, 21"),
   body("labels").optional({ nullable: true }).isArray().withMessage("labels debe ser un array de strings"),
-  body("labels.*").optional().isString().trim().isLength({ max: 50 })
+  body("labels.*").optional().isString().trim().isLength({ max: 50 }),
+  body("item_type").optional().isIn(["STORY", "BUG", "TECH_TASK", "IMPROVEMENT"])
+];
+
+const createProjectStoryValidator = [
+  body("project_id")
+    .optional({ nullable: true })
+    .custom((value, { req }) => {
+      if (value == null || value === "") return true;
+      if (String(value) !== String(req.params.projectId)) {
+        throw new Error("project_id del body debe coincidir con el projectId de la URL");
+      }
+      return true;
+    }),
+  body("status")
+    .optional({ nullable: true })
+    .custom((value) => {
+      if (value == null || value === "" || String(value).trim() === "DRAFT") return true;
+      throw new Error("status solo puede ser DRAFT u omitirse");
+    }),
+  body("feature_id").optional({ nullable: true }).isUUID().withMessage("feature_id debe ser UUID o null"),
+  body("title").trim().notEmpty().withMessage("title es obligatorio").isLength({ max: 500 }),
+  body("description").trim().notEmpty().withMessage("description es obligatorio"),
+  body("acceptance_criteria").optional().isObject(),
+  body("priority").optional().isIn(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+  body("assigned_to").optional({ nullable: true }).isUUID().withMessage("assigned_to debe ser UUID o null"),
+  body("story_points").optional({ nullable: true }).isInt({ min: 1, max: 100 }).custom((v) => v == null || STORY_POINTS_VALID.includes(Number(v))).withMessage("story_points debe ser uno de: 1, 2, 3, 5, 8, 13, 21"),
+  body("labels").optional({ nullable: true }).isArray().withMessage("labels debe ser un array de strings"),
+  body("labels.*").optional().isString().trim().isLength({ max: 50 }),
+  body("item_type").optional().isIn(["STORY", "BUG", "TECH_TASK", "IMPROVEMENT"])
 ];
 
 const storyIdParamValidator = [param("id").isUUID().withMessage("id debe ser UUID")];
@@ -136,7 +170,14 @@ const patchStoryValidator = [
   body("implementation_criteria")
     .optional({ nullable: true })
     .custom(function (val) { return val === null || val === undefined || typeof val === "object"; })
-    .withMessage("implementation_criteria debe ser un objeto o array JSON")
+    .withMessage("implementation_criteria debe ser un objeto o array JSON"),
+  body("evidence_markdown")
+    .optional({ nullable: true })
+    .isString()
+    .isLength({ max: PROJECT_EVIDENCE_MAX_LEN })
+    .withMessage(`evidence_markdown: máximo ${PROJECT_EVIDENCE_MAX_LEN} caracteres`),
+  body("refinement_status").optional().isIn(["IDEA", "DRAFT", "REFINED", "READY"]),
+  body("item_type").optional().isIn(["STORY", "BUG", "TECH_TASK", "IMPROVEMENT"])
 ];
 
 const listQueryValidator = [
@@ -180,7 +221,12 @@ const putFeatureValidator = [
     .custom(function (val) { return val === null || val === undefined || typeof val === "object"; })
     .withMessage("implementation_criteria debe ser un objeto o array JSON"),
   body("priority").optional().isIn(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
-  body("backlog_position").optional({ nullable: true }).isInt({ min: 0 }).withMessage("backlog_position debe ser entero >= 0")
+  body("backlog_position").optional({ nullable: true }).isInt({ min: 0 }).withMessage("backlog_position debe ser entero >= 0"),
+  body("evidence_markdown")
+    .optional({ nullable: true })
+    .isString()
+    .isLength({ max: PROJECT_EVIDENCE_MAX_LEN })
+    .withMessage(`evidence_markdown: máximo ${PROJECT_EVIDENCE_MAX_LEN} caracteres`)
 ];
 
 const putStoryValidator = [
@@ -200,7 +246,14 @@ const putStoryValidator = [
   body("implementation_criteria")
     .optional({ nullable: true })
     .custom(function (val) { return val === null || val === undefined || typeof val === "object"; })
-    .withMessage("implementation_criteria debe ser un objeto o array JSON")
+    .withMessage("implementation_criteria debe ser un objeto o array JSON"),
+  body("evidence_markdown")
+    .optional({ nullable: true })
+    .isString()
+    .isLength({ max: PROJECT_EVIDENCE_MAX_LEN })
+    .withMessage(`evidence_markdown: máximo ${PROJECT_EVIDENCE_MAX_LEN} caracteres`),
+  body("refinement_status").optional().isIn(["IDEA", "DRAFT", "REFINED", "READY"]),
+  body("item_type").optional().isIn(["STORY", "BUG", "TECH_TASK", "IMPROVEMENT"])
 ];
 
 const bulkDeleteProjectsValidator = [
@@ -254,6 +307,7 @@ module.exports = {
   patchFeatureValidator,
   patchFeatureStatusValidator,
   createStoryValidator,
+  createProjectStoryValidator,
   storyIdParamValidator,
   patchStoryStatusValidator,
   patchStoryAssignValidator,
