@@ -455,7 +455,8 @@ test.describe("Backlog and work domains: navigation, empty states, deep links, a
       await expect(page.getByTestId("sprint-detail-stories")).toBeVisible();
       await expect(page.getByTestId("sprint-stories-table")).toBeVisible();
     } else {
-      await expect(sprintsTable).toContainText("Sin sprints");
+      await expect(sprintsTable).toContainText("Aún no hay sprints en este proyecto");
+      await expect(sprintsTable).toContainText("Crear primer sprint");
     }
 
     const reachedSprintDetail = Boolean(sprintCtx || sprintLinkCount > 0);
